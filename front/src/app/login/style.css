@@ -3,7 +3,7 @@
 /* ========== */
 
 #errorDisplay {
-    display: flex;
+    display: none;
     align-items: flex-start;
     gap: 12px;
     margin-top: 18px;

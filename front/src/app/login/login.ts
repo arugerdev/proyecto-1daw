@@ -1,5 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, signal } from '@angular/core';
+import { LocalStorageService } from '../../services/localStorage.service';
+import { Router } from '@angular/router';
 
 @Component({
     selector: 'login-page',
@@ -7,7 +9,17 @@ import { Component, signal } from '@angular/core';
     styleUrl: './style.css'
 })
 export class LoginPage {
-    constructor(private http: HttpClient) { }
+    constructor(
+        private http: HttpClient,
+        private storage: LocalStorageService,
+        private router: Router
+    ) { }
+
+    ngOnInit() {
+        if (this.storage.isAuthenticated()) {
+            this.router.navigate(['/']);
+        }
+    }
 
     showPassword: boolean = false;
 
@@ -19,6 +31,8 @@ export class LoginPage {
         const username = (form.elements.namedItem('username') as HTMLInputElement).value;
         const password = (form.elements.namedItem('password') as HTMLInputElement).value;
 
+        const errorDisplay = (form.querySelector('#errorDisplay') as HTMLParagraphElement)
+
         fetch('http://localhost:3000/api/login', {
             method: "POST",
             body: JSON.stringify({ username, password }),
@@ -26,13 +40,21 @@ export class LoginPage {
 
         }).then((res) => res.json()).then((data) => {
             if (data.success) {
-                console.log(data)
-                return
+                errorDisplay.style.display = "none";
+
+                this.storage.setAuthSession(
+                    data.token,
+                    data,
+                    60 * 60 * 24 * 7 // 7 días en segundos
+                );
+
+                this.router.navigate(['/']);
+                return;
             }
 
-            const errorDisplay = (form.querySelector('#errorDisplay') as HTMLParagraphElement)
-            errorDisplay.hidden = false;
-            errorDisplay.innerHTML = data.error;
+            errorDisplay.style.display = "flex";
+            (errorDisplay.querySelector(".error-content p") as HTMLParagraphElement)
+                .innerHTML = data.error;
         })
 
         /*

@@ -154,9 +154,9 @@ export class LocalStorageService {
     }
 
     // Auth session management
-    setAuthSession(token: string, refreshToken: string, userData: any, expiresIn?: number): void {
+    setAuthSession(token: string, userData: any, expiresIn?: number): void {
         this.setToken(token);
-        this.setRefreshToken(refreshToken);
+        // this.setRefreshToken(refreshToken);
         this.setUserData(userData);
 
         if (expiresIn) {

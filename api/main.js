@@ -60,23 +60,51 @@ app.post('/api/login', (req, res) => {
         if (rows.length > 0) {
             bcrypt.compare(data.password, rows[0].contraseña).then((isCorrectly) => {
                 if (isCorrectly) {
+                    const user = rows[0];
 
                     // 1. Crear token de sesion
-                    // 2. Crear sesion en la base de datos pasando el token
-                    // 3. Devolver al frontend los datos del usuario junto con el token de sesion
+                    const token = jwt.sign(
+                        {
+                            id_user: user.id_user,
+                            nombre: user.nombre
+                        },
+                        secret,
+                        { expiresIn: "7d" }
+                    );
 
-                    // AHORA MISMO: Solo devuelve datos del usuario...
-                    res.status(200).json({ ...rows[0], success: true });
-                    return
+                    const expirationDate = new Date();
+                    expirationDate.setDate(expirationDate.getDate() + 7);
+
+                    // 2. Crear sesion en la base de datos pasando el token
+                    return INSERT("SESIONES",
+                        ["id_user", " key_session"],
+                        [user.id_user, `"${token}"`]
+                    ).then(([rows, fields]) => {
+                        // 3. Devolver al frontend los datos del usuario junto con el token de sesion
+                        delete user.contraseña;
+
+                        // AHORA MISMO: Solo devuelve datos del usuario...
+                        return res.status(200).json({
+                            ...user,
+                            token,
+                            success: true
+                        });
+                    }).catch((err) => {
+                        return res.status(500).json(
+                            {
+                                error: "Error en la base de datos: " + err,
+                                success: false
+                            })
+                    })
                 }
 
-                res.status(401).json({ error: "Los datos introducidos son incorrectos, reviselos de nuevo.", success: false })
-                return
+
+                return res.status(401).json({ error: "La contraseña es incorrecta", success: false })
+
             })
             return
         }
-
-        res.status(401).json({ error: "No se ha encontrado el usuario en el servidor. Pruebe otra vez.", success: false });
+        res.status(401).json({ error: "El usuario o la contraseña son incorrectos", success: false });
     })
 
 })

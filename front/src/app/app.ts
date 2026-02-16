@@ -31,23 +31,17 @@ export class App implements OnInit {
     this.router.navigate(['/login'])
   }
 
-  login() {
-    // Después de login exitoso
-    const token = 'jwt_token_example';
-    const refreshToken = 'refresh_token_example';
-    const userData = { name: 'Usuario', email: 'user@example.com' };
-    const expiresIn = 604800; // 7 dias
+  // login() {
+  //   // Después de login exitoso
+  //   const token = 'jwt_token_example';
+  //   const userData = { name: 'Usuario', email: 'user@example.com' };
+  //   const expiresIn = 604800; // 7 dias
 
-    this.storageService.setAuthSession(token, refreshToken, userData, expiresIn);
-    this.isAuthenticated = true;
-    this.userData = userData;
-  }
+  //   this.storageService.setAuthSession(token, userData, expiresIn);
+  //   this.isAuthenticated = true;
+  //   this.userData = userData;
+  // }
 
-  logout() {
-    this.storageService.clearAuthSession();
-    this.isAuthenticated = false;
-    this.userData = null;
-  }
 
   // Ejemplo de uso genérico
   savePreferences() {
