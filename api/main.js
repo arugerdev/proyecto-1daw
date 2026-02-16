@@ -58,14 +58,27 @@ app.post('/api/login', (req, res) => {
 
     SELECT('*', 'USUARIOS', `WHERE nombre = "${data.username}"`).then(([rows, fields]) => {
         if (rows.length > 0) {
-            bcrypt.compare(data.password, rows[0].contraseña).then((res) => {
-                console.log(res)
+            bcrypt.compare(data.password, rows[0].contraseña).then((isCorrectly) => {
+                if (isCorrectly) {
 
+                    // 1. Crear token de sesion
+                    // 2. Crear sesion en la base de datos pasando el token
+                    // 3. Devolver al frontend los datos del usuario junto con el token de sesion
+
+                    // AHORA MISMO: Solo devuelve datos del usuario...
+                    res.status(200).json({ ...rows[0], success: true });
+                    return
+                }
+
+                res.status(401).json({ error: "Los datos introducidos son incorrectos, reviselos de nuevo.", success: false })
+                return
             })
+            return
         }
+
+        res.status(401).json({ error: "No se ha encontrado el usuario en el servidor. Pruebe otra vez.", success: false });
     })
 
-    res.end()
 })
 
 app.listen(port, () => {

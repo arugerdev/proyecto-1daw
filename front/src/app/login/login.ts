@@ -24,9 +24,15 @@ export class LoginPage {
             body: JSON.stringify({ username, password }),
             headers: { "Content-Type": "application/json" }
 
-
         }).then((res) => res.json()).then((data) => {
-            console.log(data)
+            if (data.success) {
+                console.log(data)
+                return
+            }
+
+            const errorDisplay = (form.querySelector('#errorDisplay') as HTMLParagraphElement)
+            errorDisplay.hidden = false;
+            errorDisplay.innerHTML = data.error;
         })
 
         /*
