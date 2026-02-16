@@ -1,8 +1,57 @@
+/* ========== */
+/* ERROR LOGIN*/
+/* ========== */
+
 #errorDisplay {
-    /* ERROR DISPLAYER */
-    color: red;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.08);
+    border-left: 4px solid #ef4444;
+    animation: slideFade 0.3s ease;
 }
 
+.login-error strong {
+    display: block;
+    font-size: 14px;
+    color: #f87171;
+    margin-bottom: 2px;
+}
+
+.login-error p {
+    margin: 0;
+    font-size: 13px;
+    color: #fecaca;
+}
+
+.error-icon {
+    font-size: 18px;
+    color: #ef4444;
+    margin-top: 2px;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Animación */
+@keyframes slideFade {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ================ */
+/* FIN ERROR LOGIN */
+/* =============== */
 
 .center-page {
     display: flex;

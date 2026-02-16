@@ -41,7 +41,16 @@
                     </div>
                 </div>
                 <button class="btn btn-primary" type="submit">Iniciar Sesión</button>
-                <p hidden id="errorDisplay" class="errorDisplay error"></p>
+
+               <!-- <p id="errorDisplay" class="errorDisplay error">Usuario o contraseña incorrectos</p> -->
+                <div id="errorDisplay" class="errorDisplay">
+                    <span class="error-icon">⚠</span>
+                    <div class="error-content">
+                        <strong>Error de autenticación</strong>
+                        <p>Usuario o contraseña incorrectos</p>
+                    </div>
+                </div>
+
             </form>
             <div class="test-credentials">
                 <p class="test-credentials-title">Credenciales de prueba:</p>
