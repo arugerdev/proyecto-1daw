@@ -30,31 +30,12 @@ const connection = mysql.createConnection({
 
 app.get('/api/', (req, res) => {
     res.send('Hola desde la api!')
-
-    connectDB();
-
-    SELECT('*', 'USUARIOS').then(([rows, fields]) => {
-        console.log(rows)
-    })
-
-    /*
-        DELETE('USUARIOS', 'TRUE').then(([rows, fields]) => {
-            console.log(rows)
-        })
-    
-        SELECT('*', 'USUARIOS').then(([rows, fields]) => {
-            console.log(rows)
-        })
-    */
-
-
-
-
-    endConnectionDB();
 })
 
 app.post('/api/login', (req, res) => {
     const data = req.body;
+    connectDB();
+
 
     SELECT('*', 'USUARIOS', `WHERE nombre = "${data.username}"`).then(([rows, fields]) => {
         if (rows.length > 0) {
@@ -107,19 +88,18 @@ app.post('/api/login', (req, res) => {
         res.status(401).json({ error: "El usuario o la contraseña son incorrectos", success: false });
     })
 
+    endConnectionDB();
+
 })
+
+app.post("upload-content", () => { })
 
 app.listen(port, () => {
     console.log(`App listening by ${port} port`)
 })
 
-
 function connectDB() {
     connection.connect()
-    // DEVUELVE TRUE SI CONECTA
-    SELECT('1 + 1 AS solution', '', '').then(([rows, fields]) => {
-        console.log('The solution is: ', rows[0].solution)
-    })
 }
 
 function SELECT(params, table, extra = "") {

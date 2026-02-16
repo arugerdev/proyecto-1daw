@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { LoginPage } from './login/login';
 import { IndexPage } from './index/index';
 import { authGuard } from './guards/auth-guard';
+import { DashboardPage } from './dashboard/dashboard';
 
 
 export const routes: Routes = [
@@ -9,6 +10,11 @@ export const routes: Routes = [
         path: '',
         component: IndexPage,
         canActivate: [authGuard]
+    },
+    {
+        path: 'dashboard',
+        component: DashboardPage,
+        canActivate: [authGuard, /* Tiene que tener el rol de admin*/]
     },
     {
         path: 'login',

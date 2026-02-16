@@ -8,7 +8,9 @@ CREATE TABLE
         id_user INT AUTO_INCREMENT PRIMARY KEY,
         nombre VARCHAR(50) UNIQUE,
         contraseña VARCHAR(255) UNIQUE,
-        CHECK (CHAR_LENGTH(contraseña) >= 4)
+        CHECK (CHAR_LENGTH(contraseña) >= 4),
+        rol VARCHAR(30) DEFAULT "viewer",  
+        CHECK (rol = "admin" OR rol = "moderator" OR rol = "viewer")
     );
 
 CREATE TABLE
@@ -19,4 +21,4 @@ CREATE TABLE
         FOREIGN KEY (id_user) REFERENCES USUARIOS (id_user)
     );
     
-INSERT INTO USUARIOS (nombre, contraseña) VALUES ("admin", "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e");
+INSERT INTO USUARIOS (nombre, contraseña, rol) VALUES ("admin", "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", "admin");
