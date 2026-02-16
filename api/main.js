@@ -47,13 +47,9 @@ app.get('/api/', (req, res) => {
         })
     */
 
-    /*
-        bcrypt.hash('admin', 12, (err, hash) => {
-            INSERT('USUARIOS', ['nombre', 'contraseña'], ['"admin"', `"${hash}"`]).then(([rows, fields]) => {
-                console.log(rows)
-            })
-        });
-    */
+
+
+
     endConnectionDB();
 })
 
@@ -61,11 +57,12 @@ app.post('/api/login', (req, res) => {
     const data = req.body;
 
     SELECT('*', 'USUARIOS', `WHERE nombre = "${data.username}"`).then(([rows, fields]) => {
-        console.log(rows)
-        bcrypt.compare(data.password, rows[0].contraseña).then((res) => {
-            console.log(res)
+        if (rows.length > 0) {
+            bcrypt.compare(data.password, rows[0].contraseña).then((res) => {
+                console.log(res)
 
-        })
+            })
+        }
     })
 
     res.end()
@@ -125,4 +122,12 @@ function DELETE(table, condition) {
 // TERMINAR CONEXION
 function endConnectionDB() {
     if (connection.state == "connected") connection.end();
+}
+
+function insertarAdminPorDefecto() {
+    bcrypt.hash('admin', 12, (err, hash) => {
+        INSERT('USUARIOS', ['nombre', 'contraseña'], ['"admin"', `"${hash}"`]).then(([rows, fields]) => {
+            console.log(rows)
+        })
+    });
 }
