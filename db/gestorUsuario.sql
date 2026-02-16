@@ -1,4 +1,4 @@
--- DROP DATABASE administradorMultimedia;
+DROP DATABASE administradorMultimedia;
 CREATE DATABASE administradorMultimedia;
 
 USE administradorMultimedia;
@@ -18,3 +18,5 @@ CREATE TABLE
         key_session VARCHAR(512),
         FOREIGN KEY (id_user) REFERENCES USUARIOS (id_user)
     );
+    
+INSERT INTO USUARIOS (nombre, contraseña) VALUES ("admin", "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e");
