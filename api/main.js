@@ -124,6 +124,8 @@ function endConnectionDB() {
     if (connection.state == "connected") connection.end();
 }
 
+// ESTO NO SERIA NECESARIO, LA QUERY SQL DEBERIA CREAR LA CUENTA AUTOMATICAMENTE
+// #############################################################################
 function insertarAdminPorDefecto() {
     bcrypt.hash('admin', 12, (err, hash) => {
         INSERT('USUARIOS', ['nombre', 'contraseña'], ['"admin"', `"${hash}"`]).then(([rows, fields]) => {
@@ -131,3 +133,4 @@ function insertarAdminPorDefecto() {
         })
     });
 }
+// #############################################################################

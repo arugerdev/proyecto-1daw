@@ -26,8 +26,8 @@
                 <div class="form-group">
                     <label class="form-label" for="password">Contraseña</label>
                     <div class="input-wrapper">
-                        <input [type]="showPassword ? 'text' : 'password'" class="form-input" id="password" name="password"
-                            placeholder="Ingresa tu contraseña" ngModel required value="">
+                        <input [type]="showPassword ? 'text' : 'password'" class="form-input" id="password"
+                            name="password" placeholder="Ingresa tu contraseña" ngModel required value="">
                         <button class="toggle-password" (click)="onTogglePassword()" type="button">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -46,24 +46,12 @@
                 <p class="test-credentials-title">Credenciales de prueba:</p>
                 <div class="credentials-list">
                     <div class="credential-item">
-                        <p class="credential-item-title">👤 Usuario Normal</p>
-                        <p class="credential-text">Usuario: <span class="credential-mono">usuario</span></p>
-                        <p class="credential-text">Contraseña: <span class="credential-mono">usuario123</span></p>
-                        <p class="credential-note">✓ Solo lectura y búsqueda</p>
-                    </div>
-                    <div class="credential-item">
                         <p class="credential-item-title">🔐 Administrador</p>
                         <p class="credential-text">Usuario: <span class="credential-mono">admin</span></p>
-                        <p class="credential-text">Contraseña: <span class="credential-mono">admin123</span></p>
+                        <p class="credential-text">Contraseña: <span class="credential-mono">admin</span></p>
                         <p class="credential-note">✓ Acceso completo (crear, editar, eliminar)</p>
                     </div>
-                    <div class="credential-item">
-                        <p class="credential-item-title">🔑 Usuario Avanzado</p>
-                        <p class="credential-text">Usuario: <span class="credential-mono">avanzado</span></p>
-                        <p class="credential-text">Contraseña: <span class="credential-mono">avanzado123</span></p>
-                        <p class="credential-note">✓ Puede crear contenido<br>✓ Puede editar solo su contenido<br>✗
-                            No puede eliminar</p>
-                    </div>
+
                 </div>
             </div>
         </div>
