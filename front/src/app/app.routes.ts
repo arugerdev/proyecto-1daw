@@ -3,6 +3,7 @@ import { LoginPage } from './login/login';
 import { IndexPage } from './index/index';
 import { authGuard } from './guards/auth-guard';
 import { DashboardPage } from './dashboard/dashboard';
+import { roleGuard } from './guards/role-guard';
 
 
 export const routes: Routes = [
@@ -14,7 +15,7 @@ export const routes: Routes = [
     {
         path: 'dashboard',
         component: DashboardPage,
-        canActivate: [authGuard, /* Tiene que tener el rol de admin*/]
+        canActivate: [authGuard, roleGuard(['admin'])]
     },
     {
         path: 'login',

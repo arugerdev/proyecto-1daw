@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, signal } from '@angular/core';
 import { LocalStorageService } from '../../services/localStorage.service';
 import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'login-page',
@@ -10,7 +11,7 @@ import { Router } from '@angular/router';
 })
 export class LoginPage {
     constructor(
-        private http: HttpClient,
+        private auth: AuthService,
         private storage: LocalStorageService,
         private router: Router
     ) { }
@@ -31,47 +32,32 @@ export class LoginPage {
         const username = (form.elements.namedItem('username') as HTMLInputElement).value;
         const password = (form.elements.namedItem('password') as HTMLInputElement).value;
 
-        const errorDisplay = (form.querySelector('#errorDisplay') as HTMLParagraphElement)
+        const errorDisplay = form.querySelector('#errorDisplay') as HTMLElement;
 
-        fetch('http://localhost:3000/api/login', {
-            method: "POST",
-            body: JSON.stringify({ username, password }),
-            headers: { "Content-Type": "application/json" }
+        this.auth.login(username, password).subscribe({
+            next: (data) => {
 
-        }).then((res) => res.json()).then((data) => {
-            if (data.success) {
+                if (!data.success) {
+                    errorDisplay.style.display = "flex";
+                    return;
+                }
+
                 errorDisplay.style.display = "none";
 
                 this.storage.setAuthSession(
                     data.token,
                     data,
-                    60 * 60 * 24 * 7 // 7 días en segundos
+                    60 * 60 * 24 * 7
                 );
 
                 this.router.navigate(['/']);
-                return;
-            }
-
-            errorDisplay.style.display = "flex";
-            (errorDisplay.querySelector(".error-content p") as HTMLParagraphElement)
-                .innerHTML = data.error;
-        })
-
-        /*
-        this.http.post('https://localhost:3000/api/login', {
-            username: 'usuario',
-            password: 'usuario123'
-        }).subscribe({
-            next: (data) => {
-                console.log(data);
             },
-            error: (err) => {
-                console.error(err);
+            error: () => {
+                errorDisplay.style.display = "flex";
             }
         });
-
-        */
     }
+
 
     onTogglePassword() {
         this.showPassword = !this.showPassword;
