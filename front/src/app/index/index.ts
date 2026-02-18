@@ -9,5 +9,4 @@ import { Header } from '../../components/header/header';
 })
 export class IndexPage {
     protected readonly title = signal('Sistema de Gestión Multimedia');
-    // Si no tenemos el rol suficiente hay que quitar el boton
 }

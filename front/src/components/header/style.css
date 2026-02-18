@@ -3,6 +3,29 @@ app-header {
   width: 100%;
 }
 
+.a-admin {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background-color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+  color: black;
+  text-decoration: none;
+  display: flex;
+  gap: 4px;
+}
+
+.a-admin.disabled {
+  cursor: default;
+  pointer-events: none;
+  color: rgb(83, 83, 83);
+  background-color: rgb(179, 179, 179);
+  border: 1px solid rgb(179, 179, 179);
+
+}
+
 .header {
   display: flex;
   justify-content: space-between;

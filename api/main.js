@@ -18,10 +18,6 @@ const { HOST: host, USER: user, PASSWORD: password, DATABASE: database, SECRET_K
 
 const connection = mysql.createConnection({ host, user, password, database })
 
-/* ===========================
-   JWT MIDDLEWARE
-=========================== */
-
 function verifyToken(req, res, next) {
     const token = req.headers.authorization?.split(" ")[1];
 
@@ -34,10 +30,6 @@ function verifyToken(req, res, next) {
         next();
     });
 }
-
-/* ===========================
-   MULTER CONFIG
-=========================== */
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -61,10 +53,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-
-/* ===========================
-   LOGIN
-=========================== */
 
 app.post('/api/login', async (req, res) => {
     const data = req.body;
@@ -98,10 +86,6 @@ app.post('/api/login', async (req, res) => {
         })
         .catch(err => res.status(500).json({ error: err.message }))
 });
-
-/* ===========================
-   SUBIR ARCHIVO
-=========================== */
 
 app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, res) => {
 
@@ -137,10 +121,6 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
     }
 });
 
-/* ===========================
-   LISTAR ARCHIVOS
-=========================== */
-
 app.get('/api/files', verifyToken, async (req, res) => {
 
     const { tipo, search } = req.query;
@@ -163,10 +143,6 @@ app.get('/api/files', verifyToken, async (req, res) => {
     res.json(rows);
 });
 
-/* ===========================
-   DESCARGAR ARCHIVO
-=========================== */
-
 app.get('/api/files/:id/download', verifyToken, async (req, res) => {
 
     const [rows] = await connection.promise().query(
@@ -179,10 +155,6 @@ app.get('/api/files/:id/download', verifyToken, async (req, res) => {
 
     res.download(rows[0].ruta_fisica);
 });
-
-/* ===========================
-   ELIMINAR ARCHIVO
-=========================== */
 
 app.delete('/api/files/:id', verifyToken, async (req, res) => {
 
@@ -207,10 +179,6 @@ app.delete('/api/files/:id', verifyToken, async (req, res) => {
     res.json({ success: true });
 });
 
-/* ===========================
-   EDITAR METADATA
-=========================== */
-
 app.put('/api/files/:id', verifyToken, async (req, res) => {
 
     const { nombre_archivo } = req.body;
@@ -222,6 +190,66 @@ app.put('/api/files/:id', verifyToken, async (req, res) => {
 
     res.json({ success: true });
 });
+
+// Obtener el rol del usuario actual
+app.get('/api/user/role', verifyToken, async (req, res) => {
+    try {
+        const [rows] = await connection.promise().query(
+            "SELECT id_user, nombre, rol FROM USUARIOS WHERE id_user = ?",
+            [req.user.id_user]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Usuario no encontrado" });
+        }
+
+        res.json({
+            success: true,
+            user: rows[0],
+            permissions: getPermissionsByRole(rows[0].rol)
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+function getPermissionsByRole(rol) {
+    const permissions = {
+        admin: {
+            canUpload: true,
+            canDelete: true,
+            canEdit: true,
+            canDownload: true,
+            canManageUsers: true,
+            canViewAllContent: true,
+            role: 'admin',
+            level: 3
+        },
+        moderator: {
+            canUpload: true,
+            canDelete: false, // El moderador deberia borrar ?
+            canEdit: true,
+            canDownload: true,
+            canManageUsers: false,
+            canViewAllContent: true,
+            role: 'moderator',
+            level: 2
+        },
+        viewer: {
+            canUpload: false,
+            canDelete: false,
+            canEdit: false,
+            canDownload: true,
+            canManageUsers: false,
+            canViewAllContent: true,
+            role: 'viewer',
+            level: 1
+        }
+    };
+
+    return permissions[rol] || permissions.viewer;
+}
 
 app.listen(port, () => {
     console.log(`CMS API running on port ${port}`);
