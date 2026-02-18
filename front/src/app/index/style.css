@@ -5,3 +5,431 @@ main .main {
     height: 100%;
     padding: 1rem;
 }
+/* =====================================================
+   BASE GLOBAL
+===================================================== */
+
+body {
+  margin: 0;
+  background: #f3f4f6;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #111827;
+}
+
+/* =====================================================
+   GRID DE ESTADÍSTICAS
+===================================================== */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  padding: 24px;
+}
+
+/* =====================================================
+   CARD GENERAL (reutilizable)
+===================================================== */
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px 22px;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+/* Variante para buscador */
+.search-card {
+  background: #f9fafb;
+  margin: 24px;
+}
+
+/* =====================================================
+   TEXTOS Y VALORES
+===================================================== */
+
+.card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.width-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.text-blue { color: #2563eb; }
+.text-green { color: #16a34a; }
+
+/* =====================================================
+   STORAGE
+===================================================== */
+
+.storage-content {
+  margin-top: 6px;
+}
+
+.storage-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.storage-number {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.storage-total {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+[role="progress-bar"] {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 74%;
+  background: #f97316;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.storage-text {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+/* =====================================================
+   SEARCH PANEL
+===================================================== */
+
+.search-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* =====================================================
+   INPUT BUSCADOR
+===================================================== */
+
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: #9ca3af;
+}
+
+.search-input {
+  width: 96%;
+  height: 44px;
+  padding: 0 16px 0 44px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #e5e7eb;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.search-input::placeholder {
+  color: #6b7280;
+}
+
+.search-input:focus {
+  background: #ffffff;
+  border-color: #d1d5db;
+}
+
+/* =====================================================
+   BOTONES
+===================================================== */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.button-secondary {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+
+.button-secondary:hover {
+  background: #f3f4f6;
+}
+
+.button-primary {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.button-primary:hover {
+  background: #1e293b;
+}
+
+/* =====================================================
+   SELECT
+===================================================== */
+
+.sort-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 38px;
+  min-width: 160px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #e5e7eb;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.select:hover {
+  background: #dfe3e8;
+}
+
+/* =====================================================
+   ICONOS
+===================================================== */
+
+svg {
+  width: 16px;
+  height: 16px;
+  color: #6b7280;
+}
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .search-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .sort-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =====================================================
+   RESET BASE
+===================================================== */
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f3f4f6;
+  color: #0f172a;
+}
+
+/* =====================================================
+   OVERLAY
+===================================================== */
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+/* =====================================================
+   WRAPPER
+===================================================== */
+
+#modalWrapper {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1001;
+}
+
+/* =====================================================
+   MODAL
+===================================================== */
+
+.modal {
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+
+  padding: 28px;
+
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  animation: zoomIn 0.2s ease;
+  position: relative;
+}
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.modal h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.modal p {
+  font-size: 14px;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+/* =====================================================
+   FORM
+===================================================== */
+
+form {
+  margin-top: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+/* Labels */
+label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* =====================================================
+   INPUTS
+===================================================== */
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+}
+
+/* =====================================================
+   DRAG AREA
+===================================================== */
+
+.border-dashed {
+  border: 2px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 40px 20px;
+  background: #f8fafc;
+  transition: 0.2s ease;
+}
+
+.border-dashed:hover {
+  background: #f1f5f9;
+}
+
+/* =====================================================
+   BOTONES
+===================================================== */

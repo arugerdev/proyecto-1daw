@@ -1,3 +1,339 @@
 <main class="main" style="display: flex; flex-direction: column; padding: 0; margin: 0; height: 100%; padding: 1rem;">
     <app-header style="width: 100%;"></app-header>
+
+    <div class="stats-grid">
+
+        <!-- Total Contenidos -->
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">
+                    Total Contenidos
+                </h4>
+                <div class="card-value">
+                    8
+                </div>
+            </div>
+        </div>
+
+        <!-- Videos -->
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">
+                    Videos
+                </h4>
+                <div class="card-value text-blue">
+                    6
+                </div>
+            </div>
+        </div>
+
+        <!-- Imágenes -->
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">
+                    Imágenes
+                </h4>
+                <div class="card-value text-green">
+                    1
+                </div>
+            </div>
+        </div>
+
+        <!-- Almacenamiento -->
+        <div class="card">
+            <div class="card-body">
+
+                <h4 class="card-title width-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="lucide lucide-hard-drive h-4 w-4">
+                        <line x1="22" x2="2" y1="12" y2="12"></line>
+                        <path
+                            d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z">
+                        </path>
+                        <line x1="6" x2="6.01" y1="16" y2="16"></line>
+                        <line x1="10" x2="10.01" y1="16" y2="16"></line>
+                    </svg>
+                    Almacenamiento
+                </h4>
+
+                <div class="storage-content">
+
+                    <div class="storage-value">
+                        <span class="storage-number">7.4</span>
+                        <span class="storage-total">/ 10 TB</span>
+                    </div>
+
+                    <div role="progress-bar" aria-valuemin="0" aria-valuemax="100"
+                        class="bg-primary/20 relative w-full overflow-hidden rounded-full h-2">
+                        <div class="progress-fill" style="transform: translateX(-26.0059%);">
+                        </div>
+                    </div>
+
+                    <p class="storage-text">
+                        74.0% utilizado
+                    </p>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- buscador -->
+    <div class="card search-card">
+
+        <div class="card-content">
+
+            <div class="search-panel">
+
+                <!-- Buscador + Botones -->
+                <div class="search-row">
+
+                    <!-- Input con icono -->
+                    <div class="search-input-wrapper">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon search-icon">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.3-4.3"></path>
+                        </svg>
+
+                        <input type="text" class="search-input"
+                            placeholder="Buscar por título, descripción, etiquetas..." />
+                    </div>
+
+                    <!-- Botón Filtros -->
+                    <button class="button button-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon">
+                            <path
+                                d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z">
+                            </path>
+                        </svg>
+                        Filtros
+                    </button>
+
+                    <!-- Botón Subir -->
+                    <button id="openModal" class="button button-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" x2="12" y1="3" y2="15"></line>
+                        </svg>
+                        Subir Contenido
+                    </button>
+
+                </div>
+
+                <!-- Ordenar -->
+                <div class="sort-row">
+
+                    <div class="sort-label">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon">
+                            <line x1="21" x2="14" y1="4" y2="4"></line>
+                            <line x1="10" x2="3" y1="4" y2="4"></line>
+                            <line x1="21" x2="12" y1="12" y2="12"></line>
+                            <line x1="8" x2="3" y1="12" y2="12"></line>
+                            <line x1="21" x2="16" y1="20" y2="20"></line>
+                            <line x1="12" x2="3" y1="20" y2="20"></line>
+                            <line x1="14" x2="14" y1="2" y2="6"></line>
+                            <line x1="8" x2="8" y1="10" y2="14"></line>
+                            <line x1="16" x2="16" y1="18" y2="22"></line>
+                        </svg>
+                        <span>Ordenar por:</span>
+                    </div>
+
+                    <select class="select">
+                        <option value="relevancia">Relevancia</option>
+                        <option value="masReciente">Más Reciente</option>
+                        <option value="masAntiguo">Más Antiguo</option>
+                        <option value="nombre(a-z)">Nombre (A-Z)</option>
+                        <option value="nombre(z-a)">Nombre (Z-A)</option>
+                        <option value="mayorTamaño">Mayor tamaño</option>
+                        <option value="menorTamaño">Menor Tamaño</option>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon small">
+                            <path d="m6 9 6 6 6-6"></path>
+                        </svg>
+                    </select>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
 </main>
+<!-- OVERLAY -->
+<div id="overlay" style="display:none;"></div>
+
+<!-- MODAL WRAPPER -->
+<div id="modalWrapper" style="display:none;">
+
+    <!-- Contenido -->
+    <div role="dialog"
+        class="fixed top-1/2 left-1/2 z-50 w-full max-w-[600px] -translate-x-1/2 -translate-y-1/2 bg-background rounded-lg border p-6 shadow-lg max-h-[90vh] overflow-y-auto">
+
+        <!-- HEADER -->
+        <div class="flex flex-col gap-2 text-center sm:text-left">
+            <h2 class="text-lg font-semibold">Registrar Nuevo Contenido</h2>
+            <p class="text-sm text-muted-foreground">
+                Completa la información del contenido multimedia que deseas agregar al sistema.
+            </p>
+        </div>
+
+        <form class="grid gap-4 py-4">
+
+            <!-- ARCHIVO -->
+            <div class="space-y-2">
+                <label class="text-sm font-medium">Archivo (Simulación)</label>
+
+                <div class="border-2 border-dashed rounded-lg p-8 text-center space-y-3">
+
+                    <!-- SVG VIDEO -->
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-500 mx-auto" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                        <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                        <path d="m10 11 5 3-5 3v-6Z" />
+                    </svg>
+
+                    <p class="text-sm text-muted-foreground">
+                        En un entorno real, aquí subirías el archivo desde tu equipo local
+                    </p>
+
+                    <!-- BOTÓN SUBIR -->
+                    <button type="button"
+                        class="inline-flex items-center gap-2 border rounded-md px-3 py-2 text-sm hover:bg-accent">
+
+                        <!-- SVG UPLOAD -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" x2="12" y1="3" y2="15" />
+                        </svg>
+
+                        Seleccionar Archivo
+                    </button>
+                </div>
+            </div>
+
+            <!-- TIPO -->
+            <div class="grid gap-2">
+                <label class="text-sm font-medium">Tipo de Contenido *</label>
+                <select class="border rounded-md px-3 py-2 text-sm">
+                    <option value="video">Video</option>
+                    <option value="imagen">Imagen</option>
+                    <option value="audio">Audio</option>
+                    <option value="documento">Documento</option>
+                </select>
+            </div>
+
+            <!-- TÍTULO -->
+            <div class="grid gap-2">
+                <label class="text-sm font-medium">Título *</label>
+                <input type="text" placeholder="Título del contenido" class="border rounded-md px-3 py-2 text-sm" />
+            </div>
+
+            <!-- DESCRIPCIÓN -->
+            <div class="grid gap-2">
+                <label class="text-sm font-medium">Descripción</label>
+                <textarea rows="3" placeholder="Descripción detallada del contenido"
+                    class="border rounded-md px-3 py-2 text-sm"></textarea>
+            </div>
+
+            <!-- CATEGORÍA -->
+            <div class="grid gap-2">
+                <label class="text-sm font-medium">Categoría *</label>
+                <select class="border rounded-md px-3 py-2 text-sm">
+                    <option>Noticias</option>
+                    <option>Deportes</option>
+                    <option>Cultura</option>
+                    <option>Eventos</option>
+                    <option>Entrevistas</option>
+                    <option>Documentales</option>
+                    <option>Archivo Histórico</option>
+                </select>
+            </div>
+
+            <!-- UBICACIÓN -->
+            <div class="grid gap-2">
+                <label class="text-sm font-medium">Ubicación de Almacenamiento *</label>
+                <select class="border rounded-md px-3 py-2 text-sm">
+                    <option>Servidor Principal - Redacción</option>
+                    <option>Disco NAS - Archivo</option>
+                    <option>Disco Externo HD-01</option>
+                    <option>Disco Externo HD-02</option>
+                    <option>Estación Edición 1</option>
+                    <option>Estación Edición 2</option>
+                    <option>Portátil Reportero A</option>
+                </select>
+            </div>
+
+            <!-- ESTADO -->
+            <div class="grid gap-2">
+                <label class="text-sm font-medium">Estado</label>
+                <select class="border rounded-md px-3 py-2 text-sm">
+                    <option value="publicado">Publicado</option>
+                    <option value="borrador" selected>Borrador</option>
+                    <option value="archivado">Archivado</option>
+                </select>
+            </div>
+
+            <!-- ETIQUETAS -->
+            <div class="grid gap-2">
+                <label class="text-sm font-medium">Etiquetas</label>
+                <div class="flex gap-2">
+                    <input type="text" placeholder="Escribe y presiona Enter"
+                        class="border rounded-md px-3 py-2 text-sm w-full" />
+                    <button type="button" class="border rounded-md px-4 py-2 text-sm hover:bg-accent">
+                        Agregar
+                    </button>
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="flex justify-end gap-2 pt-4">
+                <button type="button" class="border rounded-md px-4 py-2 text-sm hover:bg-accent">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm hover:bg-primary/90">
+                    Registrar Contenido
+                </button>
+            </div>
+
+        </form>
+
+        <!-- BOTÓN CERRAR -->
+        <button class="absolute top-4 right-4 opacity-70 hover:opacity-100">
+
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+            </svg>
+
+        </button>
+
+    </div>
+
+</div>
+<script>
+    const openBtn = document.getElementById("openModal");
+    const modal = document.getElementById("modalWrapper");
+    const overlay = document.getElementById("overlay");
+
+    openBtn.addEventListener("click", () => {
+        modal.style.display = "flex";
+        overlay.style.display = "block";
+    });
+
+    overlay.addEventListener("click", () => {
+        modal.style.display = "none";
+        overlay.style.display = "none";
+    });
+</script>
