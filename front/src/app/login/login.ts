@@ -50,7 +50,9 @@ export class LoginPage {
                     60 * 60 * 24 * 7
                 );
 
-                this.router.navigate(['/']);
+                this.storage.setUserData(data)
+
+                this.router.navigate(['/'])
             },
             error: () => {
                 errorDisplay.style.display = "flex";

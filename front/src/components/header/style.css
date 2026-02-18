@@ -10,7 +10,6 @@ app-header {
   background-color: white;
   cursor: pointer;
   font-size: 14px;
-  transition: 0.2s;
   color: black;
   text-decoration: none;
   display: flex;

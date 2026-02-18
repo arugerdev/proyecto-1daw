@@ -15,8 +15,8 @@
     </div>
 
     <div class="header-right">
-        <a [class]="auth.hasPermission('canManageUsers') ? 'a-admin' : 'a-admin disabled' "
-            [href]="auth.hasPermission('canManageUsers') ? '/dashboard' : ''">
+        <a [class]="canManageUsers ? 'a-admin' : 'a-admin disabled'" [href]="canManageUsers ? '/dashboard' : ''">
+
             <!-- SVG Shield -->
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
