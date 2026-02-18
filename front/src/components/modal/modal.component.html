@@ -1,0 +1,148 @@
+<!-- OVERLAY -->
+<div class="modal-overlay" [class.visible]="isVisible" (click)="onOverlayClick($event)">
+
+    <!-- MODAL WRAPPER -->
+    <div class="modal-wrapper" [class.visible]="isVisible">
+
+        <!-- Contenido del Modal -->
+        <div role="dialog" class="modal">
+
+            <!-- HEADER -->
+            <div class="modal-header">
+                <h2 class="modal-title">Registrar Nuevo Contenido</h2>
+                <p class="modal-description">
+                    Completa la información del contenido multimedia que deseas agregar al sistema.
+                </p>
+            </div>
+
+            <form class="modal-form" (ngSubmit)="onSubmit($event)">
+
+                <!-- ARCHIVO -->
+                <div class="form-group">
+                    <label class="form-label">Archivo (Simulación)</label>
+
+                    <div class="drag-area">
+                        <!-- SVG VIDEO -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="drag-icon" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                            <path d="m10 11 5 3-5 3v-6Z" />
+                        </svg>
+
+                        <p class="drag-text">
+                            En un entorno real, aquí subirías el archivo desde tu equipo local
+                        </p>
+
+                        <!-- BOTÓN SUBIR -->
+                        <button type="button" class="btn btn-secondary btn-sm">
+                            <!-- SVG UPLOAD -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" x2="12" y1="3" y2="15" />
+                            </svg>
+                            Seleccionar Archivo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TIPO -->
+                <div class="form-group">
+                    <label class="form-label">Tipo de Contenido *</label>
+                    <select class="form-select">
+                        <option value="video">Video</option>
+                        <option value="imagen">Imagen</option>
+                        <option value="audio">Audio</option>
+                        <option value="documento">Documento</option>
+                    </select>
+                </div>
+
+                <!-- TÍTULO -->
+                <div class="form-group">
+                    <label class="form-label">Título *</label>
+                    <input type="text" placeholder="Título del contenido" class="form-input" />
+                </div>
+
+                <!-- DESCRIPCIÓN -->
+                <div class="form-group">
+                    <label class="form-label">Descripción</label>
+                    <textarea rows="3" placeholder="Descripción detallada del contenido"
+                        class="form-textarea"></textarea>
+                </div>
+
+                <!-- CATEGORÍA -->
+                <div class="form-group">
+                    <label class="form-label">Categoría *</label>
+                    <select class="form-select">
+                        <option>Noticias</option>
+                        <option>Deportes</option>
+                        <option>Cultura</option>
+                        <option>Eventos</option>
+                        <option>Entrevistas</option>
+                        <option>Documentales</option>
+                        <option>Archivo Histórico</option>
+                    </select>
+                </div>
+
+                <!-- UBICACIÓN -->
+                <div class="form-group">
+                    <label class="form-label">Ubicación de Almacenamiento *</label>
+                    <select class="form-select">
+                        <option>Servidor Principal - Redacción</option>
+                        <option>Disco NAS - Archivo</option>
+                        <option>Disco Externo HD-01</option>
+                        <option>Disco Externo HD-02</option>
+                        <option>Estación Edición 1</option>
+                        <option>Estación Edición 2</option>
+                        <option>Portátil Reportero A</option>
+                    </select>
+                </div>
+
+                <!-- ESTADO -->
+                <div class="form-group">
+                    <label class="form-label">Estado</label>
+                    <select class="form-select">
+                        <option value="publicado">Publicado</option>
+                        <option value="borrador" selected>Borrador</option>
+                        <option value="archivado">Archivado</option>
+                    </select>
+                </div>
+
+                <!-- ETIQUETAS -->
+                <div class="form-group">
+                    <label class="form-label">Etiquetas</label>
+                    <div class="tags-input">
+                        <input type="text" placeholder="Escribe y presiona Enter" class="form-input" />
+                        <button type="button" class="btn btn-secondary btn-sm">
+                            Agregar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" (click)="onClose()">
+                        Cancelar
+                    </button>
+
+                    <button type="submit" class="btn btn-primary">
+                        Registrar Contenido
+                    </button>
+                </div>
+
+            </form>
+
+            <!-- BOTÓN CERRAR -->
+            <button type="button" class="modal-close" (click)="onClose()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="close-icon" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                </svg>
+            </button>
+
+        </div>
+    </div>
+</div>

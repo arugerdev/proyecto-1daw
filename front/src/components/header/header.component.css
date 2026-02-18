@@ -1,0 +1,101 @@
+app-header {
+  display: flex;
+  width: 100%;
+}
+
+.a-admin {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-focus);
+  background-color: var(--bg-card);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-decoration: none;
+  display: flex;
+  gap: 4px;
+}
+
+.a-admin.disabled {
+  cursor: default;
+  pointer-events: none;
+  color: var(--text-muted);
+  background-color: var(--bg-select);
+  border: 1px solid var(--bg-select);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: 8px;
+  width: 100%;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.icon-box {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+h1 {
+  margin: 0;
+  font-size: 26px;
+  color: var(--text-primary);
+}
+
+p {
+  margin: 3px 0 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.badge {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-logout {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-focus);
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-logout:hover {
+  background-color: var(--btn-secondary-hover);
+}
+
+/* Eliminadas las duplicaciones y media queries de prefers-color-scheme */

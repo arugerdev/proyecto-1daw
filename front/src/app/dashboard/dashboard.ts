@@ -1,5 +1,5 @@
 import { Component, signal } from '@angular/core';
-import { Header } from '../../components/header/header';
+import { Header } from '../../components/header/header.component';
 
 @Component({
     selector: 'dashboard-page',

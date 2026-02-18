@@ -5,8 +5,8 @@ import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'app-header',
-    templateUrl: './index.html',
-    styleUrl: './style.css'
+    templateUrl: './header.component.html',
+    styleUrl: './header.component.css'
 })
 export class Header {
     constructor(
