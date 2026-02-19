@@ -31,18 +31,6 @@ export class App implements OnInit {
     this.router.navigate(['/login'])
   }
 
-  // login() {
-  //   // Después de login exitoso
-  //   const token = 'jwt_token_example';
-  //   const userData = { name: 'Usuario', email: 'user@example.com' };
-  //   const expiresIn = 604800; // 7 dias
-
-  //   this.storageService.setAuthSession(token, userData, expiresIn);
-  //   this.isAuthenticated = true;
-  //   this.userData = userData;
-  // }
-
-
   // Ejemplo de uso genérico
   savePreferences() {
     const preferences = {

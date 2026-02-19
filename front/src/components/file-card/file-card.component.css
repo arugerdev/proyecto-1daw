@@ -41,8 +41,14 @@
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     z-index: 2;
+    aspect-ratio: 1;
 }
 
+.type-icon-svg {
+    aspect-ratio: 1;
+    display: flex;
+    aspect-ratio: 1;
+}
 .type-icon-text {
     font-size: 16px;
     line-height: 1;

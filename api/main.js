@@ -11,6 +11,8 @@ const path = require('path')
 
 const app = express()
 
+app.use(express.json());
+
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -65,13 +67,14 @@ const upload = multer({ storage });
 
 app.post('/api/login', async (req, res) => {
     const data = req.body;
+    console.log(data)
+    if (!data) return res.status(401).json({ error: "Necesidad de credenciales" });
 
     connection.promise().query(`SELECT * FROM USUARIOS WHERE nombre = ?`, [data.username])
         .then(async ([rows]) => {
 
             if (rows.length === 0)
                 return res.status(401).json({ error: "Usuario incorrecto" });
-
             const user = rows[0];
             const valid = await bcrypt.compare(data.password, user.contraseña);
 
@@ -178,12 +181,17 @@ app.delete('/api/files/:id', verifyToken, async (req, res) => {
     if (rows.length === 0)
         return res.status(404).json({ error: "No existe" });
 
-    fs.unlinkSync(rows[0].ruta_fisica);
 
     await connection.promise().query(
         "DELETE FROM ARCHIVOS WHERE id_archivo = ?",
         [req.params.id]
     );
+    
+    if (fs.existsSync(rows[0].ruta_fisica)) {
+        res.json({ success: true, message: "El archivo no existe" });
+    }
+
+    fs.unlinkSync(rows[0].ruta_fisica);
 
     res.json({ success: true });
 });

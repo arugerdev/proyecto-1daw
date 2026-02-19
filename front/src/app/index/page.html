@@ -2,27 +2,19 @@
     <app-header></app-header>
 
     <!-- Pantalla de carga inicial -->
-    <div *ngIf="isLoading && !hasError" class="initial-loading">
-        <div class="loading-container">
-            <div class="spinner-large"></div>
-            <h3>Cargando sistema...</h3>
-            <p>Por favor espera mientras cargamos tus archivos</p>
-        </div>
+    <div *ngIf="isLoading && !hasError" class="loading-container">
+        <span class="loader"></span>
     </div>
 
     <!-- Pantalla de error -->
-    <div *ngIf="hasError" class="error-state">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
-            stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" x2="12" y1="8" y2="12"></line>
-            <line x1="12" x2="12.01" y1="16" y2="16"></line>
-        </svg>
-        <h3>Error de carga</h3>
-        <p>{{ errorMessage }}</p>
-        <button (click)="reloadPage()" class="button button-primary">
-            Reintentar
-        </button>
+    <div *ngIf="hasError" id="errorDisplay" class="errorDisplay">
+        <section class="error-message">
+            <span class="error-icon">⚠</span>
+            <div class="error-content">
+                <strong>Error de autenticación</strong>
+                <p>{{ errorMessage }}</p>
+            </div>
+        </section>
     </div>
 
     <!-- Contenido principal -->

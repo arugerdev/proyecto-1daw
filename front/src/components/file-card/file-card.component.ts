@@ -2,6 +2,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FileService } from '../../services/file.service';
 import { Archivo } from '../../app/models/file.model';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
     selector: 'app-file-card',
@@ -17,9 +18,9 @@ import { Archivo } from '../../app/models/file.model';
                     class="card-image group-hover:scale-105"
                 >
                 
-                <!-- Icono de tipo de archivo -->
+                <!-- Icono de tipo de archivo (SVG) -->
                 <div class="type-icon" [ngClass]="getTipoColor()">
-                    <span class="type-icon-text">{{ getTipoIcon() }}</span>
+                    <div class="type-icon-svg" [innerHTML]="getTipoIcon()"></div>
                 </div>
                 
                 <!-- Duración (para videos/audio) -->
@@ -83,9 +84,9 @@ import { Archivo } from '../../app/models/file.model';
                     </div>
                 </div>
                 
-                <!-- Ubicación -->
+                <!-- Ubicación (SVG en lugar de emoji) -->
                 <div class="location" [title]="getUbicacion()">
-                    <span class="location-icon">📁</span>
+                    <div class="location-svg" [innerHTML]="locationIcon"></div>
                     <span class="location-text">{{ getUbicacion() }}</span>
                 </div>
                 
@@ -124,10 +125,23 @@ export class FileCardComponent {
     @Output() edit = new EventEmitter<Archivo>();
     @Output() delete = new EventEmitter<Archivo>();
 
-    constructor(private fileService: FileService) { }
+    // SVG para ubicación
+    locationIcon = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+    `;
 
-    getTipoIcon(): string {
-        return this.fileService.getTipoIcon(this.file.tipo_archivo);
+    constructor(
+        private fileService: FileService,
+        private sanitizer: DomSanitizer
+    ) { }
+
+    // Sanitizar SVG para evitar problemas de seguridad
+    getTipoIcon(): SafeHtml {
+        const svg = this.fileService.getTipoIcon(this.file.tipo_archivo);
+        return this.sanitizer.bypassSecurityTrustHtml(svg);
     }
 
     getTipoColor(): string {
@@ -163,12 +177,11 @@ export class FileCardComponent {
     }
 
     getThumbnailUrl(): string {
-
         // ON PRODUCTION
         // return this.fileService.getThumbnailUrl(this.file);
 
         // FOR PLACEHOLDER:
-        return 'https://placehold.co/600x400/orange/white'
+        return 'https://placehold.co/800x600';
     }
 
     getDuration(): string {
