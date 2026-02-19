@@ -1,0 +1,109 @@
+services:
+  database:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    container_name: file_manager_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: administradorMultimedia
+      MYSQL_USER: user
+      MYSQL_PASSWORD: root
+    ports:
+      - "3307:3306"  # Usamos puerto diferente para evitar conflictos con MySQL local
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/backups:/backups
+    networks:
+      - file_manager_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: file_manager_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: localhost
+      USER: root
+      PASSWORD: root
+      DATABASE: administradorMultimedia
+      SECRET_KEY: claveSecretaNoMandarANadie
+    ports:
+      - "3000:3000"
+    volumes:
+      # Volumen para archivos subidos
+      - uploads_data:/usr/src/app/uploads
+      # Volumen para logs
+      - api_logs:/usr/src/app/logs
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - file_manager_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    container_name: file_manager_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - file_manager_network
+    volumes:
+      # Si necesitas servir archivos estáticos desde el frontend
+      - ./front/dist/front/browser:/usr/share/nginx/html:ro
+
+  # Servicio opcional para backup automático de la base de datos
+  db_backup:
+    image: alpine:latest
+    container_name: file_manager_backup
+    restart: unless-stopped
+    volumes:
+      - mysql_data:/backup/mysql:ro
+      - ./db/backups:/backups
+    entrypoint: |
+      sh -c "
+      apk add --no-cache mysql-client
+      while true; do
+        mysqldump -h mysql -u root -proot_password file_manager > /backups/backup_$(date +%Y%m%d_%H%M%S).sql
+        # Mantener solo los últimos 7 backups
+        ls -tp /backups/*.sql | tail -n +8 | xargs -I {} rm -- {}
+        sleep 86400  # 24 horas
+      done
+      "
+    depends_on:
+      - database
+    networks:
+      - file_manager_network
+
+# Definición de volúmenes persistentes
+volumes:
+  mysql_data:
+    name: file_manager_mysql_data
+  uploads_data:
+    name: file_manager_uploads_data
+  api_logs:
+    name: file_manager_api_logs
+
+# Red para comunicación entre servicios
+networks:
+  file_manager_network:
+    name: file_manager_network
+    driver: bridge

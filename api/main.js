@@ -67,7 +67,7 @@ const upload = multer({ storage });
 
 app.post('/api/login', async (req, res) => {
     const data = req.body;
-    console.log(data)
+
     if (!data) return res.status(401).json({ error: "Necesidad de credenciales" });
 
     connection.promise().query(`SELECT * FROM USUARIOS WHERE nombre = ?`, [data.username])
@@ -187,8 +187,8 @@ app.delete('/api/files/:id', verifyToken, async (req, res) => {
         [req.params.id]
     );
     
-    if (fs.existsSync(rows[0].ruta_fisica)) {
-        res.json({ success: true, message: "El archivo no existe" });
+    if (!fs.existsSync(rows[0].ruta_fisica)) {
+        return res.json({ success: true, message: "El archivo no existe" });
     }
 
     fs.unlinkSync(rows[0].ruta_fisica);
