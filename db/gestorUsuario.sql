@@ -180,3 +180,16 @@ INSERT INTO media_staff (media_id, staff_id) VALUES
 (31,1),(31,5), (32,2),(32,6), (33,3),(33,7), (34,4),(34,8), (35,5),(35,9);
 
 
+-- #################### DEFAULT USERS ####################
+INSERT INTO USUARIOS (nombre, contraseña, rol) 
+VALUES (
+    "admin", 
+    "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", 
+    "admin"
+);
+INSERT INTO USUARIOS (nombre, contraseña, rol) 
+VALUES (
+    "viewer", 
+    "$2a$12$RCCN9wh0S27yBoUkYaUb4us6m9J8IO6UC/rtpeKLlxXPJ/luoJZE6", 
+    "viewer"
+);
