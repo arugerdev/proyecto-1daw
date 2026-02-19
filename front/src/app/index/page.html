@@ -60,11 +60,11 @@
                     <div class="storage-content">
                         <div class="storage-value">
                             <span class="storage-number">{{ stats.storage.formatted }}</span>
-                            <span class="storage-total">usados</span>
+                            <span class="storage-total">de {{ formatBytes(stats.storage.total)}} totales</span>
                         </div>
                         <div role="progress-bar" aria-valuemin="0" aria-valuemax="100" class="progress-bar">
                             <div class="progress-fill"
-                                [style.width.%]="(stats.storage.bytes / (10 * 1024 * 1024 * 1024)) * 100">
+                                [style.width.%]="stats.storage.usedPercentage">
                             </div>
                         </div>
                     </div>

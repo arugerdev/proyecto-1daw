@@ -51,6 +51,18 @@ export interface Stats {
         name: string;
         total: number;
     }[];
+    videos: number;
+    imagenes: number;
+    audio: number;
+    documentos: number;
+    otros: number;
+    storage: {
+        bytes: number;
+        formatted: string;
+        total: number;
+        free: number;
+        usedPercentage: number;
+    }
 }
 
 export interface PaginatedResponse {

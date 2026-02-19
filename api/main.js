@@ -25,7 +25,7 @@ app.options(/.*/, cors());
 
 const port = 3000
 
-const { HOST: host, USER: user, PASSWORD: password, DATABASE: database, SECRET_KEY: secret } = process.env;
+const { HOST: host, USER: user, PASSWORD: password, DATABASE: database, SECRET_KEY: secret, MEDIA_PATH: mediaPath } = process.env;
 
 const connection = mysql.createConnection({ host, user, password, database })
 
@@ -358,11 +358,8 @@ app.get('/api/stats', verifyToken, async (req, res) => {
             if (process.platform === 'linux' || process.platform === 'darwin') {
                 const { execSync } = require('child_process');
 
-                // Obtener el directorio donde se guardan los archivos
-                const mediaPath = path.join(__dirname, 'media');
-
                 // Asegurarse de que el directorio existe
-                if (fs.existsSync(mediaPath)) {
+                if (fs.existsSync(mediaPath.toString())) {
                     // Obtener estadísticas del disco usando df
                     const dfOutput = execSync(`df -k "${mediaPath}"`).toString();
                     const lines = dfOutput.trim().split('\n');
@@ -448,7 +445,29 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    const order = req.query.order || 'masReciente';
+
     const offset = (page - 1) * limit;
+
+    let orderSentence = ''
+    switch (order) {
+        case 'masReciente':
+            orderSentence = 'm.recording_year DESC'
+            break;
+        case 'masAntiguo':
+            orderSentence = 'm.recording_year ASC'
+            break;
+        case 'nombreAZ':
+            orderSentence = 'm.title ASC'
+            break;
+        case 'nombreZA':
+            orderSentence = 'm.title DESC'
+            break;
+        default:
+            orderSentence = 'm.recording_year DESC'
+            break;
+    }
 
     const [rows] = await connection.promise().query(`
         SELECT 
@@ -458,7 +477,13 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
         FROM media_items m
         LEFT JOIN content_types ct ON m.content_type_id = ct.id
         LEFT JOIN programs p ON m.program_id = p.id
-        ORDER BY m.id DESC
+        WHERE m.title LIKE '%${search}%'
+        OR m.description LIKE '%${search}%'
+        OR m.recording_year LIKE '%${search}%'
+        OR m.file_path LIKE '%${search}%'
+        OR ct.name LIKE '%${search}%'
+        OR p.name LIKE '%${search}%'
+        ORDER BY ${orderSentence}
         LIMIT ? OFFSET ?
     `, [limit, offset]);
 

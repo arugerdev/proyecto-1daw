@@ -38,7 +38,8 @@ export class FileService {
     getMediaPaginated(
         page: number,
         limit: number,
-        search: string = ''
+        search: string = '',
+        order: string
     ): Observable<PaginatedResponse> {
 
         let params = new HttpParams()
@@ -46,6 +47,7 @@ export class FileService {
             .set('limit', limit.toString());
 
         if (search) params = params.set('search', search);
+        if (order) params = params.set('order', order);
 
         return this.http.get<PaginatedResponse>(
             `${this.apiUrl}/files/paginated`,

@@ -48,7 +48,7 @@ import { MediaItem } from '../../app/models/file.model';
                 </div>
             </div>
         </div>
-    `, 
+    `,
     styleUrls: ['./file-grid.component.css']
 })
 export class FileGridComponent implements OnInit, OnDestroy {
@@ -133,7 +133,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
         this.fileService.getMediaPaginated(
             this.currentPage,
             this.pageSize,
-            this.searchTerm
+            this.searchTerm,
+            this.selectedSort
         ).pipe(
             finalize(() => {
                 isNewSearch ? this.isLoading = false : this.isLoadingMore = false;
@@ -160,7 +161,7 @@ export class FileGridComponent implements OnInit, OnDestroy {
                 this.hasMore = false;
             }
         });
-        
+
     }
 
     // ===========================
