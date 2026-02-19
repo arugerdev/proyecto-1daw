@@ -1,8 +1,8 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FileService } from '../../services/file.service';
-import { Archivo } from '../../app/models/file.model';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { MediaItem } from '../../app/models/file.model';
 
 @Component({
     selector: 'app-file-card',
@@ -24,11 +24,10 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
                 </div>
                 
                 <!-- Duración (para videos/audio) -->
-                <div *ngIf="file.tipo_archivo === 'video' || file.tipo_archivo === 'audio'" 
-                     class="duration-badge">
+                <div *ngIf="file.duration" class="duration-badge">
                     {{ getDuration() }}
                 </div>
-                
+
                 <!-- Overlay con botón de vista previa -->
                 <div class="card-overlay">
                     <button class="preview-button" (click)="onViewDetails($event)">
@@ -46,48 +45,28 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
                 <!-- Título y estado -->
                 <div class="title-section">
                     <h3 class="card-title" [title]="getTitle()">{{ getTitle() }}</h3>
-                    <span class="badge" [ngClass]="getEstadoClass()">{{ getEstadoText() }}</span>
                 </div>
                 
                 <p class="card-description">{{ getDescription() }}</p>
                 
                 <!-- Categoría -->
-                <span class="category-badge">{{ getCategoria() }}</span>
                 
-                <!-- Etiquetas -->
-                <div class="tags-container" *ngIf="getEtiquetas().length > 0">
-                    <span *ngFor="let tag of getEtiquetas().slice(0,3)" class="tag">
-                        #{{ tag }}
-                    </span>
-                    <span *ngIf="getEtiquetas().length > 3" class="tag-more">
-                        +{{ getEtiquetas().length - 3 }}
-                    </span>
-                </div>
+
                 
                 <!-- Metadatos -->
                 <div class="metadata">
                     <div class="metadata-item">
-                        <svg class="metadata-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                        <span>{{ formatDate() }}</span>
+                        <span>{{ getYear() }}</span>
                     </div>
                     <div class="metadata-item">
-                        <svg class="metadata-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 7h-4.5A2.5 2.5 0 0 1 13 4.5V3"></path>
-                            <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"></path>
-                        </svg>
-                        <span>{{ formatSize() }}</span>
+                        <span>{{ getProgram() }}</span>
                     </div>
                 </div>
-                
+
                 <!-- Ubicación (SVG en lugar de emoji) -->
-                <div class="location" [title]="getUbicacion()">
+                <div class="location" [title]="file.file_path">
                     <div class="location-svg" [innerHTML]="locationIcon"></div>
-                    <span class="location-text">{{ getUbicacion() }}</span>
+                    <span class="location-text">{{ file.file_path }}</span>
                 </div>
                 
                 <!-- Acciones -->
@@ -119,13 +98,14 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
     styleUrls: ['./file-card.component.css']
 })
 export class FileCardComponent {
-    @Input() file!: Archivo;
-    @Output() viewDetails = new EventEmitter<Archivo>();
-    @Output() download = new EventEmitter<Archivo>();
-    @Output() edit = new EventEmitter<Archivo>();
-    @Output() delete = new EventEmitter<Archivo>();
 
-    // SVG para ubicación
+    @Input() file!: MediaItem;
+
+    @Output() viewDetails = new EventEmitter<MediaItem>();
+    @Output() download = new EventEmitter<MediaItem>();
+    @Output() edit = new EventEmitter<MediaItem>();
+    @Output() delete = new EventEmitter<MediaItem>();
+
     locationIcon = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
@@ -138,63 +118,51 @@ export class FileCardComponent {
         private sanitizer: DomSanitizer
     ) { }
 
-    // Sanitizar SVG para evitar problemas de seguridad
+
+    // ===========================
+    // 🎨 ICONO SEGÚN CONTENT TYPE
+    // ===========================
+
     getTipoIcon(): SafeHtml {
-        const svg = this.fileService.getTipoIcon(this.file.tipo_archivo);
+        const svg = this.fileService.getContentTypeIcon(this.file.content_type || '');
         return this.sanitizer.bypassSecurityTrustHtml(svg);
     }
 
     getTipoColor(): string {
-        return this.fileService.getTipoColor(this.file.tipo_archivo);
+        return this.fileService.getContentTypeColor(this.file.content_type || '');
     }
 
+    // ===========================
+    // 📄 DATA
+    // ===========================
+
     getTitle(): string {
-        return this.file.titulo || this.fileService.generateTitle(this.file.nombre_archivo);
+        return this.file.title;
     }
 
     getDescription(): string {
-        return this.file.descripcion || 'Sin descripción';
+        return this.file.description || 'Sin descripción';
     }
 
-    getCategoria(): string {
-        return this.file.categoria || 'General';
+    getProgram(): string {
+        return this.file.program || 'Programa no definido';
     }
 
-    getEstadoClass(): string {
-        return this.fileService.getEstadoBadgeClass(this.file.estado);
-    }
-
-    getEstadoText(): string {
-        return this.fileService.getEstadoText(this.file.estado);
-    }
-
-    getEtiquetas(): string[] {
-        return this.file.etiquetas || [];
-    }
-
-    getUbicacion(): string {
-        return this.file.ubicacion || 'Almacenamiento local';
-    }
-
-    getThumbnailUrl(): string {
-        // ON PRODUCTION
-        // return this.fileService.getThumbnailUrl(this.file);
-
-        // FOR PLACEHOLDER:
-        return 'https://placehold.co/800x600';
+    getYear(): string {
+        return this.fileService.formatYear(this.file.recording_year);
     }
 
     getDuration(): string {
-        return this.file.duracion || "0:00";
+        return this.fileService.formatDuration(this.file.duration);
     }
 
-    formatDate(): string {
-        return this.fileService.formatDate(this.file.fecha_subida);
+    getThumbnailUrl(): string {
+        return this.fileService.getThumbnailUrl(this.file);
     }
 
-    formatSize(): string {
-        return this.fileService.formatFileSize(this.file.size);
-    }
+    // ===========================
+    // 🎬 ACTIONS
+    // ===========================
 
     onCardClick() {
         this.viewDetails.emit(this.file);

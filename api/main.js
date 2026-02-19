@@ -70,7 +70,7 @@ app.post('/api/login', async (req, res) => {
 
     if (!data) return res.status(401).json({ error: "Necesidad de credenciales" });
 
-    connection.promise().query(`SELECT * FROM USUARIOS WHERE nombre = ?`, [data.username])
+    connection.promise().query(`SELECT * FROM users WHERE nombre = ?`, [data.username])
         .then(async ([rows]) => {
 
             if (rows.length === 0)
@@ -88,7 +88,7 @@ app.post('/api/login', async (req, res) => {
             );
 
             await connection.promise().query(
-                `INSERT INTO SESIONES (id_user, key_session) VALUES (?, ?)`,
+                `INSERT INTO sessions (id_user, key_session) VALUES (?, ?)`,
                 [user.id_user, token]
             );
 
@@ -101,53 +101,73 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, res) => {
 
+    if (req.user.rol === "viewer")
+        return res.status(403).json({ error: "No tienes permisos para subir contenido" });
+
+    const { title, description, recording_year, duration, content_type_id, program_id } = req.body;
     const file = req.file;
 
     if (!file) return res.status(400).json({ error: "Archivo requerido" });
 
-    const tipo =
-        file.mimetype.startsWith("image") ? "imagen" :
-            file.mimetype.startsWith("video") ? "video" :
-                file.mimetype.startsWith("audio") ? "audio" :
-                    "documento";
-
     try {
-        await connection.promise().query(`
-            INSERT INTO ARCHIVOS 
-            (id_item, nombre_archivo, tipo_archivo, extension, size, ruta_fisica)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-                null,
-                file.filename,
-                tipo,
-                path.extname(file.originalname),
-                file.size,
-                file.path
-            ]
-        );
 
-        res.json({ success: true, file: file.filename });
+        await connection.promise().query(`
+            INSERT INTO media_items 
+            (title, description, recording_year, duration, file_path, content_type_id, program_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+            title,
+            description,
+            recording_year || null,
+            duration || null,
+            file.path,
+            content_type_id,
+            program_id
+        ]);
+
+        res.json({ success: true });
 
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
+
 app.get('/api/files', verifyToken, async (req, res) => {
 
-    const { tipo, search } = req.query;
+    const { search, content_type, program } = req.query;
 
-    let query = "SELECT * FROM ARCHIVOS WHERE 1=1";
+    let query = `
+        SELECT 
+            m.id,
+            m.title,
+            m.description,
+            m.recording_year,
+            m.duration,
+            m.file_path,
+            ct.name AS content_type,
+            p.name AS program
+        FROM media_items m
+        LEFT JOIN content_types ct ON m.content_type_id = ct.id
+        LEFT JOIN programs p ON m.program_id = p.id
+        WHERE 1=1
+    `;
+
     let params = [];
 
-    if (tipo) {
-        query += " AND tipo_archivo = ?";
-        params.push(tipo);
+    if (search) {
+        query += " AND m.title LIKE ?";
+        params.push(`%${search}%`);
     }
 
-    if (search) {
-        query += " AND nombre_archivo LIKE ?";
-        params.push("%" + search + "%");
+    if (content_type) {
+        query += " AND ct.name = ?";
+        params.push(content_type);
+    }
+
+    if (program) {
+        query += " AND p.name = ?";
+        params.push(program);
     }
 
     const [rows] = await connection.promise().query(query, params);
@@ -158,15 +178,16 @@ app.get('/api/files', verifyToken, async (req, res) => {
 app.get('/api/files/:id/download', verifyToken, async (req, res) => {
 
     const [rows] = await connection.promise().query(
-        "SELECT * FROM ARCHIVOS WHERE id_archivo = ?",
+        "SELECT file_path FROM media_items WHERE id = ?",
         [req.params.id]
     );
 
     if (rows.length === 0)
         return res.status(404).json({ error: "Archivo no encontrado" });
 
-    res.download(rows[0].ruta_fisica);
+    res.download(rows[0].file_path);
 });
+
 
 app.delete('/api/files/:id', verifyToken, async (req, res) => {
 
@@ -174,45 +195,60 @@ app.delete('/api/files/:id', verifyToken, async (req, res) => {
         return res.status(403).json({ error: "Solo admin puede eliminar" });
 
     const [rows] = await connection.promise().query(
-        "SELECT * FROM ARCHIVOS WHERE id_archivo = ?",
+        "SELECT file_path FROM media_items WHERE id = ?",
         [req.params.id]
     );
 
     if (rows.length === 0)
         return res.status(404).json({ error: "No existe" });
 
-
     await connection.promise().query(
-        "DELETE FROM ARCHIVOS WHERE id_archivo = ?",
+        "DELETE FROM media_items WHERE id = ?",
         [req.params.id]
     );
-    
-    if (!fs.existsSync(rows[0].ruta_fisica)) {
-        return res.json({ success: true, message: "El archivo no existe" });
-    }
 
-    fs.unlinkSync(rows[0].ruta_fisica);
+    if (fs.existsSync(rows[0].file_path))
+        fs.unlinkSync(rows[0].file_path);
 
     res.json({ success: true });
 });
+
 
 app.put('/api/files/:id', verifyToken, async (req, res) => {
 
-    const { nombre_archivo } = req.body;
+    if (req.user.rol === "viewer")
+        return res.status(403).json({ error: "No tienes permisos" });
 
-    await connection.promise().query(
-        "UPDATE ARCHIVOS SET nombre_archivo = ? WHERE id_archivo = ?",
-        [nombre_archivo, req.params.id]
-    );
+    const { title, description, recording_year, duration, content_type_id, program_id } = req.body;
+
+    await connection.promise().query(`
+        UPDATE media_items 
+        SET title = ?, 
+            description = ?, 
+            recording_year = ?, 
+            duration = ?, 
+            content_type_id = ?, 
+            program_id = ?
+        WHERE id = ?
+    `, [
+        title,
+        description,
+        recording_year,
+        duration,
+        content_type_id,
+        program_id,
+        req.params.id
+    ]);
 
     res.json({ success: true });
 });
+
 
 // Obtener el rol del usuario actual
 app.get('/api/user/role', verifyToken, async (req, res) => {
     try {
         const [rows] = await connection.promise().query(
-            "SELECT id_user, nombre, rol FROM USUARIOS WHERE id_user = ?",
+            "SELECT id_user, nombre, rol FROM users WHERE id_user = ?",
             [req.user.id_user]
         );
 
@@ -271,118 +307,176 @@ function getPermissionsByRole(rol) {
 // Añade estos endpoints a tu API existente
 
 // Obtener estadísticas del sistema
+// Añade estos endpoints a tu API existente
+
+// Obtener estadísticas del sistema
 app.get('/api/stats', verifyToken, async (req, res) => {
     try {
         const [total] = await connection.promise().query(
-            "SELECT COUNT(*) as count FROM ARCHIVOS"
+            "SELECT COUNT(*) as total FROM media_items"
         );
 
-        const [videos] = await connection.promise().query(
-            "SELECT COUNT(*) as count FROM ARCHIVOS WHERE tipo_archivo = 'video'"
-        );
+        const [byType] = await connection.promise().query(`
+            SELECT ct.name, COUNT(*) as total
+            FROM media_items m
+            JOIN content_types ct ON m.content_type_id = ct.id
+            GROUP BY ct.name
+        `);
 
-        const [imagenes] = await connection.promise().query(
-            "SELECT COUNT(*) as count FROM ARCHIVOS WHERE tipo_archivo = 'imagen'"
-        );
+        const [byProgram] = await connection.promise().query(`
+            SELECT p.name, COUNT(*) as total
+            FROM media_items m
+            JOIN programs p ON m.program_id = p.id
+            GROUP BY p.name
+        `);
 
-        const [storage] = await connection.promise().query(
-            "SELECT SUM(size) as total FROM ARCHIVOS"
-        );
+        // Calcular uso del disco
+        let totalBytes = 0;
+        let diskStats = {
+            total: 0,
+            free: 0,
+            used: 0,
+            usedPercentage: 0,
+            formatted: '0 Bytes'
+        };
 
-        // Obtener size total en KB/MB/GB según corresponda
-        const totalBytes = storage[0].total || 0;
+        try {
+            // Obtener todos los archivos para calcular el tamaño total
+            const [files] = await connection.promise().query(
+                "SELECT file_path FROM media_items"
+            );
+
+            // Sumar tamaños de archivos existentes
+            for (const file of files) {
+                if (fs.existsSync(file.file_path)) {
+                    const stats = fs.statSync(file.file_path);
+                    totalBytes += stats.size;
+                }
+            }
+
+            // En Linux/Unix, obtener estadísticas del disco
+            if (process.platform === 'linux' || process.platform === 'darwin') {
+                const { execSync } = require('child_process');
+
+                // Obtener el directorio donde se guardan los archivos
+                const mediaPath = path.join(__dirname, 'media');
+
+                // Asegurarse de que el directorio existe
+                if (fs.existsSync(mediaPath)) {
+                    // Obtener estadísticas del disco usando df
+                    const dfOutput = execSync(`df -k "${mediaPath}"`).toString();
+                    const lines = dfOutput.trim().split('\n');
+
+                    if (lines.length >= 2) {
+                        const stats = lines[1].split(/\s+/);
+                        // stats[1] = total blocks, stats[2] = used blocks, stats[3] = free blocks
+                        // Los bloques están en kilobytes (1024 bytes)
+                        const blockSize = 1024;
+
+                        diskStats = {
+                            total: parseInt(stats[1]) * blockSize,
+                            used: parseInt(stats[2]) * blockSize,
+                            free: parseInt(stats[3]) * blockSize,
+                            usedPercentage: (parseInt(stats[2]) / parseInt(stats[1])) * 100,
+                            formatted: formatBytes(parseInt(stats[2]) * blockSize)
+                        };
+                    }
+                }
+            } else {
+                // En Windows o si no se puede obtener estadísticas del disco
+                // Usamos un límite ficticio de 10GB para la barra de progreso
+                const maxStorage = 10 * 1024 * 1024 * 1024; // 10GB
+                diskStats = {
+                    total: maxStorage,
+                    used: totalBytes,
+                    free: maxStorage - totalBytes,
+                    usedPercentage: (totalBytes / maxStorage) * 100,
+                    formatted: formatBytes(totalBytes)
+                };
+            }
+        } catch (diskError) {
+            console.error('Error obteniendo estadísticas del disco:', diskError);
+            // Si hay error, devolvemos valores por defecto
+            diskStats = {
+                total: 10 * 1024 * 1024 * 1024, // 10GB
+                used: totalBytes,
+                free: (10 * 1024 * 1024 * 1024) - totalBytes,
+                usedPercentage: (totalBytes / (10 * 1024 * 1024 * 1024)) * 100,
+                formatted: formatBytes(totalBytes)
+            };
+        }
+
+        // Formatear los datos para el frontend
+        const videos = byType.find(t => t.name.toLowerCase() === 'video')?.total || 0;
+        const imagenes = byType.find(t => t.name.toLowerCase() === 'imagen')?.total || 0;
+        const audio = byType.find(t => t.name.toLowerCase() === 'audio')?.total || 0;
+        const documentos = byType.find(t => t.name.toLowerCase() === 'documento')?.total || 0;
+        const otros = byType.find(t => t.name.toLowerCase() === 'otro')?.total || 0;
 
         res.json({
             success: true,
             stats: {
-                total: total[0].count,
-                videos: videos[0].count,
-                imagenes: imagenes[0].count,
+                total: total[0].total,
+                videos,
+                imagenes,
+                audio,
+                documentos,
+                otros,
+                byType,
+                byProgram,
                 storage: {
-                    bytes: totalBytes,
-                    formatted: formatBytes(totalBytes)
+                    bytes: diskStats.used,
+                    formatted: diskStats.formatted,
+                    total: diskStats.total,
+                    free: diskStats.free,
+                    usedPercentage: diskStats.usedPercentage
                 }
             }
         });
 
     } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Obtener archivos con paginación
-app.get('/api/files/paginated', verifyToken, async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
-        const offset = (page - 1) * limit;
-        const search = req.query.search || '';
-        const tipo = req.query.tipo || '';
-        const sort = req.query.sort || 'masReciente';
-
-        let query = "SELECT * FROM ARCHIVOS WHERE 1=1";
-        let countQuery = "SELECT COUNT(*) as total FROM ARCHIVOS WHERE 1=1";
-        let params = [];
-
-        // Filtro por búsqueda
-        if (search) {
-            query += " AND nombre_archivo LIKE ?";
-            countQuery += " AND nombre_archivo LIKE ?";
-            params.push(`%${search}%`);
-        }
-
-        // Filtro por tipo
-        if (tipo) {
-            query += " AND tipo_archivo = ?";
-            countQuery += " AND tipo_archivo = ?";
-            params.push(tipo);
-        }
-
-        // Ordenamiento
-        switch (sort) {
-            case 'masReciente':
-                query += " ORDER BY fecha_subida DESC";
-                break;
-            case 'masAntiguo':
-                query += " ORDER BY fecha_subida ASC";
-                break;
-            case 'nombreAZ':
-                query += " ORDER BY nombre_archivo ASC";
-                break;
-            case 'nombreZA':
-                query += " ORDER BY nombre_archivo DESC";
-                break;
-            case 'mayorTamano':
-                query += " ORDER BY size DESC";
-                break;
-            case 'menorTamano':
-                query += " ORDER BY size ASC";
-                break;
-            default:
-                query += " ORDER BY fecha_subida DESC";
-        }
-
-        query += " LIMIT ? OFFSET ?";
-        params.push(limit, offset);
-
-        const [rows] = await connection.promise().query(query, params);
-        const [totalRows] = await connection.promise().query(countQuery, params.slice(0, -2));
-
-        res.json({
-            success: true,
-            files: rows,
-            pagination: {
-                page,
-                limit,
-                total: totalRows[0].total,
-                pages: Math.ceil(totalRows[0].total / limit)
-            }
+        console.error('Error en /api/stats:', err);
+        res.status(500).json({
+            success: false,
+            error: err.message
         });
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
     }
 });
+
+
+app.get('/api/files/paginated', verifyToken, async (req, res) => {
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const [rows] = await connection.promise().query(`
+        SELECT 
+            m.*,
+            ct.name AS content_type,
+            p.name AS program
+        FROM media_items m
+        LEFT JOIN content_types ct ON m.content_type_id = ct.id
+        LEFT JOIN programs p ON m.program_id = p.id
+        ORDER BY m.id DESC
+        LIMIT ? OFFSET ?
+    `, [limit, offset]);
+
+    const [count] = await connection.promise().query(
+        "SELECT COUNT(*) as total FROM media_items"
+    );
+    res.json({
+        success: true,
+        data: rows,
+        pagination: {
+            page,
+            limit,
+            total: count[0].total,
+            pages: Math.ceil(count[0].total / limit)
+        }
+    });
+});
+
 
 // Función helper para formatear bytes
 function formatBytes(bytes, decimals = 2) {

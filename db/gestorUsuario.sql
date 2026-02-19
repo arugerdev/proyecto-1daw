@@ -1,7 +1,8 @@
+DROP DATABASE IF EXISTS administradorMultimedia;
 CREATE DATABASE administradorMultimedia;
 USE administradorMultimedia;
 
-CREATE TABLE USUARIOS (
+CREATE TABLE users (
     id_user INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(50) UNIQUE,
     contraseña VARCHAR(255),
@@ -10,12 +11,12 @@ CREATE TABLE USUARIOS (
     CHECK (rol IN ("admin", "moderator", "viewer"))
 );
 
-CREATE TABLE SESIONES (
+CREATE TABLE sessions (
     id_sesion INT AUTO_INCREMENT PRIMARY KEY,
     id_user INT,
     key_session VARCHAR(512),
     fecha_inicio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_user) REFERENCES USUARIOS(id_user) ON DELETE CASCADE
+    FOREIGN KEY (id_user) REFERENCES users(id_user) ON DELETE CASCADE
 );
 
 CREATE TABLE content_types (
@@ -181,13 +182,13 @@ INSERT INTO media_staff (media_id, staff_id) VALUES
 
 
 -- #################### DEFAULT USERS ####################
-INSERT INTO USUARIOS (nombre, contraseña, rol) 
+INSERT INTO users (nombre, contraseña, rol) 
 VALUES (
     "admin", 
     "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", 
     "admin"
 );
-INSERT INTO USUARIOS (nombre, contraseña, rol) 
+INSERT INTO users (nombre, contraseña, rol) 
 VALUES (
     "viewer", 
     "$2a$12$RCCN9wh0S27yBoUkYaUb4us6m9J8IO6UC/rtpeKLlxXPJ/luoJZE6", 

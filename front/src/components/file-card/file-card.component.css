@@ -115,13 +115,14 @@
     border-radius: 6px;
     font-size: 14px;
     font-weight: 500;
-    color: var(--text-primary);
+    color: white;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .preview-button:hover {
     background: var(--bg-card-soft);
+    color: var(--text-primary);
     transform: scale(1.05);
 }
 

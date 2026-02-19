@@ -1,35 +1,61 @@
-export interface Archivo {
-    id_archivo: number;
-    id_item: number | null;
-    nombre_archivo: string;
-    tipo_archivo: 'video' | 'imagen' | 'audio' | 'documento' | 'otro';
-    extension: string;
-    size: number;
-    ruta_fisica: string;
-    fecha_subida: string;
-    titulo?: string;
-    descripcion?: string;
-    categoria?: string;
-    estado?: 'publicado' | 'borrador' | 'archivado';
-    duracion?: string;
-    etiquetas?: string[];
-    ubicacion?: string;
-    createdBy?: string;
+export interface MediaItem {
+    id: number;
+    title: string;
+    description: string | null;
+    recording_year: number | null;
+    duration: string | null;
+    file_path: string;
+
+    content_type_id: number;
+    program_id: number;
+
+    // Campos provenientes de JOIN
+    content_type?: string;
+    program?: string;
+
+    // Relaciones
+    staff?: StaffMember[];
+}
+
+export interface StaffMember {
+    id: number;
+    name: string;
+    role: string;
+}
+
+export interface ContentType {
+    id: number;
+    name: string;
+}
+
+export interface Program {
+    id: number;
+    name: string;
+}
+
+export interface User {
+    id_user: number;
+    nombre: string;
+    rol: 'admin' | 'moderator' | 'viewer';
 }
 
 export interface Stats {
     total: number;
-    videos: number;
-    imagenes: number;
-    storage: {
-        bytes: number;
-        formatted: string;
-    };
+
+    byType: {
+        name: string;
+        total: number;
+    }[];
+
+    byProgram: {
+        name: string;
+        total: number;
+    }[];
 }
 
 export interface PaginatedResponse {
     success: boolean;
-    files: Archivo[];
+    data: MediaItem[];
     pagination: {
         page: number;
         limit: number;

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FileService } from '../../services/file.service';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil, finalize } from 'rxjs';
 import { FileCardComponent } from '../file-card/file-card.component';
-import { Archivo } from '../../app/models/file.model';
+import { MediaItem } from '../../app/models/file.model';
 
 @Component({
     selector: 'app-file-grid',
@@ -48,10 +48,11 @@ import { Archivo } from '../../app/models/file.model';
                 </div>
             </div>
         </div>
-    `,
+    `, 
     styleUrls: ['./file-grid.component.css']
 })
 export class FileGridComponent implements OnInit, OnDestroy {
+
     @Input() searchTerm: string = '';
     @Input() selectedType: string = '';
     @Input() selectedSort: string = 'masReciente';
@@ -59,7 +60,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
     @Output() openModal = new EventEmitter<void>();
     @Output() statsChanged = new EventEmitter<void>();
 
-    files: Archivo[] = [];
+    files: MediaItem[] = [];
+
     isLoading = false;
     isLoadingMore = false;
     hasMore = true;
@@ -81,29 +83,29 @@ export class FileGridComponent implements OnInit, OnDestroy {
         this.loadFiles(true);
         this.setupSearch();
         this.setupInfiniteScroll();
+
     }
 
     ngOnDestroy() {
         this.destroy$.next();
         this.destroy$.complete();
-        if (this.observer) {
-            this.observer.disconnect();
-        }
+        this.observer?.disconnect();
     }
 
     ngOnChanges() {
-        if (!this.observer) return;
         this.resetAndSearch();
     }
+
+    // ===========================
+    // 🔎 SEARCH
+    // ===========================
 
     private setupSearch() {
         this.searchSubject.pipe(
             debounceTime(500),
             distinctUntilChanged(),
             takeUntil(this.destroy$)
-        ).subscribe(() => {
-            this.resetAndSearch();
-        });
+        ).subscribe(() => this.resetAndSearch());
     }
 
     onSearchChange() {
@@ -117,65 +119,53 @@ export class FileGridComponent implements OnInit, OnDestroy {
         this.loadFiles(true);
     }
 
+    // ===========================
+    // 📄 LOAD MEDIA
+    // ===========================
+
     private loadFiles(isNewSearch: boolean = false) {
+
         if (!isNewSearch && (this.isLoadingMore || !this.hasMore)) return;
 
-        if (isNewSearch) {
-            this.isLoading = true;
-        } else {
-            this.isLoadingMore = true;
-        }
+        isNewSearch ? this.isLoading = true : this.isLoadingMore = true;
         this.cdr.detectChanges();
 
-        this.fileService.getFilesPaginated(
+        this.fileService.getMediaPaginated(
             this.currentPage,
             this.pageSize,
-            this.searchTerm,
-            this.selectedType,
-            this.selectedSort
+            this.searchTerm
         ).pipe(
             finalize(() => {
-                if (isNewSearch) {
-                    this.isLoading = false;
-                } else {
-                    this.isLoadingMore = false;
-                }
+                isNewSearch ? this.isLoading = false : this.isLoadingMore = false;
                 this.cdr.detectChanges();
             }),
             takeUntil(this.destroy$)
         ).subscribe({
             next: (response) => {
                 if (response.success) {
-                    // Enriquecer archivos con datos adicionales para la UI
-                    const enrichedFiles = response.files.map(file => ({
-                        ...file,
-                        titulo: this.fileService.generateTitle(file.nombre_archivo),
-                        categoria: 'General',
-                        estado: 'publicado' as const,
-                        etiquetas: ['demo', file.tipo_archivo],
-                        ubicacion: 'Servidor Principal'
-                    }));
 
                     if (isNewSearch) {
-                        this.files = enrichedFiles;
+                        this.files = response.data;
                     } else {
-                        this.files = [...this.files, ...enrichedFiles];
+                        this.files = [...this.files, ...response.data];
                     }
+                    console.log(response.data)
 
                     this.totalPages = response.pagination.pages;
-                    this.hasMore = this.currentPage < this.totalPages && response.files.length > 0;
+                    this.hasMore = this.currentPage < this.totalPages;
                 }
-                this.cdr.detectChanges();
             },
             error: (error) => {
-                console.error('Error loading files:', error);
-                if (!isNewSearch) {
-                    this.hasMore = false;
-                }
-                this.cdr.detectChanges();
+                console.error('Error loading media:', error);
+                this.hasMore = false;
             }
         });
+        
     }
+
+    // ===========================
+    // ♾ INFINITE SCROLL
+    // ===========================
 
     private setupInfiniteScroll() {
         setTimeout(() => {
@@ -194,55 +184,61 @@ export class FileGridComponent implements OnInit, OnDestroy {
         }, 500);
     }
 
-    onViewDetails(file: Archivo) {
+    // ===========================
+    // 🎬 ACTIONS
+    // ===========================
+
+    onViewDetails(file: MediaItem) {
         console.log('View details:', file);
-        // Aquí iría la lógica para abrir el modal de detalles
     }
 
-    onDownload(file: Archivo) {
-        this.fileService.downloadFile(file.id_archivo).subscribe({
+    onDownload(file: MediaItem) {
+        this.fileService.downloadMedia(file.id).subscribe({
             next: (blob) => {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = file.nombre_archivo;
+                a.download = file.title;
                 a.click();
                 window.URL.revokeObjectURL(url);
             },
-            error: (error) => console.error('Error downloading file:', error)
+            error: (error) => console.error('Error downloading:', error)
         });
     }
 
-    onEdit(file: Archivo) {
-        const newName = prompt('Nuevo nombre:', file.nombre_archivo);
-        if (newName && newName !== file.nombre_archivo) {
-            this.fileService.updateFileName(file.id_archivo, newName).pipe(
+    onEdit(file: MediaItem) {
+
+        const newTitle = prompt('Nuevo título:', file.title);
+
+        if (newTitle && newTitle !== file.title) {
+
+            this.fileService.updateMedia(file.id, {
+                title: newTitle
+            }).pipe(
                 takeUntil(this.destroy$)
             ).subscribe({
                 next: () => {
-                    file.nombre_archivo = newName;
-                    file.titulo = this.fileService.generateTitle(newName);
+                    file.title = newTitle;
                     this.cdr.detectChanges();
-                    this.loadFiles(false);
-
                 },
-                error: (error) => console.error('Error updating file name:', error)
+                error: (error) => console.error('Error updating:', error)
             });
         }
     }
 
-    onDelete(file: Archivo) {
-        if (confirm(`¿Eliminar "${file.nombre_archivo}"?`)) {
-            this.fileService.deleteFile(file.id_archivo).pipe(
+    onDelete(file: MediaItem) {
+
+        if (confirm(`¿Eliminar "${file.title}"?`)) {
+
+            this.fileService.deleteMedia(file.id).pipe(
                 takeUntil(this.destroy$)
             ).subscribe({
                 next: () => {
-                    this.files = this.files.filter(f => f.id_archivo !== file.id_archivo);
+                    this.files = this.files.filter(f => f.id !== file.id);
                     this.statsChanged.emit();
                     this.cdr.detectChanges();
-                    this.loadFiles(true);
                 },
-                error: (error) => console.error('Error deleting file:', error)
+                error: (error) => console.error('Error deleting:', error)
             });
         }
     }

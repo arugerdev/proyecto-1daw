@@ -1,13 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Stats, PaginatedResponse, Archivo } from '../app/models/file.model';
+import { Stats, PaginatedResponse, MediaItem } from '../app/models/file.model';
 import { SvgIcons } from '../app/utils/svg-icons';
 
 @Injectable({
     providedIn: 'root'
 })
 export class FileService {
+
     private apiUrl = 'http://localhost:3000/api';
 
     constructor(private http: HttpClient) { }
@@ -15,10 +16,13 @@ export class FileService {
     private getHeaders(): HttpHeaders {
         const token = localStorage.getItem('token');
         return new HttpHeaders({
-            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         });
     }
+
+    // ===========================
+    // 📊 STATS
+    // ===========================
 
     getStats(): Observable<{ success: boolean; stats: Stats }> {
         return this.http.get<{ success: boolean; stats: Stats }>(
@@ -27,20 +31,21 @@ export class FileService {
         );
     }
 
-    getFilesPaginated(
+    // ===========================
+    // 📄 MEDIA PAGINADO
+    // ===========================
+
+    getMediaPaginated(
         page: number,
         limit: number,
-        search: string = '',
-        tipo: string = '',
-        sort: string = 'masReciente'
+        search: string = ''
     ): Observable<PaginatedResponse> {
+
         let params = new HttpParams()
             .set('page', page.toString())
-            .set('limit', limit.toString())
-            .set('sort', sort);
+            .set('limit', limit.toString());
 
         if (search) params = params.set('search', search);
-        if (tipo) params = params.set('tipo', tipo);
 
         return this.http.get<PaginatedResponse>(
             `${this.apiUrl}/files/paginated`,
@@ -51,7 +56,11 @@ export class FileService {
         );
     }
 
-    downloadFile(id: number): Observable<Blob> {
+    // ===========================
+    // 📥 DESCARGAR
+    // ===========================
+
+    downloadMedia(id: number): Observable<Blob> {
         return this.http.get(
             `${this.apiUrl}/files/${id}/download`,
             {
@@ -61,115 +70,84 @@ export class FileService {
         );
     }
 
-    deleteFile(id: number): Observable<{ success: boolean }> {
+    // ===========================
+    // ❌ ELIMINAR
+    // ===========================
+
+    deleteMedia(id: number): Observable<{ success: boolean }> {
         return this.http.delete<{ success: boolean }>(
             `${this.apiUrl}/files/${id}`,
             { headers: this.getHeaders() }
         );
     }
 
-    updateFileName(id: number, nombre_archivo: string): Observable<{ success: boolean }> {
+    // ===========================
+    // ✏ EDITAR METADATA
+    // ===========================
+
+    updateMedia(id: number, data: Partial<MediaItem>): Observable<{ success: boolean }> {
         return this.http.put<{ success: boolean }>(
             `${this.apiUrl}/files/${id}`,
-            { nombre_archivo },
+            data,
             { headers: this.getHeaders() }
         );
     }
 
-    getTipoIcon(tipo: string): string {
-        switch (tipo) {
-            case 'video': return SvgIcons.video;
-            case 'imagen': return SvgIcons.imagen;
-            case 'audio': return SvgIcons.audio;
-            case 'documento': return SvgIcons.documento;
-            default: return SvgIcons.folder;
+    // ===========================
+    // 🎨 ICONOS POR CONTENT TYPE
+    // ===========================
+
+    getContentTypeIcon(contentType: string): string {
+        switch (contentType?.toLowerCase()) {
+            case 'cortometraje': return SvgIcons.video;
+            case 'videoclip': return SvgIcons.video;
+            case 'streaming': return SvgIcons.video;
+            case 'telediario': return SvgIcons.video;
+            case 'publicidad': return SvgIcons.file;
+            case 'webinar': return SvgIcons.video;
+            default: return SvgIcons.location;
         }
     }
 
-    getTipoIconComponent(tipo: string): string {
-        switch (tipo) {
-            case 'video': return 'play-icon';
-            case 'imagen': return 'image-icon';
-            case 'audio': return 'music-icon';
-            case 'documento': return 'file-text-icon';
-            default: return 'file-icon';
-        }
-    }
-
-    getTipoColor(tipo: string): string {
-        switch (tipo) {
-            case 'video': return 'bg-blue-500';
-            case 'imagen': return 'bg-green-500';
-            case 'audio': return 'bg-purple-500';
-            case 'documento': return 'bg-orange-500';
+    getContentTypeColor(contentType: string): string {
+        switch (contentType?.toLowerCase()) {
+            case 'cortometraje': return 'bg-blue-500';
+            case 'videoclip': return 'bg-purple-500';
+            case 'streaming': return 'bg-green-500';
+            case 'telediario': return 'bg-red-500';
+            case 'publicidad': return 'bg-orange-500';
+            case 'webinar': return 'bg-indigo-500';
             default: return 'bg-gray-500';
         }
     }
 
-    getEstadoBadgeClass(estado: string = 'publicado'): string {
-        switch (estado) {
-            case 'publicado': return 'badge-default';
-            case 'borrador': return 'badge-secondary';
-            case 'archivado': return 'badge-outline';
-            default: return 'badge-default';
-        }
-    }
+    // ===========================
+    // 🖼 THUMBNAIL
+    // ===========================
 
-    getEstadoText(estado: string = 'publicado'): string {
-        switch (estado) {
-            case 'publicado': return 'Publicado';
-            case 'borrador': return 'Borrador';
-            case 'archivado': return 'Archivado';
-            default: return 'Publicado';
-        }
-    }
+    getThumbnailUrl(media: MediaItem): string {
 
-    formatFileSize(bytes: number): string {
-        if (bytes === 0) return '0 MB';
-        const mb = bytes / (1024 * 1024);
-        return mb.toFixed(2) + ' MB';
-    }
-
-    formatDate(date: string): string {
-        return new Date(date).toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        });
-    }
-
-    // Generar thumbnail de placeholder según tipo
-    getThumbnailUrl(file: Archivo): string {
-        // Aquí podrías tener una URL real si el archivo es una imagen
-        if (file.tipo_archivo === 'imagen') {
-            // Si es imagen, podrías generar una miniatura
-            return 'assets/placeholders/image-placeholder.jpg';
+        // Si es imagen real (si en el futuro soportas imágenes reales)
+        if (media.file_path?.match(/\.(jpg|jpeg|png|webp)$/i)) {
+            return media.file_path;
         }
 
-        // Placeholders por tipo
-        const placeholders = {
-            video: 'assets/placeholders/video-placeholder.jpg',
-            audio: 'assets/placeholders/audio-placeholder.jpg',
-            documento: 'assets/placeholders/document-placeholder.jpg',
-            otro: 'assets/placeholders/generic-placeholder.jpg'
-        };
-
-        return placeholders[file.tipo_archivo] || placeholders.otro;
+        return 'https://placehold.net/4-800x600.png';
     }
 
-    // Generar título a partir del nombre
-    generateTitle(filename: string): string {
-        // Quitar extensión y reemplazar guiones/bajos con espacios
-        return filename
-            .replace(/\.[^/.]+$/, '') // Quitar extensión
-            .replace(/[_-]/g, ' ')     // Reemplazar _ y - con espacios
-            .replace(/\b\w/g, l => l.toUpperCase()); // Capitalizar
+    // ===========================
+    // 📅 FORMATEAR AÑO
+    // ===========================
+
+    formatYear(year: number | null): string {
+        return year ? year.toString() : '—';
     }
 
-    // Generar duración aleatoria para demostración
-    generateRandomDuration(): string {
-        const minutes = Math.floor(Math.random() * 60) + 5;
-        const seconds = Math.floor(Math.random() * 60).toString().padStart(2, '0');
-        return `${minutes}:${seconds}`;
+    // ===========================
+    // ⏱ DURACIÓN
+    // ===========================
+
+    formatDuration(duration: string | null): string {
+        return duration ?? '—';
     }
 }
