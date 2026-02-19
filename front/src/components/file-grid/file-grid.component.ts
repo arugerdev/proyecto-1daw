@@ -223,6 +223,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
                     file.nombre_archivo = newName;
                     file.titulo = this.fileService.generateTitle(newName);
                     this.cdr.detectChanges();
+                    this.loadFiles(false);
+
                 },
                 error: (error) => console.error('Error updating file name:', error)
             });
@@ -238,6 +240,7 @@ export class FileGridComponent implements OnInit, OnDestroy {
                     this.files = this.files.filter(f => f.id_archivo !== file.id_archivo);
                     this.statsChanged.emit();
                     this.cdr.detectChanges();
+                    this.loadFiles(true);
                 },
                 error: (error) => console.error('Error deleting file:', error)
             });
