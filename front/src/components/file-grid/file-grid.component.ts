@@ -54,7 +54,7 @@ import { MediaItem } from '../../app/models/file.model';
 export class FileGridComponent implements OnInit, OnDestroy {
 
     @Input() searchTerm: string = '';
-    @Input() selectedType: string = '';
+    @Input() selectedType: number = 0;
     @Input() selectedSort: string = 'masReciente';
 
     @Output() openModal = new EventEmitter<void>();
@@ -134,7 +134,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
             this.currentPage,
             this.pageSize,
             this.searchTerm,
-            this.selectedSort
+            this.selectedSort,
+            this.selectedType
         ).pipe(
             finalize(() => {
                 isNewSearch ? this.isLoading = false : this.isLoadingMore = false;
@@ -150,7 +151,6 @@ export class FileGridComponent implements OnInit, OnDestroy {
                     } else {
                         this.files = [...this.files, ...response.data];
                     }
-                    console.log(response.data)
 
                     this.totalPages = response.pagination.pages;
                     this.hasMore = this.currentPage < this.totalPages;

@@ -22,6 +22,7 @@
     width: fit-content;
     height: fit-content;
     place-self: center;
+    width: 100%;
 }
 
 .modal-wrapper.visible {
@@ -30,18 +31,25 @@
 
 .modal {
     width: 100%;
-    max-width: 620px;
+    max-width: 1200px;
     max-height: 90vh;
     overflow-y: auto;
     background: var(--bg-modal);
-    border-radius: 14px;
-    border: 1px solid var(--border-primary);
+    border-radius: 8px;
     padding: 28px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     animation: zoomIn 0.2s ease;
     position: relative;
     z-index: 1003;
+    scrollbar-color: var(--btn-secondary-bg) var(--bg-input);
+    scrollbar-width: thin;
 
+
+}
+
+.drag-area.dragover {
+    border: 2px dashed var(--btn-primary-bg);
+    background-color: var(--border-focus);
 }
 
 .modal-header {

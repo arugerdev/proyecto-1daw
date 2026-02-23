@@ -381,25 +381,22 @@ app.get('/api/stats', verifyToken, async (req, res) => {
                 }
             } else {
                 // En Windows o si no se puede obtener estadísticas del disco
-                // Usamos un límite ficticio de 10GB para la barra de progreso
-                const maxStorage = 10 * 1024 * 1024 * 1024; // 10GB
                 diskStats = {
-                    total: maxStorage,
-                    used: totalBytes,
-                    free: maxStorage - totalBytes,
-                    usedPercentage: (totalBytes / maxStorage) * 100,
-                    formatted: formatBytes(totalBytes)
+                    total: 0,
+                    used: 0,
+                    free: 0,
+                    usedPercentage: 0,
+                    formatted: "No se ha podido obtener los datos"
                 };
             }
         } catch (diskError) {
             console.error('Error obteniendo estadísticas del disco:', diskError);
-            // Si hay error, devolvemos valores por defecto
             diskStats = {
-                total: 10 * 1024 * 1024 * 1024, // 10GB
-                used: totalBytes,
-                free: (10 * 1024 * 1024 * 1024) - totalBytes,
-                usedPercentage: (totalBytes / (10 * 1024 * 1024 * 1024)) * 100,
-                formatted: formatBytes(totalBytes)
+                total: 0,
+                used: 0,
+                free: 0,
+                usedPercentage: 0,
+                formatted: "No se ha podido obtener los datos"
             };
         }
 
@@ -447,6 +444,7 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || '';
     const order = req.query.order || 'masReciente';
+    const type = req.query.type || 0;
 
     const offset = (page - 1) * limit;
 
@@ -477,12 +475,13 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
         FROM media_items m
         LEFT JOIN content_types ct ON m.content_type_id = ct.id
         LEFT JOIN programs p ON m.program_id = p.id
-        WHERE m.title LIKE '%${search}%'
+        WHERE ( m.title LIKE '%${search}%'
         OR m.description LIKE '%${search}%'
         OR m.recording_year LIKE '%${search}%'
         OR m.file_path LIKE '%${search}%'
         OR ct.name LIKE '%${search}%'
-        OR p.name LIKE '%${search}%'
+        OR p.name LIKE '%${search}%' )
+        ${type != 0 ? `AND m.content_type_id = ${type}` : ''}
         ORDER BY ${orderSentence}
         LIMIT ? OFFSET ?
     `, [limit, offset]);
@@ -502,6 +501,27 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
     });
 });
 
+
+app.get('/api/content-types', verifyToken, async (req, res) => {
+    try {
+        const [rows] = await connection.promise().query(`
+            SELECT id, name
+            FROM content_types
+            ORDER BY name ASC
+        `);
+
+        res.json({
+            success: true,
+            data: rows
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
 
 // Función helper para formatear bytes
 function formatBytes(bytes, decimals = 2) {

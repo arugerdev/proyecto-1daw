@@ -13,11 +13,11 @@ import { Stats } from '../models/file.model';
     selector: 'index-page',
     standalone: true,
     imports: [
-        Header, 
-        ModalComponent, 
-        FileGridComponent, 
-        FormsModule, 
-        CommonModule, 
+        Header,
+        ModalComponent,
+        FileGridComponent,
+        FormsModule,
+        CommonModule,
         HttpClientModule
     ],
     templateUrl: './page.html',
@@ -26,10 +26,11 @@ import { Stats } from '../models/file.model';
 export class IndexPage implements OnInit, OnDestroy {
     // Control del modal
     isModalVisible = false;
+    types: { id: number; name: string | undefined; }[] = [];
 
     // Filtros (binding con el formulario)
     searchTerm = '';
-    selectedType = '';
+    selectedType = 0;
     selectedSort = 'masReciente';
 
     // Datos de estadísticas
@@ -45,7 +46,7 @@ export class IndexPage implements OnInit, OnDestroy {
     constructor(
         private fileService: FileService,
         private cdr: ChangeDetectorRef
-    ) {}
+    ) { }
 
     ngOnInit() {
         this.loadInitialData();
@@ -58,9 +59,10 @@ export class IndexPage implements OnInit, OnDestroy {
 
     private loadInitialData() {
         this.isLoading = true;
-        
+
         forkJoin({
-            stats: this.fileService.getStats()
+            stats: this.fileService.getStats(),
+            types: this.fileService.getContentTypes()
         }).pipe(
             finalize(() => {
                 this.isLoading = false;
@@ -69,9 +71,17 @@ export class IndexPage implements OnInit, OnDestroy {
             takeUntil(this.destroy$)
         ).subscribe({
             next: (results) => {
+
+                // Stats
                 if (results.stats?.success) {
                     this.stats = results.stats.stats;
                 }
+
+                // Content Types desde BD
+                if (results.types?.success) {
+                    this.types = results.types.data;
+                }
+
                 this.cdr.detectChanges();
             },
             error: (error) => {
@@ -131,14 +141,14 @@ export class IndexPage implements OnInit, OnDestroy {
     }
 
     formatBytes(bytes: number, decimals = 2) {
-    if (bytes === 0) return '0 Bytes';
+        if (bytes === 0) return '0 Bytes';
 
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
 
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
 }

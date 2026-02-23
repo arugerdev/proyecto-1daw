@@ -18,45 +18,53 @@
             <form class="modal-form" (ngSubmit)="onSubmit($event)">
 
                 <!-- ARCHIVO -->
+                <!-- ARCHIVO -->
                 <div class="form-group">
-                    <label class="form-label">Archivo (Simulación)</label>
+                    <label class="form-label">Archivo *</label>
 
-                    <div class="drag-area">
-                        <!-- SVG VIDEO -->
+                    <div class="drag-area" [class.dragover]="isDragOver" (click)="fileInput.click()"
+                        (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+
+                        <!-- INPUT REAL OCULTO -->
+                        <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
+
+                        <!-- ICONO -->
                         <svg xmlns="http://www.w3.org/2000/svg" class="drag-icon" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2">
                             <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
                             <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-                            <path d="m10 11 5 3-5 3v-6Z" />
                         </svg>
 
-                        <p class="drag-text">
-                            En un entorno real, aquí subirías el archivo desde tu equipo local
+                        <!-- TEXTO -->
+                        <p class="drag-text" *ngIf="!selectedFile">
+                            Arrastra un archivo aquí o haz click para seleccionarlo
                         </p>
 
-                        <!-- BOTÓN SUBIR -->
+                        <p class="drag-text file-name" *ngIf="selectedFile">
+                            {{ selectedFile.name }}
+                        </p>
+
                         <button type="button" class="btn btn-secondary btn-sm">
-                            <!-- SVG UPLOAD -->
-                            <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" x2="12" y1="3" y2="15" />
-                            </svg>
                             Seleccionar Archivo
                         </button>
+
                     </div>
                 </div>
 
                 <!-- TIPO -->
                 <div class="form-group">
                     <label class="form-label">Tipo de Contenido *</label>
-                    <select class="form-select">
-                        <option value="video">Video</option>
-                        <option value="imagen">Imagen</option>
-                        <option value="audio">Audio</option>
-                        <option value="documento">Documento</option>
+                    <select class="form-select" [(ngModel)]="selectedTypeId" name="contentType" required>
+
+                        <option [ngValue]="null" disabled>
+                            Selecciona un tipo
+                        </option>
+
+                        <option *ngFor="let type of contentTypes" [ngValue]="type.id">
+                            {{ type.name }}
+                        </option>
                     </select>
+
                 </div>
 
                 <!-- TÍTULO -->
@@ -73,7 +81,7 @@
                 </div>
 
                 <!-- CATEGORÍA -->
-                <div class="form-group">
+                <!-- <div class="form-group">
                     <label class="form-label">Categoría *</label>
                     <select class="form-select">
                         <option>Noticias</option>
@@ -84,7 +92,7 @@
                         <option>Documentales</option>
                         <option>Archivo Histórico</option>
                     </select>
-                </div>
+                </div> -->
 
                 <!-- UBICACIÓN -->
                 <div class="form-group">

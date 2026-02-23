@@ -39,7 +39,8 @@ export class FileService {
         page: number,
         limit: number,
         search: string = '',
-        order: string
+        order: string,
+        selectedType: number
     ): Observable<PaginatedResponse> {
 
         let params = new HttpParams()
@@ -48,6 +49,7 @@ export class FileService {
 
         if (search) params = params.set('search', search);
         if (order) params = params.set('order', order);
+        if (selectedType != 0) params = params.set('type', selectedType);
 
         return this.http.get<PaginatedResponse>(
             `${this.apiUrl}/files/paginated`,
@@ -56,6 +58,13 @@ export class FileService {
                 params
             }
         );
+    }
+
+    getContentTypes() {
+        return this.http.get<{
+            success: boolean,
+            data: { id: number; name: string }[]
+        }>(`${this.apiUrl}/content-types`);
     }
 
     // ===========================
