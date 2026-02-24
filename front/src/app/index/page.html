@@ -63,8 +63,7 @@
                             <span class="storage-total">de {{ formatBytes(stats.storage.total)}} totales</span>
                         </div>
                         <div role="progress-bar" aria-valuemin="0" aria-valuemax="100" class="progress-bar">
-                            <div class="progress-fill"
-                                [style.width.%]="stats.storage.usedPercentage">
+                            <div class="progress-fill" [style.width.%]="stats.storage.usedPercentage">
                             </div>
                         </div>
                     </div>
@@ -93,7 +92,8 @@
                             <option *ngFor="let type of types" [value]="type.id">{{type.name}}</option>
                         </select>
 
-                        <button (click)="openModal()" class="button button-primary">
+                        <button [class]="canUploadContent ? 'a-admin' : 'a-admin disabled'"
+                            (click)="canUploadContent ? openModal() : ''" class="button button-primary">
                             <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -136,7 +136,7 @@
 
         <!-- Grid de archivos (solo este componente se actualiza) -->
         <app-file-grid [searchTerm]="searchTerm" [selectedType]="selectedType" [selectedSort]="selectedSort"
-            (openModal)="openModal()" (statsChanged)="refreshStats()" >
+            (openModal)="openModal()" (statsChanged)="refreshStats()">
         </app-file-grid>
 
     </ng-container>

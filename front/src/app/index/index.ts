@@ -8,6 +8,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { Subject, takeUntil, forkJoin, finalize } from 'rxjs';
 import { Stats } from '../models/file.model';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'index-page',
@@ -41,14 +42,24 @@ export class IndexPage implements OnInit, OnDestroy {
     hasError = false;
     errorMessage = '';
 
+    canUploadContent = false;
+
+
     private destroy$ = new Subject<void>();
 
     constructor(
         private fileService: FileService,
-        private cdr: ChangeDetectorRef
+        private cdr: ChangeDetectorRef,
+        public auth: AuthService
+
     ) { }
 
     ngOnInit() {
+        this.auth.refreshUserRole().subscribe(user => {
+            this.canUploadContent = !!user?.permissions?.canUpload;
+            this.cdr.markForCheck();
+        });
+
         this.loadInitialData();
     }
 

@@ -17,6 +17,7 @@ app-header {
 }
 
 .a-admin.disabled {
+  display: none;
   cursor: default;
   pointer-events: none;
   color: var(--text-muted);
