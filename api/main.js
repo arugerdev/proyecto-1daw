@@ -26,8 +26,15 @@ app.options(/.*/, cors());
 const port = 3000
 
 const { HOST: host, USER: user, PASSWORD: password, DATABASE: database, SECRET_KEY: secret, MEDIA_PATH: mediaPath } = process.env;
-
-const connection = mysql.createConnection({ host, user, password, database })
+const connection = mysql.createPool({
+    host,
+    user,
+    password,
+    database,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
 
 function verifyToken(req, res, next) {
     const token = req.headers.authorization?.split(" ")[1];
@@ -69,14 +76,13 @@ app.post('/api/login', async (req, res) => {
     const data = req.body;
 
     if (!data) return res.status(401).json({ error: "Necesidad de credenciales" });
-
-    connection.promise().query(`SELECT * FROM users WHERE nombre = ?`, [data.username])
+    connection.promise().query(`SELECT * FROM users WHERE nombre = "${data.username}"`)
         .then(async ([rows]) => {
 
             if (rows.length === 0)
                 return res.status(401).json({ error: "Usuario incorrecto" });
             const user = rows[0];
-            const valid = await bcrypt.compare(data.password, user.contraseña);
+            const valid = await bcrypt.compare(data.password, user.contrasena);
 
             if (!valid)
                 return res.status(401).json({ error: "Contraseña incorrecta" });
@@ -92,7 +98,7 @@ app.post('/api/login', async (req, res) => {
                 [user.id_user, token]
             );
 
-            delete user.contraseña;
+            delete user.contrasena;
 
             res.json({ ...user, token, success: true });
         })
@@ -131,7 +137,6 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
         res.status(500).json({ error: err.message });
     }
 });
-
 
 app.get('/api/files', verifyToken, async (req, res) => {
 
@@ -188,7 +193,6 @@ app.get('/api/files/:id/download', verifyToken, async (req, res) => {
     res.download(rows[0].file_path);
 });
 
-
 app.delete('/api/files/:id', verifyToken, async (req, res) => {
 
     if (req.user.rol !== "admin")
@@ -212,7 +216,6 @@ app.delete('/api/files/:id', verifyToken, async (req, res) => {
 
     res.json({ success: true });
 });
-
 
 app.put('/api/files/:id', verifyToken, async (req, res) => {
 
@@ -242,7 +245,6 @@ app.put('/api/files/:id', verifyToken, async (req, res) => {
 
     res.json({ success: true });
 });
-
 
 // Obtener el rol del usuario actual
 app.get('/api/user/role', verifyToken, async (req, res) => {

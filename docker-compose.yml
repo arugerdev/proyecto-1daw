@@ -11,16 +11,12 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: root
     ports:
-      - "3307:3306"  # Usamos puerto diferente para evitar conflictos con MySQL local
+      - "3306:3306"  # Usamos puerto diferente para evitar conflictos con MySQL local
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db/backups:/backups
     networks:
       - file_manager_network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 10s
-      retries: 5
 
   api:
     build:
@@ -31,11 +27,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      HOST: localhost
+      HOST: database
       USER: root
       PASSWORD: root
       DATABASE: administradorMultimedia
       SECRET_KEY: claveSecretaNoMandarANadie
+      MEDIA_PATH: 'asdada'
     ports:
       - "3000:3000"
     volumes:
@@ -44,16 +41,10 @@ services:
       # Volumen para logs
       - api_logs:/usr/src/app/logs
     depends_on:
-      database:
-        condition: service_healthy
+      - database
     networks:
       - file_manager_network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
+ 
   frontend:
     build:
       context: ./front
@@ -66,9 +57,6 @@ services:
       - api
     networks:
       - file_manager_network
-    volumes:
-      # Si necesitas servir archivos estáticos desde el frontend
-      - ./front/dist/front/browser:/usr/share/nginx/html:ro
 
   # Servicio opcional para backup automático de la base de datos
   db_backup:
@@ -82,17 +70,15 @@ services:
       sh -c "
       apk add --no-cache mysql-client
       while true; do
-        mysqldump -h mysql -u root -proot_password file_manager > /backups/backup_$(date +%Y%m%d_%H%M%S).sql
-        # Mantener solo los últimos 7 backups
-        ls -tp /backups/*.sql | tail -n +8 | xargs -I {} rm -- {}
-        sleep 86400  # 24 horas
+        mysqldump -h database -u root -proot administradorMultimedia > /backups/backup_\$(date +%Y%m%d_%H%M%S).sql 2>/backups/error.log || echo 'Error en backup' > /backups/backup_error.log
+        ls -tp /backups/*.sql 2>/dev/null | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null
+        sleep 86400
       done
       "
     depends_on:
       - database
     networks:
       - file_manager_network
-
 # Definición de volúmenes persistentes
 volumes:
   mysql_data:

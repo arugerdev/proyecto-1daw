@@ -5,8 +5,8 @@ USE administradorMultimedia;
 CREATE TABLE users (
     id_user INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(50) UNIQUE,
-    contraseña VARCHAR(255),
-    CHECK (CHAR_LENGTH(contraseña) >= 4),
+    contrasena VARCHAR(255),
+    CHECK (CHAR_LENGTH(contrasena) >= 4),
     rol VARCHAR(30) DEFAULT "viewer",
     CHECK (rol IN ("admin", "moderator", "viewer"))
 );
@@ -182,13 +182,13 @@ INSERT INTO media_staff (media_id, staff_id) VALUES
 
 
 -- #################### DEFAULT USERS ####################
-INSERT INTO users (nombre, contraseña, rol) 
+INSERT INTO users (nombre, contrasena, rol) 
 VALUES (
     "admin", 
     "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", 
     "admin"
 );
-INSERT INTO users (nombre, contraseña, rol) 
+INSERT INTO users (nombre, contrasena, rol) 
 VALUES (
     "viewer", 
     "$2a$12$RCCN9wh0S27yBoUkYaUb4us6m9J8IO6UC/rtpeKLlxXPJ/luoJZE6", 

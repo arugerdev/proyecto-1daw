@@ -80,9 +80,11 @@ export class FileGridComponent implements OnInit, OnDestroy {
     ) { }
 
     ngOnInit() {
+        console.log('FileGridComponent initializing with files:', this.files);
         this.loadFiles(true);
         this.setupSearch();
         this.setupInfiniteScroll();
+        console.log('FileGridComponent initialized with files:', this.files);
 
     }
 

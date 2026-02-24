@@ -27,7 +27,9 @@ docker compose up -d
 
 # Esperar a que MySQL esté listo
 echo "⏳ Esperando a que MySQL esté listo..."
-sleep 20
+until docker exec file_manager_mysql mysqladmin ping -h "localhost" --silent; do
+  sleep 2
+done
 
 # Verificar estado de los servicios
 echo "📊 Estado de los servicios:"
@@ -61,7 +63,7 @@ echo ""
 echo "📱 Aplicación disponible en:"
 echo "   - Frontend: http://localhost"
 echo "   - API: http://localhost:3000"
-echo "   - MySQL: localhost:3307"
+echo "   - MySQL: localhost:3306"
 echo ""
 echo "🔑 Credenciales por defecto:"
 echo "   - Usuario: admin "
