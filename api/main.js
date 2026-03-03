@@ -575,7 +575,7 @@ app.post('/api/users', verifyToken, async (req, res) => {
         return res.status(403).json({ error: "Solo admin puede crear usuarios" });
 
     const { username, password, role } = req.body;
-    
+
     if (!username || !password || !role)
         return res.status(400).json({ error: "Faltan campos requeridos" });
 
@@ -586,6 +586,39 @@ app.post('/api/users', verifyToken, async (req, res) => {
             INSERT INTO users (nombre, contrasena, rol)
             VALUES (?, ?, ?)
         `, [username, hashedPassword, role]);
+
+        res.json({ success: true });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+// Endpoint para actualizar usuario (admin)
+app.put('/api/users/:id', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin")
+        return res.status(403).json({ error: "Solo admin puede editar usuarios" });
+
+    const { username, password, role } = req.body;
+    const userId = req.params.id;
+
+    try {
+        let query = "UPDATE users SET nombre = ?, rol = ?";
+        let params = [username, role];
+
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            query += ", contrasena = ?";
+            params.push(hashedPassword);
+        }
+
+        query += " WHERE id_user = ?";
+        params.push(userId);
+
+        await connection.promise().query(query, params);
 
         res.json({ success: true });
 

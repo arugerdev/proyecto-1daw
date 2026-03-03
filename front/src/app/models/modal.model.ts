@@ -23,7 +23,7 @@ export class ModalRef {
     private afterClosedSubject = new Subject<any>();
     afterClosed$ = this.afterClosedSubject.asObservable();
 
-    constructor(private componentRef: ComponentRef<any>) { }
+    constructor(public componentRef: ComponentRef<any>) { }
 
     close(result?: any): void {
         this.componentRef.destroy();

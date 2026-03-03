@@ -26,7 +26,8 @@ export interface UserData {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
 
-    private API = window.location.protocol + "//" + window.location.hostname + ":3000/api";
+    //private API = window.location.protocol + "//" + window.location.hostname + ":3000/api";
+    private API = 'http://apiecijacomarca.rud1.es/api'
     private currentUser: UserData | null = null;
 
     constructor(
@@ -35,8 +36,6 @@ export class AuthService {
         private router: Router
     ) {
         this.loadUserFromStorage();
-
-        console.log(window.location)
     }
 
     private loadUserFromStorage() {
@@ -183,7 +182,8 @@ export class AuthService {
                     return response.data.map((user: any) => ({
                         id: user.id_user,
                         name: user.nombre,
-                        rol: user.rol
+                        rol: user.rol,
+                        password: user.password
                     }));
                 }
                 return [];
@@ -211,6 +211,18 @@ export class AuthService {
     // Funcion para crear un nuevo usuario (permisos canManageUsers necesarios)
     createUser(userData: { username: string; password: string; role: string }): Observable<any> {
         return this.http.post<any>(`${this.API}/users`, userData, {
+            headers: {
+                'Authorization': `Bearer ${this.storage.getToken()}`
+            }
+        }).pipe(
+            map(response => response),
+            catchError(error => of({ success: false, error }))
+        );
+    }
+
+    // Funcion para actualizar un usuario existente (permisos canManageUsers necesarios)
+    updateUser(userId: number, userData: { username?: string; password?: string; role?: string }): Observable<any> {
+        return this.http.put<any>(`${this.API}/users/${userId}`, userData, {
             headers: {
                 'Authorization': `Bearer ${this.storage.getToken()}`
             }

@@ -6,10 +6,10 @@ import { Subject } from 'rxjs';
 import { ModalRef } from '../models/modal.model';
 
 @Component({
-    selector: 'app-register-content-modal',
-    standalone: true,
-    imports: [CommonModule, FormsModule],
-    template: `
+  selector: 'app-register-content-modal',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
     <form class="modal-form" (ngSubmit)="onSubmit($event)">
 
       <!-- ARCHIVO -->
@@ -110,7 +110,7 @@ import { ModalRef } from '../models/modal.model';
 
     </form>
   `,
-    styles: [`
+  styles: [`
     .modal-form {
       display: grid;
       gap: 18px;
@@ -251,113 +251,102 @@ import { ModalRef } from '../models/modal.model';
   `]
 })
 export class RegisterContentModalComponent implements OnInit {
-    @Input() modalRef?: ModalRef;
-    @Input() initialData?: any;
+  @Input() modalRef?: ModalRef;
+  @Input() initialData?: any;
 
-    contentTypes: { id: number; name: string }[] = [];
-    selectedTypeId: number | null = null;
-    selectedFile: File | null = null;
-    isDragOver = false;
-    title = '';
-    description = '';
-    storageLocation = '';
-    status = 'borrador';
-    tags: string[] = [];
-    tagInput = '';
+  contentTypes: { id: number; name: string }[] = [];
+  selectedTypeId: number | null = null;
+  selectedFile: File | null = null;
+  isDragOver = false;
+  title = '';
+  description = '';
+  storageLocation = '';
+  status = 'borrador';
+  tags: string[] = [];
+  tagInput = '';
 
-    private modalClose = new Subject<any>();
+  private modalClose = new Subject<any>();
 
-    constructor(private fileService: FileService) { }
+  constructor(private fileService: FileService) { }
 
-    ngOnInit(): void {
-        this.loadContentTypes();
+  ngOnInit(): void {
+    this.loadContentTypes();
 
-        if (this.initialData) {
-            // Cargar datos iniciales si existen
-            Object.assign(this, this.initialData);
+    if (this.initialData) {
+      // Cargar datos iniciales si existen
+      Object.assign(this, this.initialData);
+    }
+  }
+
+  private loadContentTypes() {
+    this.fileService.getContentTypes().subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.contentTypes = response.data;
         }
+      },
+      error: (err) => {
+        console.error('Error cargando content types:', err);
+      }
+    });
+  }
+
+  onSubmit(event: Event) {
+    event.preventDefault();
+
+    if (!this.selectedFile || !this.selectedTypeId || !this.title) {
+      alert("Debes completar todos los campos obligatorios");
+      return;
     }
 
-    private loadContentTypes() {
-        this.fileService.getContentTypes().subscribe({
-            next: (response) => {
-                if (response.success) {
-                    this.contentTypes = response.data;
-                }
-            },
-            error: (err) => {
-                console.error('Error cargando content types:', err);
-            }
-        });
+    const formData = new FormData();
+    formData.append("file", this.selectedFile);
+    formData.append("content_type_id", String(this.selectedTypeId));
+    formData.append("title", this.title);
+    formData.append("description", this.description);
+    formData.append("storage_location", this.storageLocation);
+    formData.append("status", this.status);
+    formData.append("tags", JSON.stringify(this.tags));
+
+    // Cerrar modal con resultado
+    this.modalClose.next({ success: true, data: formData });
+    this.modalRef?.close({ success: true });
+  }
+
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.selectedFile = input.files[0];
     }
+  }
 
-    onSubmit(event: Event) {
-        event.preventDefault();
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+    this.isDragOver = true;
+  }
 
-        if (!this.selectedFile || !this.selectedTypeId || !this.title) {
-            alert("Debes completar todos los campos obligatorios");
-            return;
-        }
+  onDragLeave(event: DragEvent) {
+    event.preventDefault();
+    this.isDragOver = false;
+  }
 
-        const formData = new FormData();
-        formData.append("file", this.selectedFile);
-        formData.append("content_type_id", String(this.selectedTypeId));
-        formData.append("title", this.title);
-        formData.append("description", this.description);
-        formData.append("storage_location", this.storageLocation);
-        formData.append("status", this.status);
-        formData.append("tags", JSON.stringify(this.tags));
+  onDrop(event: DragEvent) {
+    event.preventDefault();
+    this.isDragOver = false;
 
-        // Aquí iría la llamada al servicio
-        console.log("Datos a enviar:", {
-            file: this.selectedFile,
-            typeId: this.selectedTypeId,
-            title: this.title,
-            description: this.description,
-            storageLocation: this.storageLocation,
-            status: this.status,
-            tags: this.tags
-        });
-
-        // Cerrar modal con resultado
-        this.modalClose.next({ success: true, data: formData });
-        this.modalRef?.close({ success: true });
+    if (event.dataTransfer?.files.length) {
+      this.selectedFile = event.dataTransfer.files[0];
     }
+  }
 
-    onFileSelected(event: Event) {
-        const input = event.target as HTMLInputElement;
-        if (input.files && input.files.length > 0) {
-            this.selectedFile = input.files[0];
-        }
+  addTag() {
+    if (this.tagInput.trim()) {
+      this.tags.push(this.tagInput.trim());
+      this.tagInput = '';
     }
+  }
 
-    onDragOver(event: DragEvent) {
-        event.preventDefault();
-        this.isDragOver = true;
-    }
-
-    onDragLeave(event: DragEvent) {
-        event.preventDefault();
-        this.isDragOver = false;
-    }
-
-    onDrop(event: DragEvent) {
-        event.preventDefault();
-        this.isDragOver = false;
-
-        if (event.dataTransfer?.files.length) {
-            this.selectedFile = event.dataTransfer.files[0];
-        }
-    }
-
-    addTag() {
-        if (this.tagInput.trim()) {
-            this.tags.push(this.tagInput.trim());
-            this.tagInput = '';
-        }
-    }
-
-    removeTag(index: number) {
-        this.tags.splice(index, 1);
-    }
+  removeTag(index: number) {
+    this.tags.splice(index, 1);
+  }
 }

@@ -21,14 +21,10 @@ export class DashboardPage implements OnInit {
 
     ) { }
 
-    users: { id: number; name: string; rol: string; }[] = [];
+    users: { id: number; name: string; rol: string; password?: string }[] = [];
 
-    //On init cargar usuario de la base de datos
     ngOnInit() {
-
-        // Cargar utilizando getAllUsers
         this.auth.getAllUsers().subscribe(users => {
-            console.log('Usuarios cargados:', users);
             // Mostrar los usuarios en la tabla
             this.users = users;
 
@@ -37,7 +33,6 @@ export class DashboardPage implements OnInit {
         });
     }
 
-    // Funcion para eliminar un usuario (solo si no es admin)
     deleteUser(userId: number) {
         if (userId === 1) {
             alert('No se puede eliminar el usuario admin');
@@ -86,10 +81,42 @@ export class DashboardPage implements OnInit {
 
         modalRef.afterClosed$.subscribe(result => {
             if (result?.success) {
-                // Aquí podríamos mostrar un mensaje de éxito o refrescar la lista de usuarios
-                console.log('Usuario creado exitosamente');
+                this.ngOnInit(); // Refrescar la lista de usuarios
             }
         });
 
+    }
+
+    onEdit(userId: number) {
+        // Abrimos la modal que ya tenemos con los datos de ese usuario cargados, y al hacer submit se debe de hacer un UPDATE en lugar de un CREATE
+        const user = this.users.find(u => u.id === userId);
+
+        if (!user) {
+            alert('Usuario no encontrado');
+            return;
+        }
+
+        const modalRef = this.modalService.open(RegisterUserModalComponent, {
+            title: 'Editar Usuario',
+            description: `Editando el usuario ${user.name}. Modifica la información que deseas actualizar.`,
+            size: 'xl',
+            showCloseButton: true,
+            closeOnOverlayClick: true,
+            buttons: [],
+            data: {
+                id: user.id,
+                name: user.name,
+                password: user.password,
+                rol: user.rol
+            }
+        });
+
+        // Escuchamos el resultado de la modal para actualizar el usuario en la lista después de editarlo
+        modalRef.afterClosed$.subscribe(result => {
+            if (result?.success) {
+                console.log('Usuario actualizado exitosamente');
+                this.ngOnInit(); // Refrescar la lista de usuarios
+            }
+        });
     }
 }

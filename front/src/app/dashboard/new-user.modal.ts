@@ -5,10 +5,12 @@ import { Subject } from 'rxjs';
 import { ModalRef } from '../models/modal.model';
 import { AuthService } from '../../services/auth.service';
 
+
 @Component({
     selector: 'app-register-user-modal',
     standalone: true,
     imports: [CommonModule, FormsModule],
+    // En el template, solo cuando editamos, añadimos un checkbox para cambiar la contraseña, si el checkbox esta marcado se muestra el campo de contraseña, si no esta marcado se oculta el campo de contraseña y no se envia la contraseña al backend, esto es para evitar que al editar un usuario sin querer se cambie su contraseña a una vacía
     template: `
     <div class="modal-content">
         <form #userForm="ngForm" class="modal-form" (ngSubmit)="onSubmit()">
@@ -48,7 +50,15 @@ import { AuthService } from '../../services/auth.service';
                 </div>
             -->
 
-            <div class="form-group">
+            <div class="form-group-h" *ngIf="userData.id">
+            <label class="form-label">Cambiar Contraseña</label>
+            <label class="form-checkbox">
+                    <input type="checkbox" [(ngModel)]="changePassword" name="changePassword">
+                    <span class="form-checkbox-indicator"></span>
+                </label>
+            </div>
+
+            <div class="form-group" *ngIf="!userData.id || changePassword">
                 <label class="form-label" for="password">Contraseña</label>
                 <input 
                     class="form-input" 
@@ -79,7 +89,7 @@ import { AuthService } from '../../services/auth.service';
                 </select>
             </div>
 
-            <!-- Botones dentro del formulario -->
+            <!-- Botones dentro del formulario, cambiar entre crear y guardar al editar -->
             <div class="modal-form-actions">
                 <button 
                     type="button" 
@@ -91,7 +101,7 @@ import { AuthService } from '../../services/auth.service';
                     type="submit" 
                     class="btn btn-primary" 
                     [disabled]="userForm.invalid">
-                    Crear Usuario
+                    {{ userData.id ? 'Guardar Cambios' : 'Crear Usuario' }}
                 </button>
             </div>
         </form>
@@ -106,6 +116,12 @@ import { AuthService } from '../../services/auth.service';
         .form-group {
             display: grid;
             gap: 8px;
+        }
+
+        .form-group-h {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .form-label {
@@ -197,15 +213,21 @@ import { AuthService } from '../../services/auth.service';
         }
     `]
 })
+
+//USAR DATA DEL MODALCONFIG PARA PASAR LOS DATOS DEL USUARIO A EDITAR, SI HAY UN ID EN LOS DATOS SE ASUME QUE ES UNA EDICION, SI NO HAY ID SE ASUME QUE ES CREACION
+
 export class RegisterUserModalComponent {
     @Input() modalRef?: ModalRef;
     @ViewChild('userForm') userForm: any;
 
     userData = {
+        id: null,
         username: '',
         password: '',
         role: 'viewer'
     };
+
+    changePassword = false;
 
     private modalClose = new Subject<any>();
 
@@ -214,7 +236,28 @@ export class RegisterUserModalComponent {
         private cdfr: ChangeDetectorRef
     ) { }
 
+    ngOnInit() {
+        // Si el modalRef tiene datos, cargar esos datos en el formulario (esto se usaría para la edición)
+
+        if (this.modalRef) {
+            const data = this.modalRef?.componentRef.instance.data;
+
+            if (data) {
+                this.userData = {
+                    id: data.id,
+                    username: data.name,
+                    password: '', // No se carga la contraseña por seguridad
+                    role: data.rol
+                };
+                this.cdfr.markForCheck();
+            }
+        }
+
+    }
+
+
     onSubmit() {
+
         if (this.userForm.invalid) {
             // Marcar todos los campos como tocados para mostrar errores
             Object.keys(this.userForm.controls).forEach(field => {
@@ -224,25 +267,43 @@ export class RegisterUserModalComponent {
             return;
         }
 
-        console.log("Datos a enviar:", this.userData);
+        // Separar el proceso de creaccion al proceso de edicion, el mismo componente debe servir para las dos
+        if (this.userData.id) {
+            // Si hay un id, es una edición
+            this.auth.updateUser(this.userData.id, this.userData).subscribe({
+                next: (response) => {
+                    // Cerrar modal con resultado
+                    this.modalRef?.close({
+                        success: true,
+                        data: this.userData
+                    });
 
-        // Llamar al servicio para crear el usuario (esto se haría en un servicio real)
-        this.auth.createUser(this.userData).subscribe({
-            next: (response) => {
-                console.log("Usuario creado:", response);
-                // Cerrar modal con resultado
-                this.modalRef?.close({
-                    success: true,
-                    data: this.userData
-                });
+                    // Actualizar el usuario en la lista local después de actualizarlo en el servidor
+                    // Esto se haría en el componente padre, aquí solo cerramos el modal con el resultado, y el componente padre se encarga de actualizar la lista de usuarios
+                },
+                error: (error) => {
+                    console.error("Error al actualizar usuario:", error);
+                    alert("Error al actualizar el usuario");
+                }
+            });
+        } else {
+            // Llamar al servicio para crear el usuario (esto se haría en un servicio real)
+            this.auth.createUser(this.userData).subscribe({
+                next: (response) => {
+                    // Cerrar modal con resultado
+                    this.modalRef?.close({
+                        success: true,
+                        data: this.userData
+                    });
 
-                location.reload();
-            },
-            error: (error) => {
-                console.error("Error al crear usuario:", error);
-                alert("Error al crear el usuario");
-            }
-        });
+                    location.reload();
+                },
+                error: (error) => {
+                    console.error("Error al crear usuario:", error);
+                    alert("Error al crear el usuario");
+                }
+            });
+        }
     }
 
     onCancel() {
