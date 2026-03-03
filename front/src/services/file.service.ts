@@ -9,7 +9,8 @@ import { SvgIcons } from '../app/utils/svg-icons';
 })
 export class FileService {
 
-    private apiUrl = 'http://localhost:3000/api';
+    //private API = window.location.protocol + "//" + window.location.hostname + ":3000/api";
+    private API = window.location.protocol + '//apiecijacomarca.rud1.es/api'
 
     constructor(private http: HttpClient) { }
 
@@ -26,7 +27,7 @@ export class FileService {
 
     getStats(): Observable<{ success: boolean; stats: Stats }> {
         return this.http.get<{ success: boolean; stats: Stats }>(
-            `${this.apiUrl}/stats`,
+            `${this.API}/stats`,
             { headers: this.getHeaders() }
         );
     }
@@ -52,7 +53,7 @@ export class FileService {
         if (selectedType != 0) params = params.set('type', selectedType);
 
         return this.http.get<PaginatedResponse>(
-            `${this.apiUrl}/files/paginated`,
+            `${this.API}/files/paginated`,
             {
                 headers: this.getHeaders(),
                 params
@@ -64,7 +65,7 @@ export class FileService {
         return this.http.get<{
             success: boolean,
             data: { id: number; name: string }[]
-        }>(`${this.apiUrl}/content-types`);
+        }>(`${this.API}/content-types`);
     }
 
     // ===========================
@@ -73,7 +74,7 @@ export class FileService {
 
     downloadMedia(id: number): Observable<Blob> {
         return this.http.get(
-            `${this.apiUrl}/files/${id}/download`,
+            `${this.API}/files/${id}/download`,
             {
                 headers: this.getHeaders(),
                 responseType: 'blob'
@@ -87,7 +88,7 @@ export class FileService {
 
     deleteMedia(id: number): Observable<{ success: boolean }> {
         return this.http.delete<{ success: boolean }>(
-            `${this.apiUrl}/files/${id}`,
+            `${this.API}/files/${id}`,
             { headers: this.getHeaders() }
         );
     }
@@ -98,7 +99,7 @@ export class FileService {
 
     updateMedia(id: number, data: Partial<MediaItem>): Observable<{ success: boolean }> {
         return this.http.put<{ success: boolean }>(
-            `${this.apiUrl}/files/${id}`,
+            `${this.API}/files/${id}`,
             data,
             { headers: this.getHeaders() }
         );
