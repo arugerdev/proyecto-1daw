@@ -1,5 +1,4 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { ModalComponent } from '../../components/modal/modal.component';
 import { FormsModule } from '@angular/forms';
 import { Header } from '../../components/header/header.component';
 import { FileGridComponent } from '../../components/file-grid/file-grid.component';
@@ -9,53 +8,51 @@ import { HttpClientModule } from '@angular/common/http';
 import { Subject, takeUntil, forkJoin, finalize } from 'rxjs';
 import { Stats } from '../models/file.model';
 import { AuthService } from '../../services/auth.service';
+import { ModalService } from '../../components/modal/modal.component';
+import { RegisterContentModalComponent } from './new-file.modal';
 
 @Component({
     selector: 'index-page',
     standalone: true,
     imports: [
         Header,
-        ModalComponent,
         FileGridComponent,
         FormsModule,
         CommonModule,
         HttpClientModule
+        // Eliminamos ModalComponent de imports
     ],
     templateUrl: './page.html',
     styleUrls: ['./style.css']
 })
 export class IndexPage implements OnInit, OnDestroy {
-    // Control del modal
-    isModalVisible = false;
     types: { id: number; name: string | undefined; }[] = [];
 
-    // Filtros (binding con el formulario)
     searchTerm = '';
     selectedType = 0;
     selectedSort = 'masReciente';
 
-    // Datos de estadísticas
     stats: Stats | null = null;
 
-    // Estados de carga inicial
     isLoading = true;
     hasError = false;
     errorMessage = '';
 
     canUploadContent = false;
 
-
     private destroy$ = new Subject<void>();
 
     constructor(
         private fileService: FileService,
         private cdr: ChangeDetectorRef,
-        public auth: AuthService
-
+        public auth: AuthService,
+        private modalService: ModalService  
     ) { }
 
     ngOnInit() {
-        this.auth.refreshUserRole().subscribe(user => {
+        this.auth.refreshUserRole().pipe(
+            takeUntil(this.destroy$)
+        ).subscribe(user => {
             this.canUploadContent = !!user?.permissions?.canUpload;
             this.cdr.markForCheck();
         });
@@ -82,7 +79,6 @@ export class IndexPage implements OnInit, OnDestroy {
             takeUntil(this.destroy$)
         ).subscribe({
             next: (results) => {
-
                 // Stats
                 if (results.stats?.success) {
                     this.stats = results.stats.stats;
@@ -106,8 +102,6 @@ export class IndexPage implements OnInit, OnDestroy {
 
     // Métodos para manejar cambios en los filtros
     onSearchChange() {
-        // Este método se llama desde el template, pero la lógica está en el grid
-        // Solo necesitamos que Angular detecte el cambio
         this.cdr.detectChanges();
     }
 
@@ -133,18 +127,48 @@ export class IndexPage implements OnInit, OnDestroy {
         });
     }
 
-    // Control del modal
+    // Control del modal - NUEVA VERSIÓN
     openModal() {
-        this.isModalVisible = true;
-        this.cdr.detectChanges();
-    }
+        if (!this.canUploadContent) return;
 
-    closeModal() {
-        this.isModalVisible = false;
-        this.cdr.detectChanges();
-        this.refreshStats();
-        // Forzar recarga del grid pasando null temporalmente para que resetee
-        this.searchTerm = this.searchTerm; // Trigger cambio
+        const modalRef = this.modalService.open(RegisterContentModalComponent, {
+            title: 'Registrar Nuevo Contenido',
+            description: 'Completa la información del contenido multimedia que deseas agregar al sistema.',
+            size: 'xl',
+            showCloseButton: true,
+            closeOnOverlayClick: true,
+            buttons: [
+                {
+                    text: 'Cancelar',
+                    variant: 'secondary',
+                    handler: (modalRef) => modalRef.close()
+                },
+                {
+                    text: 'Registrar Contenido',
+                    variant: 'primary',
+                    type: 'submit',
+                    closeOnClick: false  // El cierre lo maneja el componente después de enviar
+                }
+            ],
+            data: {
+                // Podemos pasar datos iniciales si queremos
+                initialData: {
+                    contentTypes: this.types  // Pasamos los tipos ya cargados
+                }
+            }
+        });
+
+        // Escuchamos cuando se cierra el modal
+        modalRef.afterClosed$.subscribe(result => {
+            if (result?.success) {
+                // Refrescamos estadísticas y grid
+                this.refreshStats();
+
+                // Forzamos un cambio en searchTerm para que el grid se recargue
+                this.searchTerm = this.searchTerm; // Trigger cambio
+                this.cdr.detectChanges();
+            }
+        });
     }
 
     reloadPage() {

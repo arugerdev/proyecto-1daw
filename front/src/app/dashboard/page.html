@@ -1,4 +1,170 @@
 <main class="main" style="display: flex; flex-direction: column; padding: 0; margin: 0; height: 100%; padding: 1rem;">
     <app-header style="width: 100%;"></app-header>
-    <h1 style="color:gray">PANEL DE ADMINISTRACION</h1>
+
+    <!-- SECCIÓN DE USUARIOS -->
+    <div class="users-section">
+        <div class="users-container">
+
+            <!-- Card de Usuarios -->
+            <div class="card users-card">
+
+                <!-- Card Header -->
+                <div class="users-header">
+                    <div class="users-header-info">
+                        <h2 class="users-title">Usuarios del Sistema</h2>
+                        <p class="users-description">
+                            Gestiona el acceso y los roles de los usuarios registrados.
+                        </p>
+                    </div>
+
+                    <button (click)="openModal()" class="button button-primary users-create-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14"></path>
+                            <path d="M12 5v14"></path>
+                        </svg>
+                        Crear Usuario
+                    </button>
+                </div>
+
+                <!-- Search -->
+                <div class="users-search">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="users-search-icon">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.3-4.3"></path>
+                    </svg>
+
+                    <input type="text" placeholder="Buscar por nombre o correo..." class="users-search-input">
+                </div>
+
+                <!-- Table -->
+                <div class="users-table-container">
+                    <table class="users-table">
+                        <thead class="users-table-header">
+                            <tr>
+                                <th class="users-table-th">Usuario</th>
+                                <th class="users-table-th">Rol</th>
+                                <th class="users-table-th text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="users-table-body">
+                            <!-- Mostrar los usuarios en la tabla -->
+                            <!-- El usuario admin (id = 1) NO deberia poder modificarse ni eliminarse -->
+                            <tr class="users-table-row" *ngFor="let user of users">
+                                <td class="users-table-td users-table-td-bold">{{ user.name }}</td>
+                                <td class="users-table-td">
+                                    <span class="badge badge-admin">
+                                        {{ user.rol }}
+                                    </span>
+                                </td>
+                                <td class="users-table-td text-right" *ngIf="user.id !== 1">
+                                    <div class="users-actions">
+                                        <a href="#" class="users-action-btn" title="Editar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path
+                                                    d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z">
+                                                </path>
+                                                <path d="m15 5 4 4"></path>
+                                            </svg>
+                                        </a>
+
+                                        <button class="users-action-btn users-action-delete" title="Eliminar"
+                                            (click)="deleteUser(user.id)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                                <line x1="10" x2="10" y1="11" y2="17"></line>
+                                                <line x1="14" x2="14" y1="11" y2="17"></line>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Script (mantenido igual pero con las nuevas clases) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tableBody = document.querySelector('.users-table-body');
+            const searchInput = document.querySelector('.users-search-input');
+
+            function renderUsers(filter = "") {
+                let storedUsers = JSON.parse(localStorage.getItem('systemUsers')) || [];
+                const defaultAdmin = { username: 'admin', email: 'admin@ejemplo.com', role: 'Administrador' };
+                let allUsers = [defaultAdmin, ...storedUsers];
+
+                tableBody.innerHTML = '';
+
+                allUsers.forEach((user, index) => {
+                    if (user.username.toLowerCase().includes(filter.toLowerCase()) ||
+                        user.email.toLowerCase().includes(filter.toLowerCase())) {
+
+                        let badgeClass = "badge-admin";
+                        if (user.role === "Avanzado") badgeClass = "badge-advanced";
+                        if (user.role === "Espectador") badgeClass = "badge-viewer";
+
+                        const editUrl = index === 0 ? '#' : `EditarUsuario.html?id=${index - 1}`;
+
+                        const row = document.createElement('tr');
+                        row.className = 'users-table-row';
+
+                        row.innerHTML = `
+                            <td class="users-table-td users-table-td-bold">${user.username}</td>
+                            <td class="users-table-td">${user.email}</td>
+                            <td class="users-table-td">
+                                <span class="badge ${badgeClass}">
+                                    ${user.role}
+                                </span>
+                            </td>
+                            <td class="users-table-td text-right">
+                                <div class="users-actions">
+                                    <a href="${editUrl}" class="users-action-btn" title="Editar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path>
+                                            <path d="m15 5 4 4"></path>
+                                        </svg>
+                                    </a>
+                                    ${index > 0 ? `
+                                        <button onclick="deleteUser(${index - 1})" class="users-action-btn users-action-delete" title="Eliminar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                            </svg>
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    }
+                });
+            }
+
+            window.deleteUser = (idx) => {
+                if (confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
+                    let users = JSON.parse(localStorage.getItem('systemUsers')) || [];
+                    users.splice(idx, 1);
+                    localStorage.setItem('systemUsers', JSON.stringify(users));
+                    renderUsers();
+                }
+            };
+
+            searchInput.addEventListener('input', (e) => renderUsers(e.target.value));
+            renderUsers();
+        });
+    </script>
+
 </main>

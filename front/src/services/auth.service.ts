@@ -26,7 +26,7 @@ export interface UserData {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
 
-    private API = "http://localhost:3000/api";
+    private API = window.location.protocol + "//" + window.location.hostname + ":3000/api";
     private currentUser: UserData | null = null;
 
     constructor(
@@ -35,6 +35,8 @@ export class AuthService {
         private router: Router
     ) {
         this.loadUserFromStorage();
+
+        console.log(window.location)
     }
 
     private loadUserFromStorage() {
@@ -167,5 +169,42 @@ export class AuthService {
     getPermissions(): UserPermissions | null {
         const user = this.getCurrentUser();
         return user?.permissions || null;
+    }
+
+    // Funcion para obtener todos los usuarios y sus roles de la base de datos (para el dashboard de admin, permisos canManageUsers necesarios)
+    getAllUsers(): Observable<{ id: number; name: string; rol: string; }[]> {
+        return this.http.get<any>(`${this.API}/users`, {
+            headers: {
+                'Authorization': `Bearer ${this.storage.getToken()}`
+            }
+        }).pipe(
+            map(response => {
+                if (response.success) {
+                    return response.data.map((user: any) => ({
+                        id: user.id_user,
+                        name: user.nombre,
+                        rol: user.rol
+                    }));
+                }
+                return [];
+            }),
+            catchError(() => of([]))
+        );
+    }
+
+    // Funcion para eliminar un usuario por su ID (solo si no es admin, permisos canManageUsers necesarios)
+    deleteUser(userId: number): Observable<boolean> {
+        if (userId === 1) {
+            return of(false);
+        }
+
+        return this.http.delete<any>(`${this.API}/users/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${this.storage.getToken()}`
+            }
+        }).pipe(
+            map(response => response.success),
+            catchError(() => of(false))
+        );
     }
 }

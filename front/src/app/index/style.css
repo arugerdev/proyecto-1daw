@@ -23,7 +23,7 @@ body {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
   padding: 24px;
 }
@@ -707,7 +707,7 @@ textarea:focus {
   }
 }
 
-.error-content{
+.error-content {
   color: var(--text-primary);
 }
 
@@ -724,10 +724,10 @@ textarea:focus {
   animation: slideFade 0.3s ease;
 }
 
-.error-message{
+.error-message {
   display: flex;
   flex-direction: row;
-   gap: 8px;
+  gap: 8px;
 }
 
 .login-error strong {

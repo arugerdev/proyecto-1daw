@@ -31,6 +31,7 @@
 
     /* Backgrounds */
     --bg-body: #f3f4f6;
+    --bg-overlay: #00000080;
     --bg-card: #ffffff;
     --bg-card-soft: #f9fafb;
     --bg-input: #e5e7eb;
@@ -70,6 +71,7 @@
 @media (prefers-color-scheme: dark) {
     :host {
         --bg-body: #0f172a;
+        --bg-overlay: #00000080;
         --bg-card: #1e293b;
         --bg-card-soft: #1f2937;
         --bg-input: #374151;
@@ -126,6 +128,7 @@ body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: var(--text-primary);
 }
+
 main {
     width: 100%;
     min-height: 100%;

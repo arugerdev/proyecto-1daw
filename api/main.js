@@ -180,6 +180,7 @@ app.get('/api/files', verifyToken, async (req, res) => {
     res.json(rows);
 });
 
+
 app.get('/api/files/:id/download', verifyToken, async (req, res) => {
 
     const [rows] = await connection.promise().query(
@@ -524,6 +525,63 @@ app.get('/api/content-types', verifyToken, async (req, res) => {
         });
     }
 });
+
+
+// Get all users (for admin)
+app.get('/api/users', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin")
+        return res.status(403).json({ error: "Solo admin puede ver usuarios" });
+
+    try {
+        const [rows] = await connection.promise().query(`
+            SELECT *
+            FROM users
+            ORDER BY nombre ASC
+        `);
+        res.json({
+            success: true,
+            data: rows
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+app.delete('/api/users/:id', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin")
+        return res.status(403).json({ error: "Solo admin puede eliminar usuarios" });
+
+    try {
+        await connection.promise().query(
+            "DELETE FROM users WHERE id_user = ?",
+            [req.params.id]
+        );
+        res.json({ success: true });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+// ELIMINAR EN PRODUCCION
+app.get('/api/clear', async (req, res) => {
+
+    let query = `DELETE FROM media_items WHERE 1=1 LIMIT 1000`;
+
+
+    const [rows] = await connection.promise().query(query);
+
+    res.json(rows);
+});
+//
+
 
 // Función helper para formatear bytes
 function formatBytes(bytes, decimals = 2) {

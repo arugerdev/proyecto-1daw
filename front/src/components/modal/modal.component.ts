@@ -1,103 +1,89 @@
-import { Component, Output, EventEmitter, Input, OnInit } from '@angular/core';
-import { FileService } from '../../services/file.service';
-import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
+import {
+  ApplicationRef,
+  ComponentRef,
+  createComponent,
+  EnvironmentInjector,
+  Injectable,
+  Injector,
+  Type,
+} from '@angular/core';
+import { ModalConfig, ModalRef } from '../../app/models/modal.model';
+import { ModalContainerComponent } from './modal-container.component';
 
-@Component({
-  selector: 'app-modal',
-  standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule
-  ],
-  templateUrl: './modal.component.html',
-  styleUrls: ['./modal.component.css'],
+@Injectable({
+  providedIn: 'root',
 })
-export class ModalComponent implements OnInit {
+export class ModalService {
+  private modalRef?: ModalRef;
 
-  @Input() isVisible = false;
-  @Output() close = new EventEmitter<void>();
+  constructor(
+    private appRef: ApplicationRef,
+    private injector: EnvironmentInjector
+  ) { }
 
-  contentTypes: { id: number; name: string }[] = [];
-  selectedTypeId: number | null = null;
-  selectedFile: File | null = null;
-  isDragOver = false;
+  open<T>(
+    component: Type<T>,
+    config: ModalConfig
+  ): ModalRef {
+    const containerRef = this.createModalContainer(config);
 
-  constructor(private fileService: FileService) { }
+    const contentRef = this.createContent(component, containerRef, config);
 
-  ngOnInit(): void {
-    this.loadContentTypes();
+    this.setupCommunication(containerRef, contentRef);
+
+    this.modalRef = new ModalRef(containerRef);
+    return this.modalRef;
   }
 
-  private loadContentTypes() {
-    this.fileService.getContentTypes().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.contentTypes = response.data;
-        }
-      },
-      error: (err) => {
-        console.error('Error cargando content types:', err);
-      }
+  private createModalContainer(config: ModalConfig): ComponentRef<any> {
+    const hostElement = document.createElement('div');
+    hostElement.classList.add('modal-host');
+    document.body.querySelector('app-root')?.appendChild(hostElement);
+
+    const containerRef = createComponent(ModalContainerComponent, {
+      environmentInjector: this.injector,
+      hostElement,
     });
-  }
-  onClose() {
-    this.close.emit();
+
+    Object.assign(containerRef.instance, config);
+    containerRef.instance.modalRef = new ModalRef(containerRef);
+
+    this.appRef.attachView(containerRef.hostView);
+
+    return containerRef;
   }
 
-  onOverlayClick(event: MouseEvent) {
-    if ((event.target as HTMLElement).classList.contains('modal-overlay') || (event.target as HTMLElement).classList.contains('modal-wrapper')) {
-      this.onClose();
+  private createContent<T>(
+    component: Type<T>,
+    containerRef: ComponentRef<any>,
+    config: ModalConfig
+  ): ComponentRef<T> {
+    // Crear vista para el contenido
+    const contentRef = createComponent(component, {
+      environmentInjector: this.injector,
+      hostElement: containerRef.instance.contentHost.nativeElement,
+    });
+
+    if (config.data) {
+      Object.assign(contentRef.instance as object, config.data);
     }
+    this.appRef.attachView(contentRef.hostView);
+
+    return contentRef;
   }
 
-  onSubmit(event: Event) {
-    event.preventDefault();
-
-    if (!this.selectedFile || !this.selectedTypeId) {
-      alert("Debes seleccionar archivo y tipo");
-      return;
+  private setupCommunication(
+    containerRef: ComponentRef<any>,
+    contentRef: ComponentRef<any>
+  ): void {
+    // Suscribirse a eventos del contenido
+    if (contentRef.instance['modalClose']) {
+      contentRef.instance['modalClose'].subscribe((result: any) => {
+        containerRef.instance.close(result);
+      });
     }
 
-    const formData = new FormData();
-    formData.append("file", this.selectedFile);
-    formData.append("content_type_id", String(this.selectedTypeId));
-
-    // this.fileService.uploadContent(formData).subscribe({
-    //   next: () => {
-    //     console.log("Archivo subido correctamente");
-    //     this.onClose();
-    //   },
-    //   error: (err) => {
-    //     console.error("Error subiendo archivo:", err);
-    //   }
-    // });
-  }
-
-  onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-
-    if (input.files && input.files.length > 0) {
-      this.selectedFile = input.files[0];
-    }
-  }
-
-  onDragOver(event: DragEvent) {
-    event.preventDefault();
-    this.isDragOver = true;
-  }
-
-  onDragLeave(event: DragEvent) {
-    event.preventDefault();
-    this.isDragOver = false;
-  }
-
-  onDrop(event: DragEvent) {
-    event.preventDefault();
-    this.isDragOver = false;
-
-    if (event.dataTransfer?.files.length) {
-      this.selectedFile = event.dataTransfer.files[0];
-    }
+    // Pasar referencia del modal al contenido
+    contentRef.instance['modalRef'] = containerRef.instance.modalRef;
   }
 }
