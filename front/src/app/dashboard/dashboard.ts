@@ -67,17 +67,18 @@ export class DashboardPage implements OnInit {
             showCloseButton: true,
             closeOnOverlayClick: true,
             buttons: [
-                {
-                    text: 'Cancelar',
-                    variant: 'secondary',
-                    handler: (modalRef) => modalRef.close()
-                },
-                {
-                    text: 'Crear Usuario',
-                    variant: 'primary',
-                    type: 'submit',
-                    closeOnClick: false
-                }
+                /*               {
+                                   text: 'Cancelar',
+                                   variant: 'secondary',
+                                   handler: (modalRef) => modalRef.close()
+                               },
+                               {
+                                   text: 'Crear Usuario',
+                                   variant: 'primary',
+                                   type: 'submit',
+                                   closeOnClick: false
+                               }
+               */
             ],
             data: {
             }

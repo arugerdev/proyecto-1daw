@@ -207,4 +207,16 @@ export class AuthService {
             catchError(() => of(false))
         );
     }
+
+    // Funcion para crear un nuevo usuario (permisos canManageUsers necesarios)
+    createUser(userData: { username: string; password: string; role: string }): Observable<any> {
+        return this.http.post<any>(`${this.API}/users`, userData, {
+            headers: {
+                'Authorization': `Bearer ${this.storage.getToken()}`
+            }
+        }).pipe(
+            map(response => response),
+            catchError(error => of({ success: false, error }))
+        );
+    }
 }

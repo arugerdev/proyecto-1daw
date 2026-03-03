@@ -570,6 +570,33 @@ app.delete('/api/users/:id', verifyToken, async (req, res) => {
     }
 });
 
+app.post('/api/users', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin")
+        return res.status(403).json({ error: "Solo admin puede crear usuarios" });
+
+    const { username, password, role } = req.body;
+    console.log(req.body);
+    if (!username || !password || !role)
+        return res.status(400).json({ error: "Faltan campos requeridos" });
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await connection.promise().query(`
+            INSERT INTO users (nombre, contrasena, rol)
+            VALUES (?, ?, ?)
+        `, [username, hashedPassword, role]);
+
+        res.json({ success: true });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
 // ELIMINAR EN PRODUCCION
 app.get('/api/clear', async (req, res) => {
 
