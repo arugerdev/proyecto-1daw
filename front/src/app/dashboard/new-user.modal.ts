@@ -81,11 +81,12 @@ import { AuthService } from '../../services/auth.service';
                     id="role" 
                     name="role"
                     [(ngModel)]="userData.role"
+                    defaultValue="viewer"
                     class="form-select"
                     required>
+                    <option value="viewer" selected>Espectador - Solo lectura</option>
                     <option value="admin">Administrador - Acceso total</option>
                     <option value="moderator">Usuario Avanzado - Puede editar</option>
-                    <option value="viewer">Espectador - Solo lectura</option>
                 </select>
             </div>
 
