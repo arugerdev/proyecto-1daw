@@ -27,7 +27,7 @@ export interface UserData {
 export class AuthService {
 
     //private API = window.location.protocol + "//" + window.location.hostname + ":3000/api";
-    private API = 'http://apiecijacomarca.rud1.es/api'
+    private API = window.location.protocol + '//apiecijacomarca.rud1.es/api'
     private currentUser: UserData | null = null;
 
     constructor(
