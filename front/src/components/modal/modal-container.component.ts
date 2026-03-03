@@ -87,7 +87,8 @@ import { ModalButton, ModalRef } from '../../app/models/modal.model';
       width: fit-content;
       height: fit-content;
       place-self: center;
-      width: 100%;
+      max-width: fit-content;
+      height: fit-content;
     }
 
     .modal-wrapper.visible {
