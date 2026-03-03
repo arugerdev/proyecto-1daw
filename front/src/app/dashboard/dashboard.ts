@@ -27,6 +27,7 @@ export class DashboardPage implements OnInit {
         this.auth.getAllUsers().subscribe(users => {
             // Mostrar los usuarios en la tabla
             this.users = users;
+            this.cdr.markForCheck();
 
         }, error => {
             console.error('Error cargando usuarios:', error);

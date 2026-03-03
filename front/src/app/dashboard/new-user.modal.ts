@@ -278,8 +278,7 @@ export class RegisterUserModalComponent {
                         data: this.userData
                     });
 
-                    // Actualizar el usuario en la lista local después de actualizarlo en el servidor
-                    // Esto se haría en el componente padre, aquí solo cerramos el modal con el resultado, y el componente padre se encarga de actualizar la lista de usuarios
+                    location.reload();
                 },
                 error: (error) => {
                     console.error("Error al actualizar usuario:", error);
