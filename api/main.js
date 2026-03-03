@@ -575,7 +575,7 @@ app.post('/api/users', verifyToken, async (req, res) => {
         return res.status(403).json({ error: "Solo admin puede crear usuarios" });
 
     const { username, password, role } = req.body;
-    console.log(req.body);
+    
     if (!username || !password || !role)
         return res.status(400).json({ error: "Faltan campos requeridos" });
 
