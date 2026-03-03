@@ -216,7 +216,7 @@ CREATE TABLE import_csv (
     `Legislative Body` TEXT
 );
 
-LOAD DATA LOCAL INFILE './bd.csv'
+LOAD DATA LOCAL INFILE '/bd.csv'
 INTO TABLE import_csv
 FIELDS TERMINATED BY ','
 ENCLOSED BY '"'

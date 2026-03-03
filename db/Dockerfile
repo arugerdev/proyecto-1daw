@@ -5,6 +5,7 @@ COPY ./my.cnf /etc/mysql/conf.d/my.cnf
 
 # Copiar scripts de inicialización
 COPY init.sql /docker-entrypoint-initdb.d/
+COPY bd.csv /bd.csv
 
 # Exponer puerto
 EXPOSE 3306
