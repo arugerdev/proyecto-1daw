@@ -1,3 +1,5 @@
+SET GLOBAL local_infile = 1;
+
 DROP DATABASE IF EXISTS administradorMultimedia;
 CREATE DATABASE administradorMultimedia;
 USE administradorMultimedia;
