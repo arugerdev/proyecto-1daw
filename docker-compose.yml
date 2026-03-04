@@ -51,8 +51,6 @@ services:
       dockerfile: Dockerfile
     container_name: file_manager_frontend
     restart: unless-stopped
-    environment:
-      API_URL: https://apiecijacomarca.rud1.es/api
     ports:
       - "80:80"
     depends_on:
