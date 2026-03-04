@@ -7,6 +7,8 @@ WORKDIR /app
 ARG API_URL=http://localhost:3000/api
 ENV API_URL=$API_URL
 
+RUN echo "API_URL is set to: ${API_URL}"
+RUN mkdir -p src/environments
 RUN echo "export const environment = { production: true, API_URL: '${API_URL}' };" > src/environments/environment.ts
 
 COPY package.json package-lock.json ./
