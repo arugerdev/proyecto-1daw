@@ -79,6 +79,7 @@ export class IndexPage implements OnInit, OnDestroy {
             takeUntil(this.destroy$)
         ).subscribe({
             next: (results) => {
+                console.log('Datos iniciales cargados:', results);
                 // Stats
                 if (results.stats?.success) {
                     this.stats = results.stats.stats;

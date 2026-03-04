@@ -3,14 +3,14 @@ import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Stats, PaginatedResponse, MediaItem } from '../app/models/file.model';
 import { SvgIcons } from '../app/utils/svg-icons';
+import { environment } from '../environments/environment.development';
 
 @Injectable({
     providedIn: 'root'
 })
 export class FileService {
 
-    //private API = window.location.protocol + "//" + window.location.hostname + ":3000/api";
-    private API = window.location.protocol + '//apiecijacomarca.rud1.es/api'
+    private API = (environment as any).API_URL;
 
     constructor(private http: HttpClient) { }
 
@@ -26,6 +26,10 @@ export class FileService {
     // ===========================
 
     getStats(): Observable<{ success: boolean; stats: Stats }> {
+        
+        console.log('Obteniendo estadísticas desde:', this.API);
+        console.log((environment as any));
+
         return this.http.get<{ success: boolean; stats: Stats }>(
             `${this.API}/stats`,
             { headers: this.getHeaders() }

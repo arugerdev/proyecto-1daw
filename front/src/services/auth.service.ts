@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { LocalStorageService } from './localStorage.service';
 import { Observable, map, catchError, of, tap } from 'rxjs';
+import { environment } from '../environments/environment.development';
 
 export interface UserPermissions {
     canUpload: boolean;
@@ -25,9 +26,8 @@ export interface UserData {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+    private API = (environment as any).API_URL;
 
-    //private API = window.location.protocol + "//" + window.location.hostname + ":3000/api";
-    private API = window.location.protocol + '//apiecijacomarca.rud1.es/api'
     private currentUser: UserData | null = null;
 
     constructor(

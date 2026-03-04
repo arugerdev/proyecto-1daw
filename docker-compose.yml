@@ -11,7 +11,7 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: root
     ports:
-      - "3306:3306"  # Usamos puerto diferente para evitar conflictos con MySQL local
+      - "3306:3306" # Usamos puerto diferente para evitar conflictos con MySQL local
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db/backups:/backups
@@ -44,13 +44,15 @@ services:
       - database
     networks:
       - file_manager_network
- 
+
   frontend:
     build:
       context: ./front
       dockerfile: Dockerfile
     container_name: file_manager_frontend
     restart: unless-stopped
+    environment:
+      API_URL: https://apiecijacomarca.rud1.es/api
     ports:
       - "80:80"
     depends_on:

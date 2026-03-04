@@ -58,9 +58,11 @@ import { MediaItem } from '../../app/models/file.model';
                     <div class="metadata-item">
                         <span>{{ getYear() }}</span>
                     </div>
+                    <!--
                     <div class="metadata-item">
                         <span>{{ getProgram() }}</span>
                     </div>
+                    -->
                 </div>
 
                 <!-- Ubicación (SVG en lugar de emoji) -->

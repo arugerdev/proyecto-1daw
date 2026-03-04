@@ -51,14 +51,9 @@ function verifyToken(req, res, next) {
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        let folder = "otros";
-
-        if (file.mimetype.startsWith("image")) folder = "imagenes";
-        else if (file.mimetype.startsWith("video")) folder = "videos";
-        else if (file.mimetype.startsWith("audio")) folder = "audio";
-        else folder = "documentos";
-
-        const dir = path.join(__dirname, "media", folder);
+        // Usar la ruta base del .env
+        const basePath = mediaPath || path.join(__dirname, "media");
+        const dir = path.join(basePath);
 
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
@@ -76,7 +71,7 @@ app.post('/api/login', async (req, res) => {
     const data = req.body;
 
     if (!data) return res.status(401).json({ error: "Necesidad de credenciales" });
-    connection.promise().query(`SELECT * FROM users WHERE nombre = "${data.username}"`)
+    connection.promise().query(`SELECT * FROM users WHERE nombre = ?`, [data.username])
         .then(async ([rows]) => {
 
             if (rows.length === 0)
@@ -105,146 +100,315 @@ app.post('/api/login', async (req, res) => {
         .catch(err => res.status(500).json({ error: err.message }))
 });
 
+// Endpoint para logout
+app.post('/api/logout', verifyToken, async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(" ")[1];
+        
+        await connection.promise().query(
+            "DELETE FROM sessions WHERE key_session = ? AND id_user = ?",
+            [token, req.user.id_user]
+        );
+        
+        res.json({ success: true, message: "Sesión cerrada correctamente" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint para subir contenido (adaptado a la nueva estructura)
 app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, res) => {
 
     if (req.user.rol === "viewer")
         return res.status(403).json({ error: "No tienes permisos para subir contenido" });
 
-    const { title, description, recording_year, duration, content_type_id, program_id } = req.body;
+    const { title, description, publication_year, media_type_id, tags, author_ids } = req.body;
     const file = req.file;
 
     if (!file) return res.status(400).json({ error: "Archivo requerido" });
 
-    try {
+    // Determinar la ubicación del media
+    const mediaPath = file.destination;
+    const filename = file.filename;
+    const fullPath = file.path;
 
-        await connection.promise().query(`
+    try {
+        // Verificar o crear la ubicación de media
+        let [locationRows] = await connection.promise().query(
+            "SELECT id FROM media_locations WHERE path = ?",
+            [mediaPath]
+        );
+
+        let media_location_id;
+        if (locationRows.length === 0) {
+            const [result] = await connection.promise().query(
+                "INSERT INTO media_locations (path) VALUES (?)",
+                [mediaPath]
+            );
+            media_location_id = result.insertId;
+        } else {
+            media_location_id = locationRows[0].id;
+        }
+
+        // Insertar el item multimedia
+        const [result] = await connection.promise().query(`
             INSERT INTO media_items 
-            (title, description, recording_year, duration, file_path, content_type_id, program_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (title, description, publication_year, media_path, filename, media_type_id, media_location_id, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             title,
             description,
-            recording_year || null,
-            duration || null,
-            file.path,
-            content_type_id,
-            program_id
+            publication_year || null,
+            fullPath,
+            filename,
+            media_type_id,
+            media_location_id,
+            tags || null
         ]);
 
-        res.json({ success: true });
+        const mediaId = result.insertId;
+
+        // Si hay autores, insertar las relaciones
+        if (author_ids) {
+            const authorIdsArray = Array.isArray(author_ids) ? author_ids : JSON.parse(author_ids);
+            
+            for (const authorId of authorIdsArray) {
+                await connection.promise().query(
+                    "INSERT INTO media_author (media_id, author_id) VALUES (?, ?)",
+                    [mediaId, authorId]
+                );
+            }
+        }
+
+        res.json({ success: true, id: mediaId });
 
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
+// Endpoint para obtener archivos con filtros (adaptado)
 app.get('/api/files', verifyToken, async (req, res) => {
-
-    const { search, content_type, program } = req.query;
+    const { search, media_type, program, author } = req.query;
 
     let query = `
         SELECT 
             m.id,
             m.title,
             m.description,
-            m.recording_year,
-            m.duration,
-            m.file_path,
-            ct.name AS content_type,
-            p.name AS program
+            m.publication_year,
+            m.media_path,
+            m.filename,
+            m.tags,
+            m.date_added,
+            m.date_updated,
+            ct.name AS media_type,
+            ml.path AS location_path,
+            GROUP_CONCAT(DISTINCT a.name) AS authors,
+            GROUP_CONCAT(DISTINCT a.id) AS author_ids
         FROM media_items m
-        LEFT JOIN content_types ct ON m.content_type_id = ct.id
-        LEFT JOIN programs p ON m.program_id = p.id
+        LEFT JOIN media_types ct ON m.media_type_id = ct.id
+        LEFT JOIN media_locations ml ON m.media_location_id = ml.id
+        LEFT JOIN media_author ma ON m.id = ma.media_id
+        LEFT JOIN author a ON ma.author_id = a.id
         WHERE 1=1
     `;
 
     let params = [];
 
     if (search) {
-        query += " AND m.title LIKE ?";
-        params.push(`%${search}%`);
+        query += " AND (m.title LIKE ? OR m.description LIKE ? OR m.tags LIKE ?)";
+        const searchPattern = `%${search}%`;
+        params.push(searchPattern, searchPattern, searchPattern);
     }
 
-    if (content_type) {
+    if (media_type) {
         query += " AND ct.name = ?";
-        params.push(content_type);
+        params.push(media_type);
     }
 
-    if (program) {
-        query += " AND p.name = ?";
-        params.push(program);
+    if (author) {
+        query += " AND a.name LIKE ?";
+        params.push(`%${author}%`);
     }
+
+    query += " GROUP BY m.id ORDER BY m.date_added DESC";
 
     const [rows] = await connection.promise().query(query, params);
 
-    res.json(rows);
+    // Procesar los resultados para formatear autores
+    const processedRows = rows.map(row => ({
+        ...row,
+        authors: row.authors ? row.authors.split(',') : [],
+        author_ids: row.author_ids ? row.author_ids.split(',').map(Number) : []
+    }));
+
+    res.json(processedRows);
 });
 
+// Endpoint para obtener archivos paginados (adaptado)
+app.get('/api/files/paginated', verifyToken, async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    const order = req.query.order || 'masReciente';
+    const type = req.query.type || 0;
 
+    const offset = (page - 1) * limit;
+
+    let orderSentence = '';
+    switch (order) {
+        case 'masReciente':
+            orderSentence = 'm.publication_year DESC, m.date_added DESC';
+            break;
+        case 'masAntiguo':
+            orderSentence = 'm.publication_year ASC, m.date_added ASC';
+            break;
+        case 'nombreAZ':
+            orderSentence = 'm.title ASC';
+            break;
+        case 'nombreZA':
+            orderSentence = 'm.title DESC';
+            break;
+        default:
+            orderSentence = 'm.date_added DESC';
+            break;
+    }
+
+    const [rows] = await connection.promise().query(`
+        SELECT 
+            m.*,
+            ct.name AS media_type,
+            ml.path AS location_path,
+            GROUP_CONCAT(DISTINCT a.name) AS authors,
+            GROUP_CONCAT(DISTINCT a.id) AS author_ids
+        FROM media_items m
+        LEFT JOIN media_types ct ON m.media_type_id = ct.id
+        LEFT JOIN media_locations ml ON m.media_location_id = ml.id
+        LEFT JOIN media_author ma ON m.id = ma.media_id
+        LEFT JOIN author a ON ma.author_id = a.id
+        WHERE (m.title LIKE ? OR m.description LIKE ? OR m.tags LIKE ?)
+        ${type != 0 ? `AND m.media_type_id = ${type}` : ''}
+        GROUP BY m.id
+        ORDER BY ${orderSentence}
+        LIMIT ? OFFSET ?
+    `, [`%${search}%`, `%${search}%`, `%${search}%`, limit, offset]);
+
+    const [count] = await connection.promise().query(
+        "SELECT COUNT(*) as total FROM media_items"
+    );
+
+    // Procesar los resultados
+    const processedRows = rows.map(row => ({
+        ...row,
+        authors: row.authors ? row.authors.split(',') : [],
+        author_ids: row.author_ids ? row.author_ids.split(',').map(Number) : []
+    }));
+
+    res.json({
+        success: true,
+        data: processedRows,
+        pagination: {
+            page,
+            limit,
+            total: count[0].total,
+            pages: Math.ceil(count[0].total / limit)
+        }
+    });
+});
+
+// Endpoint para descargar archivo
 app.get('/api/files/:id/download', verifyToken, async (req, res) => {
-
     const [rows] = await connection.promise().query(
-        "SELECT file_path FROM media_items WHERE id = ?",
+        "SELECT media_path, filename FROM media_items WHERE id = ?",
         [req.params.id]
     );
 
     if (rows.length === 0)
         return res.status(404).json({ error: "Archivo no encontrado" });
 
-    res.download(rows[0].file_path);
+    res.download(rows[0].media_path, rows[0].filename);
 });
 
+// Endpoint para eliminar archivo
 app.delete('/api/files/:id', verifyToken, async (req, res) => {
-
     if (req.user.rol !== "admin")
         return res.status(403).json({ error: "Solo admin puede eliminar" });
 
     const [rows] = await connection.promise().query(
-        "SELECT file_path FROM media_items WHERE id = ?",
+        "SELECT media_path FROM media_items WHERE id = ?",
         [req.params.id]
     );
 
     if (rows.length === 0)
         return res.status(404).json({ error: "No existe" });
 
+    // Eliminar relaciones con autores primero (por la FK)
+    await connection.promise().query(
+        "DELETE FROM media_author WHERE media_id = ?",
+        [req.params.id]
+    );
+
     await connection.promise().query(
         "DELETE FROM media_items WHERE id = ?",
         [req.params.id]
     );
 
-    if (fs.existsSync(rows[0].file_path))
-        fs.unlinkSync(rows[0].file_path);
+    if (fs.existsSync(rows[0].media_path))
+        fs.unlinkSync(rows[0].media_path);
 
     res.json({ success: true });
 });
 
+// Endpoint para actualizar archivo
 app.put('/api/files/:id', verifyToken, async (req, res) => {
-
     if (req.user.rol === "viewer")
         return res.status(403).json({ error: "No tienes permisos" });
 
-    const { title, description, recording_year, duration, content_type_id, program_id } = req.body;
+    const { title, description, publication_year, media_type_id, tags, author_ids } = req.body;
 
-    await connection.promise().query(`
-        UPDATE media_items 
-        SET title = ?, 
-            description = ?, 
-            recording_year = ?, 
-            duration = ?, 
-            content_type_id = ?, 
-            program_id = ?
-        WHERE id = ?
-    `, [
-        title,
-        description,
-        recording_year,
-        duration,
-        content_type_id,
-        program_id,
-        req.params.id
-    ]);
+    try {
+        await connection.promise().query(`
+            UPDATE media_items 
+            SET title = ?, 
+                description = ?, 
+                publication_year = ?, 
+                media_type_id = ?, 
+                tags = ?,
+                date_updated = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [
+            title,
+            description,
+            publication_year,
+            media_type_id,
+            tags,
+            req.params.id
+        ]);
 
-    res.json({ success: true });
+        // Actualizar autores si se proporcionaron
+        if (author_ids) {
+            // Eliminar relaciones antiguas
+            await connection.promise().query(
+                "DELETE FROM media_author WHERE media_id = ?",
+                [req.params.id]
+            );
+
+            // Insertar nuevas relaciones
+            const authorIdsArray = Array.isArray(author_ids) ? author_ids : JSON.parse(author_ids);
+            
+            for (const authorId of authorIdsArray) {
+                await connection.promise().query(
+                    "INSERT INTO media_author (media_id, author_id) VALUES (?, ?)",
+                    [req.params.id, authorId]
+                );
+            }
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Obtener el rol del usuario actual
@@ -284,7 +448,7 @@ function getPermissionsByRole(rol) {
         },
         moderator: {
             canUpload: true,
-            canDelete: false, // El moderador deberia borrar ?
+            canDelete: false,
             canEdit: true,
             canDownload: true,
             canManageUsers: false,
@@ -307,12 +471,7 @@ function getPermissionsByRole(rol) {
     return permissions[rol] || permissions.viewer;
 }
 
-// Añade estos endpoints a tu API existente
-
-// Obtener estadísticas del sistema
-// Añade estos endpoints a tu API existente
-
-// Obtener estadísticas del sistema
+// Endpoint para estadísticas (adaptado)
 app.get('/api/stats', verifyToken, async (req, res) => {
     try {
         const [total] = await connection.promise().query(
@@ -322,15 +481,17 @@ app.get('/api/stats', verifyToken, async (req, res) => {
         const [byType] = await connection.promise().query(`
             SELECT ct.name, COUNT(*) as total
             FROM media_items m
-            JOIN content_types ct ON m.content_type_id = ct.id
+            JOIN media_types ct ON m.media_type_id = ct.id
             GROUP BY ct.name
         `);
 
-        const [byProgram] = await connection.promise().query(`
-            SELECT p.name, COUNT(*) as total
-            FROM media_items m
-            JOIN programs p ON m.program_id = p.id
-            GROUP BY p.name
+        // Estadísticas por año
+        const [byYear] = await connection.promise().query(`
+            SELECT publication_year, COUNT(*) as total
+            FROM media_items
+            WHERE publication_year IS NOT NULL
+            GROUP BY publication_year
+            ORDER BY publication_year DESC
         `);
 
         // Calcular uso del disco
@@ -344,33 +505,26 @@ app.get('/api/stats', verifyToken, async (req, res) => {
         };
 
         try {
-            // Obtener todos los archivos para calcular el tamaño total
             const [files] = await connection.promise().query(
-                "SELECT file_path FROM media_items"
+                "SELECT media_path FROM media_items"
             );
 
-            // Sumar tamaños de archivos existentes
             for (const file of files) {
-                if (fs.existsSync(file.file_path)) {
-                    const stats = fs.statSync(file.file_path);
+                if (fs.existsSync(file.media_path)) {
+                    const stats = fs.statSync(file.media_path);
                     totalBytes += stats.size;
                 }
             }
 
-            // En Linux/Unix, obtener estadísticas del disco
             if (process.platform === 'linux' || process.platform === 'darwin') {
                 const { execSync } = require('child_process');
 
-                // Asegurarse de que el directorio existe
                 if (fs.existsSync(mediaPath.toString())) {
-                    // Obtener estadísticas del disco usando df
                     const dfOutput = execSync(`df -k "${mediaPath}"`).toString();
                     const lines = dfOutput.trim().split('\n');
 
                     if (lines.length >= 2) {
                         const stats = lines[1].split(/\s+/);
-                        // stats[1] = total blocks, stats[2] = used blocks, stats[3] = free blocks
-                        // Los bloques están en kilobytes (1024 bytes)
                         const blockSize = 1024;
 
                         diskStats = {
@@ -382,48 +536,20 @@ app.get('/api/stats', verifyToken, async (req, res) => {
                         };
                     }
                 }
-            } else {
-                // En Windows o si no se puede obtener estadísticas del disco
-                diskStats = {
-                    total: 0,
-                    used: 0,
-                    free: 0,
-                    usedPercentage: 0,
-                    formatted: "No se ha podido obtener los datos"
-                };
             }
         } catch (diskError) {
             console.error('Error obteniendo estadísticas del disco:', diskError);
-            diskStats = {
-                total: 0,
-                used: 0,
-                free: 0,
-                usedPercentage: 0,
-                formatted: "No se ha podido obtener los datos"
-            };
         }
-
-        // Formatear los datos para el frontend
-        const videos = byType.find(t => t.name.toLowerCase() === 'video')?.total || 0;
-        const imagenes = byType.find(t => t.name.toLowerCase() === 'imagen')?.total || 0;
-        const audio = byType.find(t => t.name.toLowerCase() === 'audio')?.total || 0;
-        const documentos = byType.find(t => t.name.toLowerCase() === 'documento')?.total || 0;
-        const otros = byType.find(t => t.name.toLowerCase() === 'otro')?.total || 0;
 
         res.json({
             success: true,
             stats: {
                 total: total[0].total,
-                videos,
-                imagenes,
-                audio,
-                documentos,
-                otros,
                 byType,
-                byProgram,
+                byYear,
                 storage: {
-                    bytes: diskStats.used,
-                    formatted: diskStats.formatted,
+                    bytes: totalBytes,
+                    formatted: formatBytes(totalBytes),
                     total: diskStats.total,
                     free: diskStats.free,
                     usedPercentage: diskStats.usedPercentage
@@ -440,76 +566,12 @@ app.get('/api/stats', verifyToken, async (req, res) => {
     }
 });
 
-
-app.get('/api/files/paginated', verifyToken, async (req, res) => {
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const search = req.query.search || '';
-    const order = req.query.order || 'masReciente';
-    const type = req.query.type || 0;
-
-    const offset = (page - 1) * limit;
-
-    let orderSentence = ''
-    switch (order) {
-        case 'masReciente':
-            orderSentence = 'm.recording_year DESC'
-            break;
-        case 'masAntiguo':
-            orderSentence = 'm.recording_year ASC'
-            break;
-        case 'nombreAZ':
-            orderSentence = 'm.title ASC'
-            break;
-        case 'nombreZA':
-            orderSentence = 'm.title DESC'
-            break;
-        default:
-            orderSentence = 'm.recording_year DESC'
-            break;
-    }
-
-    const [rows] = await connection.promise().query(`
-        SELECT 
-            m.*,
-            ct.name AS content_type,
-            p.name AS program
-        FROM media_items m
-        LEFT JOIN content_types ct ON m.content_type_id = ct.id
-        LEFT JOIN programs p ON m.program_id = p.id
-        WHERE ( m.title LIKE '%${search}%'
-        OR m.description LIKE '%${search}%'
-        OR m.recording_year LIKE '%${search}%'
-        OR m.file_path LIKE '%${search}%'
-        OR ct.name LIKE '%${search}%'
-        OR p.name LIKE '%${search}%' )
-        ${type != 0 ? `AND m.content_type_id = ${type}` : ''}
-        ORDER BY ${orderSentence}
-        LIMIT ? OFFSET ?
-    `, [limit, offset]);
-
-    const [count] = await connection.promise().query(
-        "SELECT COUNT(*) as total FROM media_items"
-    );
-    res.json({
-        success: true,
-        data: rows,
-        pagination: {
-            page,
-            limit,
-            total: count[0].total,
-            pages: Math.ceil(count[0].total / limit)
-        }
-    });
-});
-
-
+// Endpoint para tipos de contenido
 app.get('/api/content-types', verifyToken, async (req, res) => {
     try {
         const [rows] = await connection.promise().query(`
             SELECT id, name
-            FROM content_types
+            FROM media_types
             ORDER BY name ASC
         `);
 
@@ -526,6 +588,116 @@ app.get('/api/content-types', verifyToken, async (req, res) => {
     }
 });
 
+// Endpoint para autores
+app.get('/api/authors', verifyToken, async (req, res) => {
+    try {
+        const [rows] = await connection.promise().query(`
+            SELECT id, name, role
+            FROM author
+            ORDER BY name ASC
+        `);
+
+        res.json({
+            success: true,
+            data: rows
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+app.post('/api/authors', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin" && req.user.rol !== "moderator")
+        return res.status(403).json({ error: "No tienes permisos" });
+
+    const { name, role } = req.body;
+
+    try {
+        const [result] = await connection.promise().query(
+            "INSERT INTO author (name, role) VALUES (?, ?)",
+            [name, role]
+        );
+
+        res.json({
+            success: true,
+            id: result.insertId
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+app.put('/api/authors/:id', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin" && req.user.rol !== "moderator")
+        return res.status(403).json({ error: "No tienes permisos" });
+
+    const { name, role } = req.body;
+
+    try {
+        await connection.promise().query(
+            "UPDATE author SET name = ?, role = ? WHERE id = ?",
+            [name, role, req.params.id]
+        );
+
+        res.json({ success: true });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+app.delete('/api/authors/:id', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin")
+        return res.status(403).json({ error: "Solo admin puede eliminar autores" });
+
+    try {
+        await connection.promise().query(
+            "DELETE FROM author WHERE id = ?",
+            [req.params.id]
+        );
+
+        res.json({ success: true });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+// Endpoint para ubicaciones de media
+app.get('/api/media-locations', verifyToken, async (req, res) => {
+    try {
+        const [rows] = await connection.promise().query(`
+            SELECT id, path
+            FROM media_locations
+            ORDER BY path ASC
+        `);
+
+        res.json({
+            success: true,
+            data: rows
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
 
 // Get all users (for admin)
 app.get('/api/users', verifyToken, async (req, res) => {
@@ -534,7 +706,7 @@ app.get('/api/users', verifyToken, async (req, res) => {
 
     try {
         const [rows] = await connection.promise().query(`
-            SELECT *
+            SELECT id_user, nombre, rol
             FROM users
             ORDER BY nombre ASC
         `);
@@ -554,6 +726,10 @@ app.get('/api/users', verifyToken, async (req, res) => {
 app.delete('/api/users/:id', verifyToken, async (req, res) => {
     if (req.user.rol !== "admin")
         return res.status(403).json({ error: "Solo admin puede eliminar usuarios" });
+
+    if (req.params.id == req.user.id_user) {
+        return res.status(400).json({ error: "No puedes eliminarte a ti mismo" });
+    }
 
     try {
         await connection.promise().query(
@@ -630,18 +806,67 @@ app.put('/api/users/:id', verifyToken, async (req, res) => {
     }
 });
 
-// ELIMINAR EN PRODUCCION
-app.get('/api/clear', async (req, res) => {
+// Endpoint para obtener un archivo específico con todos sus detalles
+app.get('/api/files/:id', verifyToken, async (req, res) => {
+    try {
+        const [rows] = await connection.promise().query(`
+            SELECT 
+                m.*,
+                ct.name AS media_type,
+                ml.path AS location_path,
+                GROUP_CONCAT(DISTINCT a.id) AS author_ids,
+                GROUP_CONCAT(DISTINCT a.name) AS author_names,
+                GROUP_CONCAT(DISTINCT a.role) AS author_roles
+            FROM media_items m
+            LEFT JOIN media_types ct ON m.media_type_id = ct.id
+            LEFT JOIN media_locations ml ON m.media_location_id = ml.id
+            LEFT JOIN media_author ma ON m.id = ma.media_id
+            LEFT JOIN author a ON ma.author_id = a.id
+            WHERE m.id = ?
+            GROUP BY m.id
+        `, [req.params.id]);
 
-    let query = `DELETE FROM media_items WHERE 1=1 LIMIT 1000`;
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Archivo no encontrado" });
+        }
 
+        const item = rows[0];
+        
+        // Procesar autores
+        const authors = [];
+        if (item.author_ids) {
+            const ids = item.author_ids.split(',');
+            const names = item.author_names ? item.author_names.split(',') : [];
+            const roles = item.author_roles ? item.author_roles.split(',') : [];
+            
+            for (let i = 0; i < ids.length; i++) {
+                authors.push({
+                    id: parseInt(ids[i]),
+                    name: names[i] || '',
+                    role: roles[i] || ''
+                });
+            }
+        }
 
-    const [rows] = await connection.promise().query(query);
+        delete item.author_ids;
+        delete item.author_names;
+        delete item.author_roles;
 
-    res.json(rows);
+        res.json({
+            success: true,
+            data: {
+                ...item,
+                authors
+            }
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
 });
-//
-
 
 // Función helper para formatear bytes
 function formatBytes(bytes, decimals = 2) {
