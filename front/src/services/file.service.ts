@@ -3,7 +3,7 @@ import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Stats, PaginatedResponse, MediaItem } from '../app/models/file.model';
 import { SvgIcons } from '../app/utils/svg-icons';
-import { environment } from '../environments/environment.development';
+import { environment } from '../environments/environment';
 
 @Injectable({
     providedIn: 'root'

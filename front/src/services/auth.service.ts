@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { LocalStorageService } from './localStorage.service';
 import { Observable, map, catchError, of, tap } from 'rxjs';
-import { environment } from '../environments/environment.development';
+import { environment } from '../environments/environment';
 
 export interface UserPermissions {
     canUpload: boolean;
