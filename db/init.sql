@@ -27,7 +27,7 @@ CREATE TABLE author (
 
 CREATE TABLE media_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name TEXT UNIQUE
+    name VARCHAR(512) UNIQUE
 );
 
 CREATE TABLE media_locations (
