@@ -8,9 +8,9 @@
 - Permitir busqueda avanzada.
 
 ## **Stack (Tecnologias):**
-- MongoDB (Base de datos)
-- Java (Api)
-- HTML, CSS, JS (Frontend)
+- MySQL (Base de datos)
+- Express NodeJS (Api)
+- Angular (Frontend)
 
 ## **Dockerizar:**
 
