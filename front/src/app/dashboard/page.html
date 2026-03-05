@@ -94,77 +94,126 @@
         </div>
     </div>
 
-    <!-- Script (mantenido igual pero con las nuevas clases) -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const tableBody = document.querySelector('.users-table-body');
-            const searchInput = document.querySelector('.users-search-input');
 
-            function renderUsers(filter = "") {
-                let storedUsers = JSON.parse(localStorage.getItem('systemUsers')) || [];
-                const defaultAdmin = { username: 'admin', email: 'admin@ejemplo.com', role: 'Administrador' };
-                let allUsers = [defaultAdmin, ...storedUsers];
+    <div class="locations-section">
+        <div class="locations-container">
 
-                tableBody.innerHTML = '';
+            <div class="card locations-card">
 
-                allUsers.forEach((user, index) => {
-                    if (user.username.toLowerCase().includes(filter.toLowerCase()) ||
-                        user.email.toLowerCase().includes(filter.toLowerCase())) {
+                <div class="locations-header">
+                    <div>
+                        <h2 class="locations-title">Ubicaciones de Media</h2>
+                        <p class="locations-description">
+                            Gestiona las carpetas donde se almacenan los archivos multimedia.
+                        </p>
+                    </div>
 
-                        let badgeClass = "badge-admin";
-                        if (user.role === "Avanzado") badgeClass = "badge-advanced";
-                        if (user.role === "Espectador") badgeClass = "badge-viewer";
+                    <button (click)="createFolder()" class="button button-primary users-create-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14"></path>
+                            <path d="M12 5v14"></path>
+                        </svg>
+                        Añadir Ruta
+                    </button>
+                </div>
 
-                        const editUrl = index === 0 ? '#' : `EditarUsuario.html?id=${index - 1}`;
+                <div class="locations-layout">
 
-                        const row = document.createElement('tr');
-                        row.className = 'users-table-row';
+                    <!-- ÁRBOL -->
+                    <div class="locations-tree">
+                        <!-- <ul>
+                            <li *ngFor="let node of tree">
+                                <div class="tree-node">
+                                    <span>{{ node.name }}</span>
 
-                        row.innerHTML = `
-                            <td class="users-table-td users-table-td-bold">${user.username}</td>
-                            <td class="users-table-td">${user.email}</td>
-                            <td class="users-table-td">
-                                <span class="badge ${badgeClass}">
-                                    ${user.role}
-                                </span>
-                            </td>
-                            <td class="users-table-td text-right">
-                                <div class="users-actions">
-                                    <a href="${editUrl}" class="users-action-btn" title="Editar">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path>
-                                            <path d="m15 5 4 4"></path>
-                                        </svg>
-                                    </a>
-                                    ${index > 0 ? `
-                                        <button onclick="deleteUser(${index - 1})" class="users-action-btn users-action-delete" title="Eliminar">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <div class="tree-actions">
+                                        <button class="users-action-btn" title="Editar" (click)="renameFolder(node)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path
+                                                    d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z">
+                                                </path>
+                                                <path d="m15 5 4 4"></path>
+                                            </svg>
+                                        </button>
+
+                                        <button class="users-action-btn users-action-delete" title="Eliminar"
+                                            (click)="deleteFolder(node)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
                                                 <path d="M3 6h18"></path>
                                                 <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
                                                 <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                                <line x1="10" x2="10" y1="11" y2="17"></line>
+                                                <line x1="14" x2="14" y1="11" y2="17"></line>
                                             </svg>
                                         </button>
-                                    ` : ''}
+                                    </div>
                                 </div>
-                            </td>
-                        `;
-                        tableBody.appendChild(row);
-                    }
-                });
-            }
 
-            window.deleteUser = (idx) => {
-                if (confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
-                    let users = JSON.parse(localStorage.getItem('systemUsers')) || [];
-                    users.splice(idx, 1);
-                    localStorage.setItem('systemUsers', JSON.stringify(users));
-                    renderUsers();
-                }
-            };
+                                <ul *ngIf="node.children?.length">
+                                    <li *ngFor="let child of node.children">
+                                        {{ child.name }}
+                                    </li>
+                                </ul>
 
-            searchInput.addEventListener('input', (e) => renderUsers(e.target.value));
-            renderUsers();
-        });
-    </script>
+                            </li>
+                        </ul> -->
+                        <p
+                            style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;font-size:larger; font-weigth:800; color:tomato">
+                            EN DESARROLLO 🚧
+                        </p>
+                    </div>
+
+                    <!-- TABLA -->
+                    <div class="locations-table-container">
+                        <table class="users-table">
+                            <thead>
+                                <tr>
+                                    <th>Path</th>
+                                    <th class="text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let loc of locations">
+                                    <td>{{ loc.path }}</td>
+                                    <td class="text-right">
+                                        <button class="users-action-btn" title="Editar" (click)="renameFolder(loc)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path
+                                                    d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z">
+                                                </path>
+                                                <path d="m15 5 4 4"></path>
+                                            </svg>
+                                        </button>
+
+                                        <button class="users-action-btn users-action-delete" title="Eliminar"
+                                            (click)="deleteFolder(loc)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                                <line x1="10" x2="10" y1="11" y2="17"></line>
+                                                <line x1="14" x2="14" y1="11" y2="17"></line>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
 
 </main>

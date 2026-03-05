@@ -26,7 +26,7 @@ export class FileService {
     // ===========================
 
     getStats(): Observable<{ success: boolean; stats: Stats }> {
-        
+
         console.log('Obteniendo estadísticas desde:', this.API);
         console.log((environment as any));
 
@@ -69,7 +69,7 @@ export class FileService {
         return this.http.get<{
             success: boolean,
             data: { id: number; name: string }[]
-        }>(`${this.API}/content-types`);
+        }>(`${this.API}/media-type`);
     }
 
     // ===========================
@@ -142,13 +142,69 @@ export class FileService {
     // ===========================
 
     getThumbnailUrl(media: MediaItem): string {
-
-        // Si es imagen real (si en el futuro soportas imágenes reales)
-        if (media.file_path?.match(/\.(jpg|jpeg|png|webp)$/i)) {
-            return media.file_path;
+        // si es video, devuelve la ruta del thumbnail, si no, devuelve el endpointe que devuelve la imagen
+        if (!media.media_path.toLowerCase().match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
+            return `${this.API}/files/${media.id}/thumbnail`;
         }
 
-        return 'https://placehold.net/4-800x600.png';
+        return `${this.API}/files/${media.id}/download`;
+    }
+
+    getAuthors(): Observable<{ success: boolean; authors: { id: number; name: string; role: string }[] }> {
+        return this.http.get<{ success: boolean; authors: { id: number; name: string; role: string }[] }>(`${this.API}/authors`);
+    }
+
+    getMediaLocations(): Observable<{ success: boolean; locations: { id: number; path: string }[] }> {
+        return this.http.get<{ success: boolean; locations: { id: number; path: string }[] }>(`${this.API}/locations`);
+    }
+
+    // ===========================
+    // 📁 MEDIA LOCATIONS
+    // ===========================
+
+    createMediaLocation(path: string): Observable<{ success: boolean; id?: number; error?: any }> {
+
+        return this.http.post<{ success: boolean; id?: number; error?: any }>(
+            `${this.API}/locations`,
+            { path },
+            { headers: this.getHeaders() }
+        );
+
+    }
+
+    renameMediaLocation(id: number, path: string): Observable<{ success: boolean; error?: any }> {
+
+        return this.http.put<{ success: boolean; error?: any }>(
+            `${this.API}/locations/${id}`,
+            { path },
+            { headers: this.getHeaders() }
+        );
+
+    }
+
+    deleteMediaLocation(id: number): Observable<{ success: boolean; error?: any }> {
+
+        return this.http.delete<{ success: boolean; error?: any }>(
+            `${this.API}/locations/${id}`,
+            { headers: this.getHeaders() }
+        );
+
+    }
+
+    createContentType(name: string): Observable<{ success: boolean; id?: number; error?: any }> {
+        return this.http.post<{ success: boolean; id?: number; error?: any }>(
+            `${this.API}/media-type`,
+            { name },
+            { headers: this.getHeaders() }
+        );
+    }
+
+    createMedia(formData: FormData): Observable<{ success: boolean; id?: number; error?: any }> {
+        return this.http.post<{ success: boolean; id?: number; error?: any }>(
+            `${this.API}/upload-content`,
+            formData,
+            { headers: this.getHeaders() }
+        );
     }
 
     // ===========================

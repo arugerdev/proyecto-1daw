@@ -4,6 +4,7 @@ import { ModalService } from '../../components/modal/modal.component';
 import { RegisterUserModalComponent } from './new-user.modal';
 import { AuthService } from '../../services/auth.service';
 import { CommonModule, NgForOf } from '@angular/common';
+import { FileService } from '../../services/file.service';
 
 @Component({
     selector: 'dashboard-page',
@@ -17,21 +18,114 @@ export class DashboardPage implements OnInit {
     constructor(
         private modalService: ModalService,
         private auth: AuthService,
+        private file: FileService,
         private cdr: ChangeDetectorRef
 
     ) { }
 
     users: { id: number; name: string; rol: string; password?: string }[] = [];
 
+    locations: { id: number, path: string }[] = [];
+    tree: any[] = [];
+
     ngOnInit() {
+
         this.auth.getAllUsers().subscribe(users => {
-            // Mostrar los usuarios en la tabla
             this.users = users;
             this.cdr.markForCheck();
-
-        }, error => {
-            console.error('Error cargando usuarios:', error);
         });
+
+        this.loadLocations();
+    }
+
+    loadLocations() {
+
+        this.file.getMediaLocations().subscribe(data => {
+
+            this.locations = data.locations;
+
+            this.tree = this.buildTree(data.locations);
+
+            this.cdr.markForCheck();
+
+        });
+
+    }
+
+    buildTree(locations: any[]) {
+
+        const root: any = {};
+
+        locations.forEach(loc => {
+
+            const parts = loc.path.split('/').filter(Boolean);
+
+            let current = root;
+
+            parts.forEach((part: string | number) => {
+
+                if (!current[part]) {
+
+                    current[part] = {
+                        name: part,
+                        children: {},
+                        path: loc.path
+                    };
+
+                }
+
+                current = current[part].children;
+
+            });
+
+        });
+
+        function convert(node: any): any {
+
+            return Object.values(node).map((n: any) => ({
+                name: n.name,
+                path: n.path,
+                children: convert(n.children)
+            }));
+
+        }
+
+        return convert(root);
+
+    }
+
+    createFolder() {
+
+        const path = prompt("Ruta de la nueva carpeta");
+
+        if (!path) return;
+
+        this.file.createMediaLocation(path).subscribe(() => {
+            this.loadLocations();
+        });
+
+    }
+
+    renameFolder(loc: any) {
+
+        const newPath = prompt("Nuevo nombre", loc.path);
+
+        if (!newPath) return;
+
+        this.file.renameMediaLocation(loc.id, newPath).subscribe(() => {
+            this.loadLocations();
+        });
+
+    }
+
+    deleteFolder(loc: any) {
+
+        if (!confirm("Eliminar carpeta y contenido?")) return;
+
+        this.file.deleteMediaLocation(loc.id).subscribe(() => {
+            this.loadLocations();
+        });
+
     }
 
     deleteUser(userId: number) {

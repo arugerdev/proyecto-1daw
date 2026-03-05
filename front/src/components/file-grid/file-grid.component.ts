@@ -4,6 +4,8 @@ import { FileService } from '../../services/file.service';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil, finalize } from 'rxjs';
 import { FileCardComponent } from '../file-card/file-card.component';
 import { MediaItem } from '../../app/models/file.model';
+import { ModalService } from '../modal/modal.component';
+import { ConfirmationModalComponent } from '../../app/index/confirmation.modal';
 
 @Component({
     selector: 'app-file-grid',
@@ -76,7 +78,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
 
     constructor(
         private fileService: FileService,
-        private cdr: ChangeDetectorRef
+        private cdr: ChangeDetectorRef,
+        private modalService: ModalService
     ) { }
 
     ngOnInit() {
@@ -147,7 +150,7 @@ export class FileGridComponent implements OnInit, OnDestroy {
         ).subscribe({
             next: (response) => {
                 if (response.success) {
-
+                    console.log(response.data)
                     if (isNewSearch) {
                         this.files = response.data;
                     } else {
@@ -230,7 +233,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
     }
 
     onDelete(file: MediaItem) {
-
+        // En vez de confirmar aquí, se podría abrir un modal de confirmación para evitar borrados accidentales ConfirmationModalComponent
+        /*
         if (confirm(`¿Eliminar "${file.title}"?`)) {
 
             this.fileService.deleteMedia(file.id).pipe(
@@ -244,5 +248,28 @@ export class FileGridComponent implements OnInit, OnDestroy {
                 error: (error) => console.error('Error deleting:', error)
             });
         }
+            */
+
+        // Abrir modal de confirmación
+        this.modalService.open(ConfirmationModalComponent, {
+            title: 'Confirmar Eliminación',
+            data: {
+                message: `¿Eliminar "${file.title}"? Esta acción no se puede deshacer.`,
+                confirmText: 'Sí, eliminar',
+                cancelText: 'Cancelar',
+                onConfirm: () => {
+                    this.fileService.deleteMedia(file.id).pipe(
+                        takeUntil(this.destroy$)
+                    ).subscribe({
+                        next: () => {
+                            this.files = this.files.filter(f => f.id !== file.id);
+                            this.statsChanged.emit();
+                            this.cdr.detectChanges();
+                        },
+                        error: (error) => console.error('Error deleting:', error)
+                    });
+                }
+            }
+        });
     }
 }

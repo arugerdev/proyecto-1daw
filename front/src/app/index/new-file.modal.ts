@@ -1,4 +1,4 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FileService } from '../../services/file.service';
@@ -44,15 +44,36 @@ import { ModalRef } from '../models/modal.model';
         </div>
       </div>
 
-      <!-- TIPO -->
+      <!-- TIPO DE CONTENIDO -->
       <div class="form-group">
         <label class="form-label">Tipo de Contenido *</label>
-        <select class="form-select" [(ngModel)]="selectedTypeId" name="contentType" required>
-          <option [ngValue]="null" disabled>Selecciona un tipo</option>
+        
+        <!-- Selector de tipo existente -->
+        <select class="form-select" [(ngModel)]="selectedTypeId" name="contentType" 
+                [disabled]="isCreatingNewType" required>
+          <option [ngValue]="null" disabled>Selecciona un tipo existente</option>
           <option *ngFor="let type of contentTypes" [ngValue]="type.id">
             {{ type.name }}
           </option>
         </select>
+
+        <!-- Checkbox para crear nuevo tipo -->
+        <div class="checkbox-wrapper">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="isCreatingNewType" name="createNewType" />
+            <span>Crear nuevo tipo de contenido</span>
+          </label>
+        </div>
+
+        <!-- Input para nuevo tipo -->
+        <div class="new-type-input" *ngIf="isCreatingNewType">
+          <input type="text" 
+                 placeholder="Nombre del nuevo tipo de contenido" 
+                 class="form-input" 
+                 [(ngModel)]="newTypeName" 
+                 name="newTypeName"
+                 [required]="isCreatingNewType" />
+        </div>
       </div>
 
       <!-- TÍTULO -->
@@ -67,27 +88,48 @@ import { ModalRef } from '../models/modal.model';
         <textarea rows="3" placeholder="Descripción detallada del contenido" class="form-textarea" [(ngModel)]="description" name="description"></textarea>
       </div>
 
-      <!-- UBICACIÓN -->
+      <!-- AÑO DE PUBLICACIÓN -->
       <div class="form-group">
-        <label class="form-label">Ubicación de Almacenamiento *</label>
-        <select class="form-select" [(ngModel)]="storageLocation" name="storageLocation">
-          <option>Servidor Principal - Redacción</option>
-          <option>Disco NAS - Archivo</option>
-          <option>Disco Externo HD-01</option>
-          <option>Disco Externo HD-02</option>
-          <option>Estación Edición 1</option>
-          <option>Estación Edición 2</option>
-          <option>Portátil Reportero A</option>
-        </select>
+        <label class="form-label">Año de Publicación</label>
+        <input type="number" 
+               placeholder="Ej: 2024" 
+               class="form-input" 
+               [(ngModel)]="publicationYear" 
+               name="publicationYear"
+               min="1900" 
+               [max]="currentYear" />
       </div>
 
-      <!-- ESTADO -->
+      <!-- AUTORES -->
       <div class="form-group">
-        <label class="form-label">Estado</label>
-        <select class="form-select" [(ngModel)]="status" name="status">
-          <option value="publicado">Publicado</option>
-          <option value="borrador">Borrador</option>
-          <option value="archivado">Archivado</option>
+        <label class="form-label">Autores</label>
+        <div class="authors-section">
+          <select class="form-select" [(ngModel)]="selectedAuthorId" name="authorSelect">
+            <option [ngValue]="null">Selecciona un autor</option>
+            <option *ngFor="let author of authors" [ngValue]="author.id">
+              {{ author.name }} {{ author.role ? '- ' + author.role : '' }}
+            </option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="addAuthor()">
+            Agregar Autor
+          </button>
+        </div>
+        <div class="tags-list" *ngIf="selectedAuthors.length">
+          <span class="tag" *ngFor="let author of selectedAuthors; let i = index">
+            {{ author.name }}
+            <button type="button" class="tag-remove" (click)="removeAuthor(i)">×</button>
+          </span>
+        </div>
+      </div>
+
+      <!-- UBICACIÓN DE ALMACENAMIENTO -->
+      <div class="form-group">
+        <label class="form-label">Ubicación de Almacenamiento *</label>
+        <select class="form-select" [(ngModel)]="storageLocationId" name="storageLocation" required>
+          <option [ngValue]="null" disabled>Selecciona una ubicación</option>
+          <option *ngFor="let location of mediaLocations" [ngValue]="location.id">
+            {{ location.path }}
+          </option>
         </select>
       </div>
 
@@ -107,9 +149,15 @@ import { ModalRef } from '../models/modal.model';
           </span>
         </div>
       </div>
-
+      <div class="form-group-h actions-container">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="modalRef?.close({ success: false })">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">Registrar Contenido</button>
+      </div>
+    
     </form>
   `,
+
+  //Actions container 100 % de tamaño, alineado central, con espacio entre botones, botones lo mas grande posible escalado con la pantalla
   styles: [`
     .modal-form {
       display: grid;
@@ -120,6 +168,26 @@ import { ModalRef } from '../models/modal.model';
       display: grid;
       gap: 8px;
     }
+
+    .actions-container {
+      display: flex;
+      justify-content: center;
+      place-content: center;
+      gap: 8px;
+    }
+    
+     .actions-container .btn {
+      flex: 1;
+      height: 40px;
+    }
+    
+
+    .form-group-h {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
 
     .form-label {
       font-size: 14px;
@@ -146,6 +214,12 @@ import { ModalRef } from '../models/modal.model';
       outline: none;
       border-color: var(--btn-primary-bg);
       box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+    }
+
+    .form-select:disabled {
+      background: var(--btn-secondary-bg);
+      opacity: 0.7;
+      cursor: not-allowed;
     }
 
     .drag-area {
@@ -207,10 +281,49 @@ import { ModalRef } from '../models/modal.model';
     .btn-secondary:hover {
       background: var(--btn-secondary-hover);
     }
+      
+    .btn-primary {
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
+      padding: 8px 16px;
+    }
 
     .btn-sm {
       padding: 6px 12px;
       font-size: 13px;
+    }
+
+    .checkbox-wrapper {
+      margin-top: 4px;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .new-type-input {
+      margin-top: 8px;
+    }
+
+    .authors-section {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .authors-section select {
+      flex: 1;
     }
 
     .tags-input {
@@ -254,24 +367,47 @@ export class RegisterContentModalComponent implements OnInit {
   @Input() modalRef?: ModalRef;
   @Input() initialData?: any;
 
+  // Content Types
   contentTypes: { id: number; name: string }[] = [];
   selectedTypeId: number | null = null;
+  isCreatingNewType = false;
+  newTypeName = '';
+
+  // Authors
+  authors: { id: number; name: string; role: string }[] = [];
+  selectedAuthorId: number | null = null;
+  selectedAuthors: { id: number; name: string; role: string }[] = [];
+
+  // Media Locations
+  mediaLocations: { id: number; path: string }[] = [];
+  storageLocationId: number | null = null;
+
+  // File
   selectedFile: File | null = null;
   isDragOver = false;
+
+  // Metadata
   title = '';
   description = '';
-  storageLocation = '';
-  status = 'borrador';
+  publicationYear: number | null = null;
   tags: string[] = [];
   tagInput = '';
 
+  // Current year for validation
+  currentYear = new Date().getFullYear();
+
   private modalClose = new Subject<any>();
 
-  constructor(private fileService: FileService) { }
+  constructor(
+    private fileService: FileService,
+    private cdr: ChangeDetectorRef
+  ) { }
 
   ngOnInit(): void {
     this.loadContentTypes();
-
+    this.loadAuthors();
+    this.loadMediaLocations();
+    this.cdr.detectChanges(); // Asegura que los cambios se reflejen en la vista después de cargar datos
     if (this.initialData) {
       // Cargar datos iniciales si existen
       Object.assign(this, this.initialData);
@@ -283,6 +419,7 @@ export class RegisterContentModalComponent implements OnInit {
       next: (response) => {
         if (response.success) {
           this.contentTypes = response.data;
+          this.cdr.detectChanges();
         }
       },
       error: (err) => {
@@ -291,26 +428,150 @@ export class RegisterContentModalComponent implements OnInit {
     });
   }
 
-  onSubmit(event: Event) {
+  private loadAuthors() {
+    this.fileService.getAuthors().subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.authors = response.authors;
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        console.error('Error cargando autores:', err);
+      }
+    });
+  }
+
+  private loadMediaLocations() {
+    this.fileService.getMediaLocations().subscribe({
+      next: (response) => {
+        if (response.success) {
+          console.log('Media locations cargadas:', response.locations);
+          this.mediaLocations = response.locations;
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        console.error('Error cargando ubicaciones:', err);
+      }
+    });
+  }
+
+  async onSubmit(event: Event) {
     event.preventDefault();
 
-    if (!this.selectedFile || !this.selectedTypeId || !this.title) {
-      alert("Debes completar todos los campos obligatorios");
+    // Validaciones de campos obligatorios
+    if (!this.selectedFile) {
+      alert("Debes seleccionar un archivo");
       return;
+    }
+
+    if (!this.title) {
+      alert("Debes ingresar un título");
+      return;
+    }
+
+    if (!this.storageLocationId) {
+      alert("Debes seleccionar una ubicación de almacenamiento");
+      return;
+    }
+
+    // Validación de tipo de contenido
+    let typeIdToUse: number | null = null;
+
+    if (this.isCreatingNewType) {
+      if (!this.newTypeName || !this.newTypeName.trim()) {
+        alert("Debes ingresar un nombre para el nuevo tipo de contenido");
+        return;
+      }
+
+      try {
+        // Crear nuevo tipo de contenido
+        typeIdToUse = await this.createNewContentType(this.newTypeName.trim());
+      } catch (error) {
+        alert("Error al crear el nuevo tipo de contenido");
+        return;
+      }
+    } else {
+      if (!this.selectedTypeId) {
+        alert("Debes seleccionar un tipo de contenido");
+        return;
+      }
+      typeIdToUse = this.selectedTypeId;
     }
 
     const formData = new FormData();
     formData.append("file", this.selectedFile);
-    formData.append("content_type_id", String(this.selectedTypeId));
+    formData.append("media_type_id", String(typeIdToUse));
     formData.append("title", this.title);
-    formData.append("description", this.description);
-    formData.append("storage_location", this.storageLocation);
-    formData.append("status", this.status);
-    formData.append("tags", JSON.stringify(this.tags));
+    formData.append("description", this.description || '');
+    formData.append("media_location_id", String(this.storageLocationId));
 
-    // Cerrar modal con resultado
-    this.modalClose.next({ success: true, data: formData });
-    this.modalRef?.close({ success: true });
+    if (this.publicationYear) {
+      formData.append("publication_year", String(this.publicationYear));
+    }
+
+    if (this.tags.length) {
+      formData.append("tags", JSON.stringify(this.tags));
+    }
+
+    if (this.selectedAuthors.length) {
+      const authorIds = this.selectedAuthors.map(a => a.id);
+      formData.append("author_ids", JSON.stringify(authorIds));
+    }
+
+
+    this.fileService.createMedia(formData).subscribe({
+      next: (response: any) => {
+        if (response.success) {
+          alert("Contenido registrado exitosamente");
+          this.modalRef?.close({ success: true });
+        } else {
+          alert("Error al registrar el contenido");
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error creando contenido:', err);
+        alert("Error al registrar el contenido");
+        this.cdr.detectChanges();
+      }
+    });
+
+  }
+
+  private createNewContentType(name: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      this.fileService.createContentType(name).subscribe({
+        next: (response: any) => {
+          if (response.success && response.id) {
+            // Recargar tipos de contenido
+            this.loadContentTypes();
+            resolve(response.id);
+          } else {
+            reject(new Error('Error al crear tipo de contenido'));
+          }
+        },
+        error: (err) => {
+          console.error('Error creando tipo de contenido:', err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  addAuthor() {
+    if (this.selectedAuthorId) {
+      const author = this.authors.find(a => a.id === this.selectedAuthorId);
+      if (author && !this.selectedAuthors.some(a => a.id === author.id)) {
+        this.selectedAuthors.push({ ...author });
+        this.selectedAuthorId = null;
+      }
+    }
+  }
+
+  removeAuthor(index: number) {
+    this.selectedAuthors.splice(index, 1);
   }
 
   onFileSelected(event: Event) {

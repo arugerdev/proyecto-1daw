@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const { execFile } = require("child_process");
 const cors = require('cors')
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -8,6 +9,9 @@ const mysql = require('mysql2')
 const multer = require('multer')
 const fs = require('fs')
 const path = require('path')
+const ffmpegPath = require("ffmpeg-static");
+
+
 
 const app = express()
 
@@ -104,12 +108,12 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/logout', verifyToken, async (req, res) => {
     try {
         const token = req.headers.authorization?.split(" ")[1];
-        
+
         await connection.promise().query(
             "DELETE FROM sessions WHERE key_session = ? AND id_user = ?",
             [token, req.user.id_user]
         );
-        
+
         res.json({ success: true, message: "Sesión cerrada correctamente" });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -171,7 +175,7 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
         // Si hay autores, insertar las relaciones
         if (author_ids) {
             const authorIdsArray = Array.isArray(author_ids) ? author_ids : JSON.parse(author_ids);
-            
+
             for (const authorId of authorIdsArray) {
                 await connection.promise().query(
                     "INSERT INTO media_author (media_id, author_id) VALUES (?, ?)",
@@ -318,7 +322,7 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
 });
 
 // Endpoint para descargar archivo
-app.get('/api/files/:id/download', verifyToken, async (req, res) => {
+app.get('/api/files/:id/download', async (req, res) => {
     const [rows] = await connection.promise().query(
         "SELECT media_path, filename FROM media_items WHERE id = ?",
         [req.params.id]
@@ -396,7 +400,7 @@ app.put('/api/files/:id', verifyToken, async (req, res) => {
 
             // Insertar nuevas relaciones
             const authorIdsArray = Array.isArray(author_ids) ? author_ids : JSON.parse(author_ids);
-            
+
             for (const authorId of authorIdsArray) {
                 await connection.promise().query(
                     "INSERT INTO media_author (media_id, author_id) VALUES (?, ?)",
@@ -470,6 +474,42 @@ function getPermissionsByRole(rol) {
 
     return permissions[rol] || permissions.viewer;
 }
+
+//Endpoint para generar thumbnail de video, no necesita token, esto deberia devolver la url directamente, si no existe el video, devolver un placeholder, si no existe el thumbnail, generarlo con ffmpeg y devolverlo
+app.get('/api/files/:id/thumbnail', async (req, res) => {
+    try {
+        const [rows] = await connection.promise().query(
+            "SELECT media_path, filename FROM media_items WHERE id = ?",
+            [req.params.id]
+        );
+        if (rows.length === 0) return res.status(404).json({ error: "Archivo no encontrado" });
+
+        const mediaPath = rows[0].media_path;
+        const thumbnailPath = mediaPath + "_thumbnail.jpg";
+        if (fs.existsSync(thumbnailPath)) {
+            return res.sendFile(thumbnailPath);
+        }
+
+        if (fs.existsSync(mediaPath)) {
+            execFile(ffmpegPath, [
+                '-i', mediaPath,
+                '-ss', '00:00:01.000',
+                '-vframes', '1',
+                thumbnailPath
+            ], (error) => {
+                if (error) {
+                    console.error('Error generando thumbnail:', error);
+                    return res.status(500).json({ error: "Error generando thumbnail" });
+                }
+                res.sendFile(thumbnailPath);
+            });
+        } else {
+            res.status(404).json({ error: "Archivo de video no encontrado para generar thumbnail" });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Endpoint para estadísticas (adaptado)
 app.get('/api/stats', verifyToken, async (req, res) => {
@@ -567,7 +607,7 @@ app.get('/api/stats', verifyToken, async (req, res) => {
 });
 
 // Endpoint para tipos de contenido
-app.get('/api/content-types', verifyToken, async (req, res) => {
+app.get('/api/media-type', verifyToken, async (req, res) => {
     try {
         const [rows] = await connection.promise().query(`
             SELECT id, name
@@ -580,6 +620,29 @@ app.get('/api/content-types', verifyToken, async (req, res) => {
             data: rows
         });
 
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
+
+app.post('/api/media-type', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin" && req.user.rol !== "moderator")
+        return res.status(403).json({ error: "No tienes permisos" });
+
+    const { name } = req.body;
+
+    try {
+        const [result] = await connection.promise().query(
+            "INSERT INTO media_types (name) VALUES (?)",
+            [name]
+        );
+        res.json({
+            success: true,
+            id: result.insertId
+        });
     } catch (err) {
         res.status(500).json({
             success: false,
@@ -668,28 +731,6 @@ app.delete('/api/authors/:id', verifyToken, async (req, res) => {
         );
 
         res.json({ success: true });
-
-    } catch (err) {
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
-});
-
-// Endpoint para ubicaciones de media
-app.get('/api/media-locations', verifyToken, async (req, res) => {
-    try {
-        const [rows] = await connection.promise().query(`
-            SELECT id, path
-            FROM media_locations
-            ORDER BY path ASC
-        `);
-
-        res.json({
-            success: true,
-            data: rows
-        });
 
     } catch (err) {
         res.status(500).json({
@@ -831,14 +872,14 @@ app.get('/api/files/:id', verifyToken, async (req, res) => {
         }
 
         const item = rows[0];
-        
+
         // Procesar autores
         const authors = [];
         if (item.author_ids) {
             const ids = item.author_ids.split(',');
             const names = item.author_names ? item.author_names.split(',') : [];
             const roles = item.author_roles ? item.author_roles.split(',') : [];
-            
+
             for (let i = 0; i < ids.length; i++) {
                 authors.push({
                     id: parseInt(ids[i]),
@@ -865,6 +906,123 @@ app.get('/api/files/:id', verifyToken, async (req, res) => {
             success: false,
             error: err.message
         });
+    }
+});
+
+// Obtener todas las ubicaciones
+app.get('/api/locations', verifyToken, async (req, res) => {
+    try {
+        const [rows] = await connection.promise().query(
+            "SELECT id, path FROM media_locations ORDER BY path ASC"
+        );
+
+        // Si no hay ninguna ubicación, crear la base
+        if (rows.length === 0) {
+            const basePath = mediaPath || path.join(__dirname, "media");
+            if (!fs.existsSync(basePath)) fs.mkdirSync(basePath, { recursive: true });
+
+            const [result] = await connection.promise().query(
+                "INSERT INTO media_locations (path) VALUES (?)",
+                [basePath]
+            );
+
+            return res.json({
+                success: true,
+                locations: [{ id: result.insertId, path: basePath }]
+            });
+        }
+
+        res.json({
+            success: true,
+            locations: rows
+        });
+
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Crear una nueva ubicación
+app.post('/api/locations', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin" && req.user.rol !== "moderator")
+        return res.status(403).json({ error: "No tienes permisos para crear ubicaciones" });
+
+    const { path: newPath } = req.body;
+    if (!newPath) return res.status(400).json({ error: "Se requiere la ruta de la ubicación" });
+
+    try {
+        // Crear la carpeta si no existe
+        if (!fs.existsSync(newPath)) fs.mkdirSync(newPath, { recursive: true });
+
+        const [result] = await connection.promise().query(
+            "INSERT INTO media_locations (path) VALUES (?)",
+            [newPath]
+        );
+
+        res.json({ success: true, id: result.insertId, path: newPath });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Actualizar una ubicación
+app.put('/api/locations/:id', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin" && req.user.rol !== "moderator")
+        return res.status(403).json({ error: "No tienes permisos para editar ubicaciones" });
+
+    const locationId = req.params.id;
+    const { path: newPath } = req.body;
+
+    if (!newPath) return res.status(400).json({ error: "Se requiere la nueva ruta" });
+
+    try {
+        // Crear carpeta si no existe
+        if (!fs.existsSync(newPath)) fs.mkdirSync(newPath, { recursive: true });
+
+        const [result] = await connection.promise().query(
+            "UPDATE media_locations SET path = ? WHERE id = ?",
+            [newPath, locationId]
+        );
+
+        if (result.affectedRows === 0)
+            return res.status(404).json({ error: "Ubicación no encontrada" });
+
+        res.json({ success: true, id: locationId, path: newPath });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Eliminar una ubicación
+app.delete('/api/locations/:id', verifyToken, async (req, res) => {
+    if (req.user.rol !== "admin")
+        return res.status(403).json({ error: "Solo admin puede eliminar ubicaciones" });
+
+    const locationId = req.params.id;
+
+    try {
+        // Verificar que la ubicación existe
+        const [rows] = await connection.promise().query(
+            "SELECT path FROM media_locations WHERE id = ?",
+            [locationId]
+        );
+
+        if (rows.length === 0) return res.status(404).json({ error: "Ubicación no encontrada" });
+
+        const folderPath = rows[0].path;
+
+        // Eliminar la ubicación de la base de datos
+        await connection.promise().query(
+            "DELETE FROM media_locations WHERE id = ?",
+            [locationId]
+        );
+
+        // Opcional: eliminar carpeta del sistema
+        // if (fs.existsSync(folderPath)) fs.rmdirSync(folderPath, { recursive: true });
+
+        res.json({ success: true, id: locationId, path: folderPath });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 

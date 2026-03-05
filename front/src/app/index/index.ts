@@ -46,7 +46,7 @@ export class IndexPage implements OnInit, OnDestroy {
         private fileService: FileService,
         private cdr: ChangeDetectorRef,
         public auth: AuthService,
-        private modalService: ModalService  
+        private modalService: ModalService
     ) { }
 
     ngOnInit() {
@@ -139,17 +139,17 @@ export class IndexPage implements OnInit, OnDestroy {
             showCloseButton: true,
             closeOnOverlayClick: true,
             buttons: [
-                {
-                    text: 'Cancelar',
-                    variant: 'secondary',
-                    handler: (modalRef) => modalRef.close()
-                },
-                {
-                    text: 'Registrar Contenido',
-                    variant: 'primary',
-                    type: 'submit',
-                    closeOnClick: false  // El cierre lo maneja el componente después de enviar
-                }
+                // {
+                //     text: 'Cancelar',
+                //     variant: 'secondary',
+                //     handler: (modalRef) => modalRef.close()
+                // },
+                // {
+                //     text: 'Registrar Contenido',
+                //     variant: 'primary',
+                //     type: 'submit',
+                //     closeOnClick: false  // El cierre lo maneja el componente después de enviar
+                // }
             ],
             data: {
                 // Podemos pasar datos iniciales si queremos

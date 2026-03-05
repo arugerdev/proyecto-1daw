@@ -1,23 +1,26 @@
 export interface MediaItem {
+    publication_year: string;
     id: number;
     title: string;
     description: string | null;
     recording_year: number | null;
     duration: string | null;
-    file_path: string;
+    media_path: string;
 
-    content_type_id: number;
-    program_id: number;
+    media_type_id: number;
 
     // Campos provenientes de JOIN
-    content_type?: string;
-    program?: string;
-
+    media_type?: string;
+    tags?: Tag[];
     // Relaciones
-    staff?: StaffMember[];
+    authors_ids?: Number[];
+    authors?: Author[];
+
+    date_updated?: string;
+    date_added?: string;
 }
 
-export interface StaffMember {
+export interface Author {
     id: number;
     name: string;
     role: string;
@@ -28,7 +31,7 @@ export interface ContentType {
     name: string;
 }
 
-export interface Program {
+export interface Tag {
     id: number;
     name: string;
 }
