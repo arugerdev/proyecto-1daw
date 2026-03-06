@@ -49,6 +49,7 @@
     display: flex;
     aspect-ratio: 1;
 }
+
 .type-icon-text {
     font-size: 16px;
     line-height: 1;
@@ -105,6 +106,12 @@
     opacity: 1;
 }
 
+.metadata-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
 .preview-button {
     display: flex;
     align-items: center;
@@ -138,6 +145,7 @@
     flex-direction: column;
     gap: 12px;
     flex: 1;
+    justify-content: space-between;
 }
 
 .title-section {

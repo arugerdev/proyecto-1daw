@@ -5,7 +5,7 @@ import { Subject, debounceTime, distinctUntilChanged, takeUntil, finalize } from
 import { FileCardComponent } from '../file-card/file-card.component';
 import { MediaItem } from '../../app/models/file.model';
 import { ModalService } from '../modal/modal.component';
-import { ConfirmationModalComponent } from '../../app/index/confirmation.modal';
+import { ConfirmationModalComponent } from '../../app/modals/confirmation.modal';
 
 @Component({
     selector: 'app-file-grid',
@@ -233,23 +233,6 @@ export class FileGridComponent implements OnInit, OnDestroy {
     }
 
     onDelete(file: MediaItem) {
-        // En vez de confirmar aquí, se podría abrir un modal de confirmación para evitar borrados accidentales ConfirmationModalComponent
-        /*
-        if (confirm(`¿Eliminar "${file.title}"?`)) {
-
-            this.fileService.deleteMedia(file.id).pipe(
-                takeUntil(this.destroy$)
-            ).subscribe({
-                next: () => {
-                    this.files = this.files.filter(f => f.id !== file.id);
-                    this.statsChanged.emit();
-                    this.cdr.detectChanges();
-                },
-                error: (error) => console.error('Error deleting:', error)
-            });
-        }
-            */
-
         // Abrir modal de confirmación
         this.modalService.open(ConfirmationModalComponent, {
             title: 'Confirmar Eliminación',

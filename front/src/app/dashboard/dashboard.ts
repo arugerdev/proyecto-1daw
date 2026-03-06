@@ -1,10 +1,12 @@
 import { ChangeDetectorRef, Component, OnInit, signal } from '@angular/core';
 import { Header } from '../../components/header/header.component';
 import { ModalService } from '../../components/modal/modal.component';
-import { RegisterUserModalComponent } from './new-user.modal';
 import { AuthService } from '../../services/auth.service';
 import { CommonModule, NgForOf } from '@angular/common';
 import { FileService } from '../../services/file.service';
+import { ConfirmationModalComponent } from '../modals/confirmation.modal';
+import { RouteModalComponent } from '../modals/new-route.modal';
+import { UserModalComponent } from '../modals/new-user.modal';
 
 @Component({
     selector: 'dashboard-page',
@@ -96,13 +98,19 @@ export class DashboardPage implements OnInit {
 
     createFolder() {
 
-        const path = prompt("Ruta de la nueva carpeta");
+        this.modalService.open(RouteModalComponent, {
+            title: "Crear Ruta",
+            data: {
+                path: "/media/movies",
+                onResult: (res: string) => {
+                    this.file.createMediaLocation(res.trim()).subscribe(() => {
+                        this.loadLocations();
+                    });
+                },
+                size: 'xl',
 
-        if (!path) return;
-
-        this.file.createMediaLocation(path).subscribe(() => {
-            this.loadLocations();
-        });
+            }
+        })
 
     }
 
@@ -120,10 +128,18 @@ export class DashboardPage implements OnInit {
 
     deleteFolder(loc: any) {
 
-        if (!confirm("Eliminar carpeta y contenido?")) return;
-
-        this.file.deleteMediaLocation(loc.id).subscribe(() => {
-            this.loadLocations();
+        this.modalService.open(ConfirmationModalComponent, {
+            title: `¿Eliminar "${loc.path}"? Esta acción no se puede deshacer.`,
+            data: {
+                message: `⚠ ATENCION: ESTO ELIMINARA TODO EL CONTENIDO DENTRO DE LA CARPETA, INCLUYENDO ARCHIVOS Y SUBCARPETAS`,
+                confirmText: 'Sí, eliminar',
+                cancelText: 'Cancelar',
+                onConfirm: () => {
+                    this.file.deleteMediaLocation(loc.id).subscribe(() => {
+                        this.loadLocations();
+                    });
+                }
+            }
         });
 
     }
@@ -134,23 +150,32 @@ export class DashboardPage implements OnInit {
             return;
         }
 
-        if (confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
-            this.auth.deleteUser(userId).subscribe(() => {
-                // Eliminar el usuario de la lista local después de eliminarlo en el servidor
-                this.users = this.users.filter(user => user.id !== userId);
-                this.cdr.markForCheck();
+        this.modalService.open(ConfirmationModalComponent, {
+            title: `¿Eliminar el usuario ${this.users.filter(user => user.id == userId)[0].name} ? Esta acción no se puede deshacer.`,
+            data: {
+                message: `El usuario perdera el acceso.`,
+                confirmText: 'Sí, eliminar',
+                cancelText: 'Cancelar',
+                onConfirm: () => {
+                    this.auth.deleteUser(userId).subscribe(() => {
+                        // Eliminar el usuario de la lista local después de eliminarlo en el servidor
+                        this.users = this.users.filter(user => user.id !== userId);
+                        this.cdr.markForCheck();
 
-            }, error => {
-                console.error('Error eliminando usuario:', error);
-                alert('Error eliminando usuario');
-            });
-        }
+                    }, error => {
+                        console.error('Error eliminando usuario:', error);
+                        alert('Error eliminando usuario');
+                    });
+                }
+            }
+        });
+
     }
 
 
 
     openModal() {
-        const modalRef = this.modalService.open(RegisterUserModalComponent, {
+        const modalRef = this.modalService.open(UserModalComponent, {
             title: 'Crear Nuevo Usuario',
             description: 'Completa la información del usuario que deseas agregar al sistema.',
             size: 'xl',
@@ -191,7 +216,7 @@ export class DashboardPage implements OnInit {
             return;
         }
 
-        const modalRef = this.modalService.open(RegisterUserModalComponent, {
+        const modalRef = this.modalService.open(UserModalComponent, {
             title: 'Editar Usuario',
             description: `Editando el usuario ${user.name}. Modifica la información que deseas actualizar.`,
             size: 'xl',

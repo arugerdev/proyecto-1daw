@@ -54,13 +54,11 @@ function verifyToken(req, res, next) {
 }
 
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        // Usar la ruta base del .env
+    destination: function (req, file, cb) { // Usar la ruta base del .env 
+
         const basePath = mediaPath || path.join(__dirname, "media");
         const dir = path.join(basePath);
-
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
         cb(null, dir);
     },
     filename: function (req, file, cb) {
@@ -68,7 +66,6 @@ const storage = multer.diskStorage({
         cb(null, uniqueName);
     }
 });
-
 const upload = multer({ storage });
 
 app.post('/api/login', async (req, res) => {
@@ -126,35 +123,35 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
     if (req.user.rol === "viewer")
         return res.status(403).json({ error: "No tienes permisos para subir contenido" });
 
-    const { title, description, publication_year, media_type_id, tags, author_ids } = req.body;
-    const file = req.file;
-
-    if (!file) return res.status(400).json({ error: "Archivo requerido" });
-
-    // Determinar la ubicación del media
-    const mediaPath = file.destination;
-    const filename = file.filename;
-    const fullPath = file.path;
-
     try {
-        // Verificar o crear la ubicación de media
-        let [locationRows] = await connection.promise().query(
-            "SELECT id FROM media_locations WHERE path = ?",
-            [mediaPath]
+
+        const {
+            title,
+            description,
+            publication_year,
+            media_type_id,
+            media_location_id,
+            tags,
+            author_ids
+        } = req.body;
+
+        const file = req.file;
+
+        if (!file)
+            return res.status(400).json({ error: "Archivo requerido" });
+
+        let [basePaths] = await connection.promise().query(
+            "SELECT path FROM media_locations WHERE id = ?",
+            [media_location_id]
         );
 
-        let media_location_id;
-        if (locationRows.length === 0) {
-            const [result] = await connection.promise().query(
-                "INSERT INTO media_locations (path) VALUES (?)",
-                [mediaPath]
-            );
-            media_location_id = result.insertId;
-        } else {
-            media_location_id = locationRows[0].id;
-        }
+        if (!fs.existsSync(basePaths[0].path))
+            fs.mkdirSync(basePaths[0].path, { recursive: true });
 
-        // Insertar el item multimedia
+        const filename = Date.now() + "_" + file.originalname;
+        const fullPath = path.join(basePaths[0].path, filename);
+
+        // Insertar media
         const [result] = await connection.promise().query(`
             INSERT INTO media_items 
             (title, description, publication_year, media_path, filename, media_type_id, media_location_id, tags)
@@ -172,22 +169,42 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
 
         const mediaId = result.insertId;
 
-        // Si hay autores, insertar las relaciones
+        // Insertar autores
         if (author_ids) {
-            const authorIdsArray = Array.isArray(author_ids) ? author_ids : JSON.parse(author_ids);
+
+            const authorIdsArray =
+                Array.isArray(author_ids)
+                    ? author_ids
+                    : JSON.parse(author_ids);
 
             for (const authorId of authorIdsArray) {
+
                 await connection.promise().query(
-                    "INSERT INTO media_author (media_id, author_id) VALUES (?, ?)",
+                    "INSERT INTO media_author (media_id, user_id) VALUES (?, ?)",
                     [mediaId, authorId]
                 );
+
             }
         }
 
-        res.json({ success: true, id: mediaId });
+        // Guardar archivo        
+        await fs.rename(req.file.path, fullPath, () => {
+            res.json({
+                success: true,
+                id: mediaId,
+                path: fullPath
+            });
+        });
 
     } catch (err) {
-        res.status(500).json({ error: err.message });
+
+        console.error("Upload error:", err);
+
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+
     }
 });
 
@@ -208,13 +225,13 @@ app.get('/api/files', verifyToken, async (req, res) => {
             m.date_updated,
             ct.name AS media_type,
             ml.path AS location_path,
-            GROUP_CONCAT(DISTINCT a.name) AS authors,
-            GROUP_CONCAT(DISTINCT a.id) AS author_ids
+            GROUP_CONCAT(DISTINCT a.nombre) AS authors,
+            GROUP_CONCAT(DISTINCT a.id_user) AS author_ids
         FROM media_items m
         LEFT JOIN media_types ct ON m.media_type_id = ct.id
         LEFT JOIN media_locations ml ON m.media_location_id = ml.id
         LEFT JOIN media_author ma ON m.id = ma.media_id
-        LEFT JOIN author a ON ma.author_id = a.id
+        LEFT JOIN users a ON ma.user_id = a.id_user
         WHERE 1=1
     `;
 
@@ -232,7 +249,7 @@ app.get('/api/files', verifyToken, async (req, res) => {
     }
 
     if (author) {
-        query += " AND a.name LIKE ?";
+        query += " AND a.nombre LIKE ?";
         params.push(`%${author}%`);
     }
 
@@ -284,13 +301,13 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
             m.*,
             ct.name AS media_type,
             ml.path AS location_path,
-            GROUP_CONCAT(DISTINCT a.name) AS authors,
-            GROUP_CONCAT(DISTINCT a.id) AS author_ids
+            GROUP_CONCAT(DISTINCT a.nombre) AS authors,
+            GROUP_CONCAT(DISTINCT a.id_user) AS author_ids
         FROM media_items m
         LEFT JOIN media_types ct ON m.media_type_id = ct.id
         LEFT JOIN media_locations ml ON m.media_location_id = ml.id
         LEFT JOIN media_author ma ON m.id = ma.media_id
-        LEFT JOIN author a ON ma.author_id = a.id
+        LEFT JOIN users a ON ma.user_id = a.id_user
         WHERE (m.title LIKE ? OR m.description LIKE ? OR m.tags LIKE ?)
         ${type != 0 ? `AND m.media_type_id = ${type}` : ''}
         GROUP BY m.id
@@ -361,6 +378,9 @@ app.delete('/api/files/:id', verifyToken, async (req, res) => {
     if (fs.existsSync(rows[0].media_path))
         fs.unlinkSync(rows[0].media_path);
 
+    if (fs.existsSync(rows[0].media_path + '_thumbnail.jpg'))
+        fs.unlinkSync(rows[0].media_path + '_thumbnail.jpg');
+
     res.json({ success: true });
 });
 
@@ -403,7 +423,7 @@ app.put('/api/files/:id', verifyToken, async (req, res) => {
 
             for (const authorId of authorIdsArray) {
                 await connection.promise().query(
-                    "INSERT INTO media_author (media_id, author_id) VALUES (?, ?)",
+                    "INSERT INTO media_author (media_id, user_id) VALUES (?, ?)",
                     [req.params.id, authorId]
                 );
             }
@@ -464,7 +484,7 @@ function getPermissionsByRole(rol) {
             canUpload: false,
             canDelete: false,
             canEdit: false,
-            canDownload: true,
+            canDownload: false,
             canManageUsers: false,
             canViewAllContent: true,
             role: 'viewer',
@@ -651,95 +671,6 @@ app.post('/api/media-type', verifyToken, async (req, res) => {
     }
 });
 
-// Endpoint para autores
-app.get('/api/authors', verifyToken, async (req, res) => {
-    try {
-        const [rows] = await connection.promise().query(`
-            SELECT id, name, role
-            FROM author
-            ORDER BY name ASC
-        `);
-
-        res.json({
-            success: true,
-            data: rows
-        });
-
-    } catch (err) {
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
-});
-
-app.post('/api/authors', verifyToken, async (req, res) => {
-    if (req.user.rol !== "admin" && req.user.rol !== "moderator")
-        return res.status(403).json({ error: "No tienes permisos" });
-
-    const { name, role } = req.body;
-
-    try {
-        const [result] = await connection.promise().query(
-            "INSERT INTO author (name, role) VALUES (?, ?)",
-            [name, role]
-        );
-
-        res.json({
-            success: true,
-            id: result.insertId
-        });
-
-    } catch (err) {
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
-});
-
-app.put('/api/authors/:id', verifyToken, async (req, res) => {
-    if (req.user.rol !== "admin" && req.user.rol !== "moderator")
-        return res.status(403).json({ error: "No tienes permisos" });
-
-    const { name, role } = req.body;
-
-    try {
-        await connection.promise().query(
-            "UPDATE author SET name = ?, role = ? WHERE id = ?",
-            [name, role, req.params.id]
-        );
-
-        res.json({ success: true });
-
-    } catch (err) {
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
-});
-
-app.delete('/api/authors/:id', verifyToken, async (req, res) => {
-    if (req.user.rol !== "admin")
-        return res.status(403).json({ error: "Solo admin puede eliminar autores" });
-
-    try {
-        await connection.promise().query(
-            "DELETE FROM author WHERE id = ?",
-            [req.params.id]
-        );
-
-        res.json({ success: true });
-
-    } catch (err) {
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-    }
-});
-
 // Get all users (for admin)
 app.get('/api/users', verifyToken, async (req, res) => {
     if (req.user.rol !== "admin")
@@ -855,14 +786,14 @@ app.get('/api/files/:id', verifyToken, async (req, res) => {
                 m.*,
                 ct.name AS media_type,
                 ml.path AS location_path,
-                GROUP_CONCAT(DISTINCT a.id) AS author_ids,
-                GROUP_CONCAT(DISTINCT a.name) AS author_names,
+                GROUP_CONCAT(DISTINCT a.id_user) AS author_ids,
+                GROUP_CONCAT(DISTINCT a.nombre) AS author_names,
                 GROUP_CONCAT(DISTINCT a.role) AS author_roles
             FROM media_items m
             LEFT JOIN media_types ct ON m.media_type_id = ct.id
             LEFT JOIN media_locations ml ON m.media_location_id = ml.id
             LEFT JOIN media_author ma ON m.id = ma.media_id
-            LEFT JOIN author a ON ma.author_id = a.id
+            LEFT JOIN users a ON ma.user_id = a.id_user
             WHERE m.id = ?
             GROUP BY m.id
         `, [req.params.id]);
@@ -949,7 +880,6 @@ app.post('/api/locations', verifyToken, async (req, res) => {
 
     const { path: newPath } = req.body;
     if (!newPath) return res.status(400).json({ error: "Se requiere la ruta de la ubicación" });
-
     try {
         // Crear la carpeta si no existe
         if (!fs.existsSync(newPath)) fs.mkdirSync(newPath, { recursive: true });
@@ -1017,8 +947,7 @@ app.delete('/api/locations/:id', verifyToken, async (req, res) => {
             [locationId]
         );
 
-        // Opcional: eliminar carpeta del sistema
-        // if (fs.existsSync(folderPath)) fs.rmdirSync(folderPath, { recursive: true });
+        if (fs.existsSync(folderPath)) fs.rmdirSync(folderPath, { recursive: true });
 
         res.json({ success: true, id: locationId, path: folderPath });
     } catch (err) {
