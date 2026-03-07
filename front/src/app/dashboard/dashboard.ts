@@ -101,7 +101,7 @@ export class DashboardPage implements OnInit {
         this.modalService.open(RouteModalComponent, {
             title: "Crear Ruta",
             data: {
-                path: "/media/movies",
+                path: "",
                 onResult: (res: string) => {
                     this.file.createMediaLocation(res.trim()).subscribe(() => {
                         this.loadLocations();
@@ -116,14 +116,19 @@ export class DashboardPage implements OnInit {
 
     renameFolder(loc: any) {
 
-        const newPath = prompt("Nuevo nombre", loc.path);
+        this.modalService.open(RouteModalComponent, {
+            title: "Editar Ruta",
+            data: {
+                path: loc.path,
+                onResult: (res: string) => {
+                    this.file.renameMediaLocation(loc.id, res.trim()).subscribe(() => {
+                        this.loadLocations();
+                    });
+                },
+                size: 'xl',
 
-        if (!newPath) return;
-
-        this.file.renameMediaLocation(loc.id, newPath).subscribe(() => {
-            this.loadLocations();
-        });
-
+            }
+        })
     }
 
     deleteFolder(loc: any) {
@@ -171,8 +176,6 @@ export class DashboardPage implements OnInit {
         });
 
     }
-
-
 
     openModal() {
         const modalRef = this.modalService.open(UserModalComponent, {

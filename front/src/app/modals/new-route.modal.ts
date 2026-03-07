@@ -51,10 +51,8 @@ import { ModalRef } from '../models/modal.model';
         </form>
     `,
     styles: [`
-        .modal-content{
-            min-width:30vw;
-        }
         .modal-form {
+            min-width:20vw;
             gap: 18px;
         }
 
