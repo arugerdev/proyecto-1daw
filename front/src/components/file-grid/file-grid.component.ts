@@ -5,7 +5,8 @@ import { Subject, debounceTime, distinctUntilChanged, takeUntil, finalize } from
 import { FileCardComponent } from '../file-card/file-card.component';
 import { MediaItem } from '../../app/models/file.model';
 import { ModalService } from '../modal/modal.component';
-import { ConfirmationModalComponent } from '../../app/index/confirmation.modal';
+import { ConfirmationModalComponent } from '../../app/modals/confirmation.modal';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'app-file-grid',
@@ -24,7 +25,7 @@ import { ConfirmationModalComponent } from '../../app/index/confirmation.modal';
                 </svg>
                 <h3>No hay archivos</h3>
                 <p>Comienza subiendo tu primer contenido multimedia</p>
-                <button (click)="openModal.emit()" class="button button-primary">
+                <button *ngIf="canUploadContent" (click)="openModal.emit()" class="button button-primary">
                     Subir Contenido
                 </button>
             </div>
@@ -72,6 +73,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
     pageSize = 20;
     totalPages = 0;
 
+    canUploadContent = false;
+
     private observer: IntersectionObserver | null = null;
     private searchSubject = new Subject<string>();
     private destroy$ = new Subject<void>();
@@ -79,7 +82,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
     constructor(
         private fileService: FileService,
         private cdr: ChangeDetectorRef,
-        private modalService: ModalService
+        private modalService: ModalService,
+        private auth: AuthService
     ) { }
 
     ngOnInit() {
@@ -89,6 +93,12 @@ export class FileGridComponent implements OnInit, OnDestroy {
         this.setupInfiniteScroll();
         console.log('FileGridComponent initialized with files:', this.files);
 
+        this.auth.refreshUserRole().pipe(
+            takeUntil(this.destroy$)
+        ).subscribe(user => {
+            this.canUploadContent = !!user?.permissions?.canUpload;
+            this.cdr.markForCheck();
+        });
     }
 
     ngOnDestroy() {
@@ -233,23 +243,6 @@ export class FileGridComponent implements OnInit, OnDestroy {
     }
 
     onDelete(file: MediaItem) {
-        // En vez de confirmar aquí, se podría abrir un modal de confirmación para evitar borrados accidentales ConfirmationModalComponent
-        /*
-        if (confirm(`¿Eliminar "${file.title}"?`)) {
-
-            this.fileService.deleteMedia(file.id).pipe(
-                takeUntil(this.destroy$)
-            ).subscribe({
-                next: () => {
-                    this.files = this.files.filter(f => f.id !== file.id);
-                    this.statsChanged.emit();
-                    this.cdr.detectChanges();
-                },
-                error: (error) => console.error('Error deleting:', error)
-            });
-        }
-            */
-
         // Abrir modal de confirmación
         this.modalService.open(ConfirmationModalComponent, {
             title: 'Confirmar Eliminación',

@@ -19,12 +19,6 @@ CREATE TABLE sessions (
     FOREIGN KEY (id_user) REFERENCES users(id_user) ON DELETE CASCADE
 );
 
-CREATE TABLE author (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name TEXT,
-    role VARCHAR(100)
-);
-
 CREATE TABLE media_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(512) UNIQUE
@@ -47,16 +41,16 @@ CREATE TABLE media_items (
     tags TEXT, /* -> "tag1,tag2,tag3" */
     date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     date_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (media_location_id) REFERENCES media_locations(id),
-    FOREIGN KEY (media_type_id) REFERENCES media_types(id)
+    FOREIGN KEY (media_location_id) REFERENCES media_locations(id) ON DELETE CASCADE,
+    FOREIGN KEY (media_type_id) REFERENCES media_types(id) ON DELETE SET NULL
 );
 
 CREATE TABLE media_author (
     media_id INT,
-    author_id INT,
-    PRIMARY KEY (media_id, author_id),
+    user_id INT,
+    PRIMARY KEY (media_id, user_id),
     FOREIGN KEY (media_id) REFERENCES media_items(id) ON DELETE CASCADE,
-    FOREIGN KEY (author_id) REFERENCES author(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id_user) ON DELETE CASCADE
 );
 
 -- #################### DEFAULT USERS ####################

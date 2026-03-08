@@ -69,8 +69,32 @@
     display: inline-block;
 }
 
+.button-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.5rem;
+    padding: 0 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s;
+    white-space: nowrap;
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
+}
+
+.button-primary:hover {
+    background: var(--btn-primary-hover);
+}
+
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @media (max-width: 768px) {

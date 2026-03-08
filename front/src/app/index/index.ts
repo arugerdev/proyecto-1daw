@@ -9,7 +9,7 @@ import { Subject, takeUntil, forkJoin, finalize } from 'rxjs';
 import { Stats } from '../models/file.model';
 import { AuthService } from '../../services/auth.service';
 import { ModalService } from '../../components/modal/modal.component';
-import { RegisterContentModalComponent } from './new-file.modal';
+import { RegisterContentModalComponent } from '../modals/new-file.modal';
 
 @Component({
     selector: 'index-page',

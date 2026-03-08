@@ -142,6 +142,7 @@ export class FileService {
     // ===========================
 
     getThumbnailUrl(media: MediaItem): string {
+        console.log(media)
         // si es video, devuelve la ruta del thumbnail, si no, devuelve el endpointe que devuelve la imagen
         if (!media.media_path.toLowerCase().match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
             return `${this.API}/files/${media.id}/thumbnail`;
