@@ -4,6 +4,7 @@ import { IndexPage } from './index/index';
 import { authGuard } from './guards/auth-guard';
 import { DashboardPage } from './dashboard/dashboard';
 import { roleGuard } from './guards/role-guard';
+import { RegisterComponent } from './register/register';
 
 
 export const routes: Routes = [
@@ -19,7 +20,19 @@ export const routes: Routes = [
     },
     {
         path: 'login',
-        component: LoginPage,
-    },
-    { path: '**', redirectTo: '/' },
+        component: LoginPage
+    }, 
+    { 
+        path: 'register', 
+        component: RegisterComponent    
+    },   
+    { 
+        path: '**', redirectTo: '/' 
+    }    
+    
 ];
+
+
+
+
+

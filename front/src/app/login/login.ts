@@ -1,19 +1,25 @@
-import { HttpClient } from '@angular/common/http';
-import { Component, signal } from '@angular/core';
-import { LocalStorageService } from '../../services/localStorage.service';
-import { Router } from '@angular/router';
+import { Component } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { LocalStorageService } from '../../services/localStorage.service';
+import { FormsModule } from '@angular/forms';
+
 
 @Component({
     selector: 'login-page',
+    standalone: true,
+    imports: [RouterLink, FormsModule],
     templateUrl: './page.html',
     styleUrl: './style.css'
 })
 export class LoginPage {
+
+    showPassword: boolean = false;
+
     constructor(
         private auth: AuthService,
         private storage: LocalStorageService,
-        private router: Router
+        private router: Router        
     ) { }
 
     ngOnInit() {
@@ -22,9 +28,8 @@ export class LoginPage {
         }
     }
 
-    showPassword: boolean = false;
-
     async onSubmit(event: Event) {
+
         event.preventDefault();
 
         const form = event.target as HTMLFormElement;
@@ -35,6 +40,7 @@ export class LoginPage {
         const errorDisplay = form.querySelector('#errorDisplay') as HTMLElement;
 
         this.auth.login(username, password).subscribe({
+
             next: (data) => {
 
                 if (!data.success) {
@@ -50,18 +56,20 @@ export class LoginPage {
                     60 * 60 * 24 * 7
                 );
 
-                this.storage.setUserData(data)
+                this.storage.setUserData(data);
 
-                this.router.navigate(['/'])
+                this.router.navigate(['/']);
             },
+
             error: () => {
                 errorDisplay.style.display = "flex";
             }
+
         });
     }
-
 
     onTogglePassword() {
         this.showPassword = !this.showPassword;
     }
+
 }

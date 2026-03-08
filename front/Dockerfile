@@ -4,7 +4,7 @@
 FROM node:alpine AS build
 WORKDIR /app
 
-ARG API_URL=https://apiecijacomarca.rud1.es/api
+ARG API_URL=http://localhost:3000/api
 ENV API_URL=$API_URL
 
 RUN echo "API_URL is set to: ${API_URL}"
