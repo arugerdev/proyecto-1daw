@@ -57,6 +57,18 @@ export class AuthService {
             );
     }
 
+    register(username: string, password: string) {
+        return this.http.post<any>(`${this.API}/register`, { username, password })
+            .pipe(
+                tap(response => {
+                    if (response.success) {
+                        this.storage.setUserData(response)
+                        this.currentUser = response;
+                    }
+                })
+            );
+    }
+
     refreshUserRole(): Observable<UserData | null> {
         return this.http.get<any>(`${this.API}/user/role`, {
             headers: {

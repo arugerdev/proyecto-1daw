@@ -1,32 +1,33 @@
 import { Component } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common'; 
-import { Router, RouterModule } from '@angular/router'; 
+import { CommonModule } from '@angular/common';
+import { Router, RouterModule } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { LocalStorageService } from '../../services/localStorage.service';
 
 @Component({
   selector: 'app-register',
   templateUrl: './page.html',
   styleUrls: ['./style.css'],
-  standalone: true, 
+  standalone: true,
   imports: [FormsModule, CommonModule, RouterModule]
 })
 export class RegisterComponent {
   // Variables para tooltips
-  showTooltipUsername = false; 
+  showTooltipUsername = false;
   showTooltipPassword = false;
   showTooltipConfirm = false;
 
   showPassword = false;
   password = '';
   confirmPassword = '';
-  
+
   // Fuerza de contraseña
   passwordStrength = 0;
-  passwordColor = '#e5e7eb'; 
+  passwordColor = '#e5e7eb';
   passwordText = '';
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private auth: AuthService, private router: Router, private storage: LocalStorageService) { }
 
   togglePassword() {
     this.showPassword = !this.showPassword;
@@ -75,7 +76,7 @@ export class RegisterComponent {
     const error = document.getElementById('errorDisplay');
     const text = document.getElementById('errorText');
     if (error && text) {
-      error.style.display = 'flex'; 
+      error.style.display = 'flex';
       text.innerText = message;
     }
   }
@@ -111,12 +112,37 @@ export class RegisterComponent {
       return this.showError('Las contraseñas no coinciden');
     }
 
-    this.http.post('http://localhost:3000/api/register', { username, password }).subscribe({
-      next: () => {
-        alert('Cuenta creada con éxito');
-        this.router.navigate(['/login']);
+    // this.http.post('http://localhost:3000/api/register', { username, password }).subscribe({
+    //   next: () => {
+    //     alert('Cuenta creada con éxito');
+    //     this.router.navigate(['/login']);
+    //   },
+    //   error: () => this.showError('Error al registrar: el usuario ya existe o el servidor no responde')
+    // });
+
+    this.auth.register(username, password).subscribe({
+      next: (data) => {
+
+        if (!data.success) {
+          this.showError('Error al registrar: el usuario ya existe o el servidor no responde')
+          return;
+        }
+
+        this.storage.setAuthSession(
+          data.token,
+          data,
+          60 * 60 * 24 * 7
+        );
+
+        this.storage.setUserData(data);
+
+        this.router.navigate(['/']);
       },
-      error: () => this.showError('Error al registrar: el usuario ya existe o el servidor no responde')
+
+      error: () => {
+        this.showError('Error al registrar: el usuario ya existe o el servidor no responde')
+      }
+
     });
   }
 }

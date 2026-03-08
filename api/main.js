@@ -101,6 +101,53 @@ app.post('/api/login', async (req, res) => {
         .catch(err => res.status(500).json({ error: err.message }))
 });
 
+app.post('/api/register', async (req, res) => {
+    const data = req.body;
+
+    if (!data || !data.username || !data.password)
+        return res.status(401).json({ error: "Necesidad de credenciales" });
+
+    try {
+
+        const [rows] = await connection.promise().query(
+            `SELECT * FROM users WHERE nombre = ?`,
+            [data.username]
+        );
+
+        if (rows.length > 0)
+            return res.status(409).json({ error: "El usuario ya existe" });
+
+        const hashedPassword = await bcrypt.hash(data.password, 10);
+
+        const [result] = await connection.promise().query(
+            `INSERT INTO users (nombre, contrasena, rol) VALUES (?, ?, 'viewer')`,
+            [data.username, hashedPassword]
+        );
+
+        const user = {
+            id_user: result.insertId,
+            nombre: data.username,
+            rol: 'viewer'
+        };
+
+        const token = jwt.sign(
+            { id_user: user.id_user, nombre: user.nombre, rol: user.rol },
+            secret,
+            { expiresIn: "7d" }
+        );
+
+        await connection.promise().query(
+            `INSERT INTO sessions (id_user, key_session) VALUES (?, ?)`,
+            [user.id_user, token]
+        );
+
+        res.json({ ...user, token, success: true });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Endpoint para logout
 app.post('/api/logout', verifyToken, async (req, res) => {
     try {
