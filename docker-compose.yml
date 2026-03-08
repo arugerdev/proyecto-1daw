@@ -11,7 +11,7 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: root
     ports:
-      - "3307:3306" # Usamos puerto diferente para evitar conflictos con MySQL local
+      - "3306:3306" # Usamos puerto diferente para evitar conflictos con MySQL local
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db/backups:/backups
