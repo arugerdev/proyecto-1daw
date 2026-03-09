@@ -1,24 +1,24 @@
 import {
-    Component,
-    ElementRef,
-    EventEmitter,
-    Input,
-    Output,
-    ViewChild,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  Output,
+  ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModalButton, ModalRef } from '../../app/models/modal.model';
 
 @Component({
-    selector: 'app-modal-container',
-    standalone: true,
-    imports: [CommonModule],
-    template: `
+  selector: 'app-modal-container',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
     <!-- OVERLAY -->
     <div class="modal-overlay" [class.visible]="isVisible" (click)="onOverlayClick($event)">
       
       <!-- MODAL WRAPPER -->
-        <div class="modal-wrapper" [class.visible]="isVisible" [class.size-sm]="size === 'sm'" [class.size-md]="size === 'md'" [class.size-lg]="size === 'lg'" [class.size-xl]="size === 'xl'" [class.size-full]="size === 'full'">        
+        <div class="modal-wrapper" [class.visible]="isVisible" [class]="sizeClass">        
     
         <!-- Contenedor dinámico para el contenido -->
         <div role="dialog" class="modal">
@@ -61,7 +61,7 @@ import { ModalButton, ModalRef } from '../../app/models/modal.model';
       </div>
     </div>
   `,
-    styles: [`
+  styles: [`
     /* Tus estilos actualizados aquí */
     .modal-overlay {
       position: fixed;
@@ -225,41 +225,45 @@ import { ModalButton, ModalRef } from '../../app/models/modal.model';
   `],
 })
 export class ModalContainerComponent {
-    @ViewChild('contentHost', { static: true }) contentHost!: ElementRef;
+  @ViewChild('contentHost', { static: true }) contentHost!: ElementRef;
 
-    @Input() title?: string;
-    @Input() description?: string;
-    @Input() buttons?: ModalButton[];
-    @Input() showCloseButton = true;
-    @Input() closeOnOverlayClick = true;
-    @Input() size: 'sm' | 'md' | 'lg' | 'xl' = 'md';
+  @Input() title?: string;
+  @Input() description?: string;
+  @Input() buttons?: ModalButton[];
+  @Input() showCloseButton = true;
+  @Input() closeOnOverlayClick = true;
+  @Input() size: 'sm' | 'md' | 'lg' | 'xl' = 'md';
 
-    isVisible = true;
-    modalRef?: ModalRef;
+  isVisible = true;
+  modalRef?: ModalRef;
 
-    onOverlayClick(event: MouseEvent): void {
-        if (this.closeOnOverlayClick &&
-            (event.target as HTMLElement).classList.contains('modal-overlay')) {
-            this.close();
-        }
+  get sizeClass(): string {
+    return `size-${this.size}`;
+  }
+
+  onOverlayClick(event: MouseEvent): void {
+    if (this.closeOnOverlayClick &&
+      (event.target as HTMLElement).classList.contains('modal-overlay')) {
+      this.close();
+    }
+  }
+
+  onButtonClick(button: ModalButton): void {
+    if (button.handler) {
+      button.handler(this.modalRef!);
     }
 
-    onButtonClick(button: ModalButton): void {
-        if (button.handler) {
-            button.handler(this.modalRef!);
-        }
-
-        if (button.closeOnClick !== false) {
-            this.close();
-        }
+    if (button.closeOnClick !== false) {
+      this.close();
     }
+  }
 
-    close(result?: any): void {
-        this.isVisible = false;
+  close(result?: any): void {
+    this.isVisible = false;
 
-        // Esperar animación de salida
-        setTimeout(() => {
-            this.modalRef?.close(result);
-        }, 200);
-    }
+    // Esperar animación de salida
+    setTimeout(() => {
+      this.modalRef?.close(result);
+    }, 200);
+  }
 }
