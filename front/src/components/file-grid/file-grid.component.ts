@@ -8,6 +8,7 @@ import { ModalService } from '../modal/modal.component';
 import { ConfirmationModalComponent } from '../../app/modals/confirmation.modal';
 import { AuthService } from '../../services/auth.service';
 import { ContentModalComponent } from '../../app/modals/new-file.modal';
+import { DetailsModalComponent } from '../../app/modals/details.modal';
 
 @Component({
     selector: 'app-file-grid',
@@ -206,7 +207,12 @@ export class FileGridComponent implements OnInit, OnDestroy {
     // ===========================
 
     onViewDetails(file: MediaItem) {
-        console.log('View details:', file);
+        this.modalService.open(DetailsModalComponent, {
+            title: 'Detalles del Archivo',
+            data: {
+                file: file
+            }
+        });
     }
 
     onDownload(file: MediaItem) {
