@@ -110,18 +110,18 @@ import { CommonModule } from '@angular/common';
              [(ngModel)]="newTypeName" 
              name="newTypeName"
              (input)="validateField('type')"
-             [class.error]="showErrors && isCreatingNewType && !newTypeName?.trim()" />
-      <small class="field-hint" *ngIf="showErrors && isCreatingNewType && !newTypeName?.trim()">
+             [class.error]="showErrors && isCreatingNewType && !newTypeName.trim()" />
+      <small class="field-hint" *ngIf="showErrors && isCreatingNewType && !newTypeName.trim()">
         El nombre del nuevo tipo es requerido
       </small>
     </div>
   </div>
 
   <!-- TÍTULO -->
-  <div class="form-group" [class.has-error]="showErrors && !title?.trim()">
+  <div class="form-group" [class.has-error]="showErrors && !title.trim()">
     <label class="form-label">
       Título <span class="required-star">*</span>
-      <span class="error-message" *ngIf="showErrors && !title?.trim()">
+      <span class="error-message" *ngIf="showErrors && !title.trim()">
         El título es requerido
       </span>
     </label>
@@ -132,14 +132,14 @@ import { CommonModule } from '@angular/common';
            name="title"
            required
            (input)="validateField('title')"
-           [class.error]="showErrors && !title?.trim()" />
+           [class.error]="showErrors && !title.trim()" />
   </div>
 
   <!-- DESCRIPCIÓN -->
-  <div class="form-group" [class.has-error]="showErrors && !description?.trim()">
+  <div class="form-group" [class.has-error]="showErrors && !description.trim()">
     <label class="form-label">
       Descripción <span class="required-star">*</span>
-      <span class="error-message" *ngIf="showErrors && !description?.trim()">
+      <span class="error-message" *ngIf="showErrors && !description.trim()">
         La descripción es requerida
       </span>
     </label>
@@ -150,7 +150,7 @@ import { CommonModule } from '@angular/common';
               name="description"
               required
               (input)="validateField('description')"
-              [class.error]="showErrors && !description?.trim()">
+              [class.error]="showErrors && !description.trim()">
 
     </textarea>
   </div>

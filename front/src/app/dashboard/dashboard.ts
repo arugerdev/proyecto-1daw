@@ -151,30 +151,100 @@ export class DashboardPage implements OnInit {
 
     deleteUser(userId: number) {
         if (userId === 1) {
-            alert('No se puede eliminar el usuario admin');
+            alert('No se puede eliminar el usuario administrador principal');
             return;
         }
 
+        // Obtener el usuario antes de eliminarlo
+        const userToDelete = this.users.find(user => user.id === userId);
+        if (!userToDelete) {
+            alert('Usuario no encontrado');
+            return;
+        }
+
+        // Verificar si el usuario está intentando eliminarse a sí mismo
+        const currentUser = this.auth.getCurrentUser();
+        if (currentUser && currentUser.id_user === userId) {
+            this.modalService.open(ConfirmationModalComponent, {
+                title: `¿Eliminar tu propio usuario?`,
+                data: {
+                    message: `⚠ ATENCIÓN: Estás intentando eliminar tu propia cuenta. Esta acción te desconectará del sistema y no podrás recuperar el acceso.`,
+                    confirmText: 'Sí, eliminar mi cuenta',
+                    cancelText: 'Cancelar',
+                    onConfirm: () => {
+                        this.executeUserDeletion(userId, userToDelete, true);
+                    }
+                }
+            });
+            return;
+        }
+
+        // Confirmación normal para otros usuarios
         this.modalService.open(ConfirmationModalComponent, {
-            title: `¿Eliminar el usuario ${this.users.filter(user => user.id == userId)[0].name} ? Esta acción no se puede deshacer.`,
+            title: `¿Eliminar el usuario "${userToDelete.name}"?`,
             data: {
-                message: `El usuario perdera el acceso.`,
+                message: `Esta acción no se puede deshacer. El usuario perderá todo acceso al sistema.`,
                 confirmText: 'Sí, eliminar',
                 cancelText: 'Cancelar',
                 onConfirm: () => {
-                    this.auth.deleteUser(userId).subscribe(() => {
-                        // Eliminar el usuario de la lista local después de eliminarlo en el servidor
-                        this.users = this.users.filter(user => user.id !== userId);
-                        this.cdr.markForCheck();
+                    this.executeUserDeletion(userId, userToDelete, false);
+                }
+            }
+        });
+    }
 
-                    }, error => {
-                        console.error('Error eliminando usuario:', error);
-                        alert('Error eliminando usuario');
-                    });
+    private executeUserDeletion(userId: number, userToDelete: any, isSelfDelete: boolean) {
+        this.auth.deleteUser(userId).subscribe({
+            next: (res: any) => {
+                if (res.success) {
+                    // Eliminación exitosa
+                    this.users = this.users.filter(user => user.id !== userId);
+
+                    // Si el usuario se eliminó a sí mismo, cerrar sesión
+                    if (isSelfDelete) {
+                        alert('Tu cuenta ha sido eliminada. Serás redirigido al login.');
+                        this.auth.logout();
+                    }
+
+                    this.cdr.markForCheck();
+                } else {
+                    // Manejar error devuelto por el servicio
+                    this.handleDeletionError(res.error, userToDelete);
+                }
+            },
+            error: (error) => {
+                console.error('Error en la suscripción de eliminación:', error);
+
+                // Extraer mensaje de error
+                let errorMessage = 'Error al eliminar el usuario';
+
+                if (error.error && error.error.error) {
+                    errorMessage = error.error.error;
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
+                this.handleDeletionError(errorMessage, userToDelete);
+            }
+        });
+    }
+
+    private handleDeletionError(errorMessage: string, userToDelete: any) {
+        // Mostrar el error en un modal o alert
+        this.modalService.open(ConfirmationModalComponent, {
+            title: 'Error al eliminar usuario',
+            data: {
+                message: `No se pudo eliminar al usuario "${userToDelete.name}".\n\nMotivo: ${errorMessage}`,
+                confirmText: 'Entendido',
+                cancelText: '',
+                hideCancelButton: true,
+                onConfirm: () => {
+                    // Solo cerrar el modal
                 }
             }
         });
 
+        this.cdr.markForCheck();
     }
 
     openModal() {

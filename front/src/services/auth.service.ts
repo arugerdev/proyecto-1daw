@@ -205,9 +205,14 @@ export class AuthService {
     }
 
     // Funcion para eliminar un usuario por su ID (solo si no es admin, permisos canManageUsers necesarios)
-    deleteUser(userId: number): Observable<boolean> {
+
+    deleteUser(userId: number): Observable<any> {
+        // Validación local para admin (id 1)
         if (userId === 1) {
-            return of(false);
+            return of({
+                success: false,
+                error: "No puedes eliminar al administrador principal del sistema."
+            });
         }
 
         return this.http.delete<any>(`${this.API}/users/${userId}`, {
@@ -215,8 +220,31 @@ export class AuthService {
                 'Authorization': `Bearer ${this.storage.getToken()}`
             }
         }).pipe(
-            map(response => response.success),
-            catchError(() => of(false))
+            map(response => {
+                // Si la respuesta es exitosa, la devolvemos
+                return response;
+            }),
+            catchError(error => {
+                console.error('Error en deleteUser:', error);
+
+                // Extraer mensaje de error de la respuesta
+                let errorMessage = 'Error al eliminar el usuario';
+
+                if (error.error && error.error.error) {
+                    errorMessage = error.error.error;
+                } else if (error.error && error.error.message) {
+                    errorMessage = error.error.message;
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
+                // Devolver un objeto con el error
+                return of({
+                    success: false,
+                    error: errorMessage,
+                    status: error.status
+                });
+            })
         );
     }
 
