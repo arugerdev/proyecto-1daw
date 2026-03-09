@@ -7,6 +7,7 @@ import { FileService } from '../../services/file.service';
 import { ConfirmationModalComponent } from '../modals/confirmation.modal';
 import { RouteModalComponent } from '../modals/new-route.modal';
 import { UserModalComponent } from '../modals/new-user.modal';
+import { Router } from '@angular/router';
 
 @Component({
     selector: 'dashboard-page',
@@ -21,7 +22,8 @@ export class DashboardPage implements OnInit {
         private modalService: ModalService,
         private auth: AuthService,
         private file: FileService,
-        private cdr: ChangeDetectorRef
+        private cdr: ChangeDetectorRef,
+        private router: Router
 
     ) { }
 
@@ -307,7 +309,6 @@ export class DashboardPage implements OnInit {
         // Escuchamos el resultado de la modal para actualizar el usuario en la lista después de editarlo
         modalRef.afterClosed$.subscribe(result => {
             if (result?.success) {
-                console.log('Usuario actualizado exitosamente');
                 this.ngOnInit(); // Refrescar la lista de usuarios
             }
         });

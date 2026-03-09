@@ -18,7 +18,7 @@ import { ModalButton, ModalRef } from '../../app/models/modal.model';
     <div class="modal-overlay" [class.visible]="isVisible" (click)="onOverlayClick($event)">
       
       <!-- MODAL WRAPPER -->
-        <div class="modal-wrapper" [class.visible]="isVisible" [class.size-sm]="size === 'sm'" [class.size-md]="size === 'md'" [class.size-lg]="size === 'lg'" [class.size-xl]="size === 'xl'">        
+        <div class="modal-wrapper" [class.visible]="isVisible" [class.size-sm]="size === 'sm'" [class.size-md]="size === 'md'" [class.size-lg]="size === 'lg'" [class.size-xl]="size === 'xl'" [class.size-full]="size === 'full'">        
     
         <!-- Contenedor dinámico para el contenido -->
         <div role="dialog" class="modal">
@@ -115,6 +115,7 @@ import { ModalButton, ModalRef } from '../../app/models/modal.model';
     .modal-wrapper.size-md .modal { max-width: 600px; }
     .modal-wrapper.size-lg .modal { max-width: 800px; }
     .modal-wrapper.size-xl .modal { max-width: 1200px; }
+    .modal-wrapper.size-full .modal { max-width: 95vw; }
 
     .modal-header {
       margin-bottom: 24px;

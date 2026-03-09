@@ -211,7 +211,8 @@ export class FileGridComponent implements OnInit, OnDestroy {
             title: 'Detalles del Archivo',
             data: {
                 file: file
-            }
+            },
+            size: 'full'
         });
     }
 

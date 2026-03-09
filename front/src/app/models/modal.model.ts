@@ -4,7 +4,7 @@ export interface ModalConfig {
     buttons?: ModalButton[];
     showCloseButton?: boolean;
     closeOnOverlayClick?: boolean;
-    size?: 'sm' | 'md' | 'lg' | 'xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
     data?: any;
 }
 

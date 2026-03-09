@@ -279,7 +279,14 @@ export class UserModalComponent {
                         data: this.userData
                     });
 
-                    location.reload();
+                    if (this.userData.id == this.auth.getCurrentUser()?.id_user) {
+                        location.href = '/'
+                    }
+                    else {
+                        location.reload()
+                    }
+
+
                 },
                 error: (error) => {
                     console.error("Error al actualizar usuario:", error);

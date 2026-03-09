@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModalRef } from '../models/modal.model';
 import { MediaItem } from '../models/file.model';
+import { FileService } from '../../services/file.service';
 
 @Component({
   selector: 'app-details-modal',
@@ -15,31 +16,31 @@ import { MediaItem } from '../models/file.model';
 
     <!-- VIDEO -->
     <video *ngIf="isVideo" controls class="viewer">
-      <source [src]="file?.media_path">
+      <source [src]="fileSource">
       Tu navegador no soporta video.
     </video>
 
     <!-- IMAGEN -->
     <img *ngIf="isImage"
-         [src]="file?.media_path"
+         [src]="fileSource"
          class="viewer"/>
 
     <!-- AUDIO -->
     <audio *ngIf="isAudio" controls class="viewer">
-      <source [src]="file?.media_path">
+      <source [src]="fileSource">
       Tu navegador no soporta audio.
     </audio>
 
     <!-- PDF -->
     <iframe *ngIf="isPdf"
-            [src]="file?.media_path"
+            [src]="fileSource"
             class="viewer pdf">
     </iframe>
 
     <!-- OTROS -->
     <div *ngIf="isOther" class="other-file">
       <p>Este archivo no se puede previsualizar.</p>
-      <a [href]="file?.media_path" target="_blank" class="btn btn-primary">
+      <a [href]="fileSource" target="_blank" class="btn btn-primary">
         Descargar archivo
       </a>
     </div>
@@ -49,10 +50,8 @@ import { MediaItem } from '../models/file.model';
 
   <div class="details-info">
 
-    <div class="detail-row">
-      <span class="label">Título</span>
-      <span class="value">{{file?.title}}</span>
-    </div>
+  
+  <h2 class="title">{{file?.title}}</h2>
 
     <div class="detail-row">
       <span class="label">Descripción</span>
@@ -65,7 +64,7 @@ import { MediaItem } from '../models/file.model';
     </div>
 
     
-    <div class="detail-row">
+    <div class="detail-row" *ngIf="canViewPaths">
       <span class="label">Ruta</span>
       <span class="value">{{file?.media_path}}</span>
     </div>
@@ -79,8 +78,7 @@ import { MediaItem } from '../models/file.model';
 </div>
 
 `,
-styles: [`
-
+  styles: [`
 .details-container{
   display:flex;
   flex-direction:column;
@@ -103,6 +101,10 @@ styles: [`
 }
 
 .viewer{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  aspect-ratio:1/1;
   max-width:100%;
   max-height:420px;
   border-radius:8px;
@@ -116,13 +118,20 @@ styles: [`
   border-radius:6px;
 }
 
+.title{
+    color:var(--text-primary);
+    font-size:normal;
+    padding:8px 10px 12px 10px;
+    border-bottom: 2px solid var(--border-soft);
+    }
+
 /* INFORMACIÓN */
 
 .details-info{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:14px 20px;
-  padding:12px 0;
+display:flex;
+flex-direction:column;
+  
+  padding:8px 0;
 }
 
 .detail-row{
@@ -211,9 +220,14 @@ styles: [`
   .details-container{
     min-width:auto;
   }
+    
+  .detail-row{
+    padding:0;
+    margin:0;
+  }
 
-  .details-info{
-    grid-template-columns:1fr;
+ .title {
+    padding:0px 0px 8px 0px;
   }
 
   .viewer{
@@ -222,9 +236,19 @@ styles: [`
 
 }
 
+@media(max-width:500px){
+    .title{
+
+    font-size:small;
+    
+    }
+}
+
 `]
 })
 export class DetailsModalComponent implements OnInit {
+
+  constructor(private fileService: FileService) { }
 
   @Input() modalRef?: ModalRef;
   @Input() file!: MediaItem;
@@ -235,21 +259,27 @@ export class DetailsModalComponent implements OnInit {
   isPdf = false;
   isOther = false;
 
+  canViewPaths = false;
+
+  fileSource: string | null = null;
+
   ngOnInit() {
     if (!this.file?.media_path) return;
 
     const ext = this.file.media_path.split('.').pop()?.toLowerCase();
 
+    this.fileSource = this.fileService.getFile(this.file)
+
     if (!ext) return;
 
-    if (['mp4','webm','ogg','mov'].includes(ext)) this.isVideo = true;
-    else if (['jpg','jpeg','png','gif','webp'].includes(ext)) this.isImage = true;
-    else if (['mp3','wav','ogg'].includes(ext)) this.isAudio = true;
+    if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) this.isVideo = true;
+    else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) this.isImage = true;
+    else if (['mp3', 'wav', 'ogg'].includes(ext)) this.isAudio = true;
     else if (['pdf'].includes(ext)) this.isPdf = true;
     else this.isOther = true;
   }
 
-  close(){
+  close() {
     this.modalRef?.close();
   }
 
