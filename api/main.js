@@ -10,6 +10,7 @@ const multer = require('multer')
 const fs = require('fs')
 const path = require('path')
 const ffmpegPath = require("ffmpeg-static");
+const mime = require('mime-types');
 
 
 
@@ -395,7 +396,14 @@ app.get('/api/files/:id/download', async (req, res) => {
     if (rows.length === 0)
         return res.status(404).json({ error: "Archivo no encontrado" });
 
-    res.download(rows[0].media_path, rows[0].filename);
+    const filePath = rows[0].media_path;
+    const filename = rows[0].filename;
+
+    const mimeType = mime.lookup(filename) || "application/octet-stream";
+
+    res.setHeader("Content-Type", mimeType);
+
+    res.download(filePath, filename);
 });
 
 // Endpoint para eliminar archivo
@@ -432,7 +440,7 @@ app.delete('/api/files/:id', verifyToken, async (req, res) => {
 });
 
 // Endpoint para actualizar archivo
-app.put('/api/files/:id', verifyToken, async (req, res) => {
+app.put('/api/files/:id', verifyToken, upload.single("file"), async (req, res) => {
     if (req.user.rol === "viewer")
         return res.status(403).json({ error: "No tienes permisos" });
 

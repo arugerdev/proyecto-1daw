@@ -91,13 +91,13 @@ import { takeUntil } from 'rxjs';
               <line x1="12" x2="12" y1="15" y2="3"></line>
             </svg>
           </button>
-          <button class="action-btn" (click)="onEdit($event)" title="Editar">
+          <button class="action-btn" *ngIf="canEditContent" (click)="onEdit($event)" title="Editar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"></path>
             </svg>
           </button>
-          <button class="action-btn delete" (click)="onDelete($event)" title="Eliminar">
+          <button class="action-btn delete" *ngIf="canDeleteContent" (click)="onDelete($event)" title="Eliminar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 6h18"></path>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
@@ -119,6 +119,8 @@ export class FileCardComponent {
   @Output() delete = new EventEmitter<MediaItem>();
 
   canDownloadContent = false
+  canEditContent = false
+  canDeleteContent = false
   locationIcon = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
@@ -138,18 +140,20 @@ export class FileCardComponent {
       // solo usuarios con permisos canViewAllContent pueden ver rutas
       this.canViewPath = !!user?.permissions?.canUpload;
       this.canDownloadContent = !!user?.permissions?.canDownload;
+      this.canEditContent = !!user?.permissions?.canEdit
+      this.canDeleteContent = !!user?.permissions?.canDelete
 
       this.cdr.markForCheck();
     });
   }
 
   getTipoIcon(): SafeHtml {
-    const svg = this.fileService.getContentTypeIcon(this.file.media_type || '');
+    const svg = this.fileService.getContentTypeIcon(this.file.filename);
     return this.sanitizer.bypassSecurityTrustHtml(svg);
   }
 
   getTipoColor(): string {
-    return this.fileService.getContentTypeColor(this.file.media_type || '');
+    return this.fileService.getContentTypeColor(this.file.filename);
   }
 
   getTitle(): string {

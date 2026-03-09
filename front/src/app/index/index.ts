@@ -9,7 +9,7 @@ import { Subject, takeUntil, forkJoin, finalize } from 'rxjs';
 import { Stats } from '../models/file.model';
 import { AuthService } from '../../services/auth.service';
 import { ModalService } from '../../components/modal/modal.component';
-import { RegisterContentModalComponent } from '../modals/new-file.modal';
+import { ContentModalComponent } from '../modals/new-file.modal';
 
 @Component({
     selector: 'index-page',
@@ -132,7 +132,7 @@ export class IndexPage implements OnInit, OnDestroy {
     openModal() {
         if (!this.canUploadContent) return;
 
-        const modalRef = this.modalService.open(RegisterContentModalComponent, {
+        const modalRef = this.modalService.open(ContentModalComponent, {
             title: 'Registrar Nuevo Contenido',
             description: 'Completa la información del contenido multimedia que deseas agregar al sistema.',
             size: 'xl',
@@ -155,8 +155,14 @@ export class IndexPage implements OnInit, OnDestroy {
                 // Podemos pasar datos iniciales si queremos
                 initialData: {
                     contentTypes: this.types  // Pasamos los tipos ya cargados
+                },
+                confirmText: 'Añadir Contenido',
+                cancelText: 'Cancelar',
+                onSubmit: () => {
+                    // window.location.reload();
                 }
             }
+
         });
 
         // Escuchamos cuando se cierra el modal

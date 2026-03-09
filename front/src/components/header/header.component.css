@@ -1,8 +1,4 @@
-app-header {
-  display: flex;
-  width: 100%;
-}
-
+/* Botón Administrador */
 .a-admin {
   padding: 6px 14px;
   border-radius: 6px;
@@ -14,32 +10,52 @@ app-header {
   text-decoration: none;
   display: flex;
   gap: 4px;
+  align-items: center;
+  transition: background-color 0.2s;
 }
 
-.a-admin.disabled {
-  display: none;
-  cursor: default;
-  pointer-events: none;
-  color: var(--text-muted);
-  background-color: var(--bg-select);
-  border: 1px solid var(--bg-select);
-}
-
+/* Header Container */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--border-primary);
-  padding-bottom: 8px;
+  padding: 8px 16px;
   width: 100%;
+  box-sizing: border-box;
+  background-color: var(--bg-primary);
+  gap: 10px;
 }
 
+/* Sección Izquierda */
 .header-left {
   display: flex;
   align-items: center;
   gap: 15px;
+  flex: 1;
+  min-width: 0;
+  /* Permite que el contenido se encoja */
 }
 
+/* Botón de Retroceso */
+.header-back-button {
+  display: flex;
+  border-radius: 4px;
+  background-color: var(--btn-secondary-hover);
+  color: var(--text-muted);
+  outline: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.header-back-button:hover {
+  background-color: var(--btn-primary-hover);
+  color: var(--text-primary);
+}
+
+/* Icon Box (comentado pero mantenido por si se usa) */
 .icon-box {
   background-color: var(--btn-primary-bg);
   color: var(--btn-primary-text);
@@ -49,38 +65,45 @@ app-header {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
+
+/* Logo */
+.header-left img {
+  width: 64px;
+  object-fit: contain;
+  aspect-ratio: 1/1;
+  flex-shrink: 0;
+}
+
 
 h1 {
   margin: 0;
   font-size: 26px;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 p {
   margin: 3px 0 0 0;
   color: var(--text-secondary);
   font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Sección Derecha */
 .header-right {
   display: flex;
   align-items: center;
   gap: 15px;
+  flex-shrink: 0;
 }
 
-.badge {
-  background-color: var(--btn-primary-bg);
-  color: var(--btn-primary-text);
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
+/* Botón Logout */
 .btn-logout {
   padding: 6px 14px;
   border-radius: 6px;
@@ -89,7 +112,7 @@ p {
   color: var(--text-primary);
   cursor: pointer;
   font-size: 14px;
-  transition: 0.2s;
+  transition: background-color 0.2s;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -99,15 +122,138 @@ p {
   background-color: var(--btn-secondary-hover);
 }
 
-/* Eliminadas las duplicaciones y media queries de prefers-color-scheme */
+/* ========== MEDIA QUERIES PARA MÓVILES ========== */
 
-.header-back-button{
-  display: flex;
-  border-radius: 4px;
-  background-color: var(--btn-secondary-hover);
-  color: var(--text-muted);
-  outline: none;
-  border: none;
-  padding: 8px;
-  cursor: pointer;
+/* Tablets y móviles grandes (hasta 768px) */
+@media screen and (max-width: 768px) {
+  .header {
+    padding: 8px 12px;
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header-right>a,
+  .header-right>button {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  /* Ajuste del título */
+  h1 {
+    font-size: 22px;
+  }
+
+  /* Ocultar texto del botón administrador en tablets */
+  .a-admin span:not(.sr-only) {
+    display: none;
+  }
+
+  /* Mostrar solo el icono del administrador */
+  .a-admin svg {
+    margin: 0;
+  }
+
+  /* Ajustar padding del botón admin */
+  .a-admin {
+    padding: 8px;
+  }
+}
+
+/* Móviles medianos y pequeños (hasta 480px) */
+@media screen and (max-width: 480px) {
+  .header {
+    flex-wrap: wrap;
+    padding: 8px;
+  }
+
+  /* Sección izquierda ocupa todo el ancho */
+  .header-left {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* Sección derecha ocupa todo el ancho */
+  .header-right {
+    width: 100%;
+    justify-content: flex-end;
+    border-top: 1px solid var(--border-primary);
+    padding-top: 8px;
+  }
+
+  /* Ajustar título para móviles */
+  h1 {
+    font-size: 18px;
+  }
+
+  /* Ocultar subtítulo en móviles muy pequeños */
+  p {
+    display: none;
+  }
+
+  /* Reducir tamaño del logo */
+  .header-left img {
+    width: 48px;
+  }
+
+  /* Ajustar botones */
+  .btn-logout,
+  .a-admin {
+    padding: 8px 12px;
+  }
+
+  /* Ocultar texto del botón logout en móviles */
+  .btn-logout span {
+    display: none;
+  }
+
+  /* Mostrar solo icono en logout */
+  .btn-logout svg {
+    margin: 0;
+  }
+
+  /* Ajustar gap de la sección derecha */
+  .header-right {
+    gap: 8px;
+  }
+
+  /* Reducir padding del botón de retroceso */
+  .header-back-button {
+    padding: 6px;
+  }
+}
+
+/* Móviles muy pequeños (hasta 360px) */
+@media screen and (max-width: 360px) {
+
+  /* Reducir aún más el título */
+  h1 {
+    font-size: 16px;
+  }
+
+  /* Reducir logo */
+  .header-left img {
+    width: 40px;
+  }
+
+  /* Reducir gap en sección izquierda */
+  .header-left {
+    gap: 8px;
+  }
+
+  /* Ajustar botones */
+  .btn-logout,
+  .a-admin {
+    padding: 6px 10px;
+  }
+}
+
+/* Soporte para modo oscuro/claro (opcional) */
+@media (prefers-color-scheme: dark) {
+  .header-back-button {
+    background-color: var(--btn-secondary-hover-dark, #333);
+  }
 }

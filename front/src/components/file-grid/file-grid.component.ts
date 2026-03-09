@@ -7,6 +7,7 @@ import { MediaItem } from '../../app/models/file.model';
 import { ModalService } from '../modal/modal.component';
 import { ConfirmationModalComponent } from '../../app/modals/confirmation.modal';
 import { AuthService } from '../../services/auth.service';
+import { ContentModalComponent } from '../../app/modals/new-file.modal';
 
 @Component({
     selector: 'app-file-grid',
@@ -223,23 +224,25 @@ export class FileGridComponent implements OnInit, OnDestroy {
     }
 
     onEdit(file: MediaItem) {
-
-        const newTitle = prompt('Nuevo título:', file.title);
-
-        if (newTitle && newTitle !== file.title) {
-
-            this.fileService.updateMedia(file.id, {
-                title: newTitle
-            }).pipe(
-                takeUntil(this.destroy$)
-            ).subscribe({
-                next: () => {
-                    file.title = newTitle;
-                    this.cdr.detectChanges();
-                },
-                error: (error) => console.error('Error updating:', error)
-            });
-        }
+        console.log(file.id)
+        this.modalService.open(ContentModalComponent, {
+            title: 'Editar Archivo',
+            data: {
+                confirmText: 'Guardar Cambios',
+                cancelText: 'Cancelar Cambios',
+                id: file.id,
+                title: file.title,
+                description: file.description,
+                publicationYear: file.publication_year,
+                selectedTypeId: file.media_type_id,
+                storageLocationId: file.media_location_id,
+                tags: file.tags?.split(','),
+                currentFileName: file.filename,
+                onSubmit: () => {
+                    window.location.reload();
+                }
+            }
+        })
     }
 
     onDelete(file: MediaItem) {

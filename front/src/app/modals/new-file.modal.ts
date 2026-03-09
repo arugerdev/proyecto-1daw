@@ -1,166 +1,210 @@
-import { Component, OnInit, Input, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import {
+  Component,
+  OnInit,
+  ChangeDetectorRef,
+  Input
+} from '@angular/core';
+
 import { FileService } from '../../services/file.service';
-import { Subject } from 'rxjs';
 import { ModalRef } from '../models/modal.model';
-import { AuthService } from '../../services/auth.service';
+import { FormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-register-content-modal',
+  selector: 'app-content-modal',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <form class="modal-form" (ngSubmit)="onSubmit($event)">
+<form class="modal-form" (ngSubmit)="submit()">
 
-      <!-- ARCHIVO -->
-      <div class="form-group">
-        <label class="form-label">Archivo *</label>
+  <!-- ARCHIVO -->
+  <div class="form-group">
+    <label class="form-label">Archivo</label>
 
-        <div class="drag-area" [class.dragover]="isDragOver" 
-             (click)="fileInput.click()"
-             (dragover)="onDragOver($event)" 
-             (dragleave)="onDragLeave($event)" 
-             (drop)="onDrop($event)">
+    <div class="drag-area"
+         [class.dragover]="dragActive"
+         (click)="fileInput.click()"
+         (dragover)="onDragOver($event)"
+         (dragleave)="onDragLeave()"
+         (drop)="onDrop($event)">
 
-          <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
+      <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
 
-          <svg xmlns="http://www.w3.org/2000/svg" class="drag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-          </svg>
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="drag-icon"
+           viewBox="0 0 24 24"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="2">
 
-          <p class="drag-text" *ngIf="!selectedFile">
-            Arrastra un archivo aquí o haz click para seleccionarlo
-          </p>
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+        <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
 
-          <p class="drag-text file-name" *ngIf="selectedFile">
-            {{ selectedFile.name }}
-          </p>
+      </svg>
 
-          <button type="button" class="btn btn-secondary btn-sm">
-            Seleccionar Archivo
-          </button>
+      <p class="drag-text" *ngIf="!selectedFile && !currentFileName">
+        Arrastra un archivo aquí o haz click para seleccionarlo
+      </p>
 
-        </div>
-      </div>
+      <p class="drag-text file-name" *ngIf="currentFileName && !selectedFile">
+        Archivo actual: {{ currentFileName }}
+      </p>
 
-      <!-- TIPO DE CONTENIDO -->
-      <div class="form-group">
-        <label class="form-label">Tipo de Contenido *</label>
-        
-        <!-- Selector de tipo existente -->
-        <select class="form-select" [(ngModel)]="selectedTypeId" name="contentType" 
-                [disabled]="isCreatingNewType" required>
-          <option [ngValue]="null" disabled>Selecciona un tipo existente</option>
-          <option *ngFor="let type of contentTypes" [ngValue]="type.id">
-            {{ type.name }}
-          </option>
-        </select>
+      <p class="drag-text file-name" *ngIf="selectedFile">
+        {{ selectedFile.name }}
+      </p>
 
-        <!-- Checkbox para crear nuevo tipo -->
-        <div class="checkbox-wrapper">
-          <label class="checkbox-label">
-            <input type="checkbox" [(ngModel)]="isCreatingNewType" name="createNewType" />
-            <span>Crear nuevo tipo de contenido</span>
-          </label>
-        </div>
+      <button type="button" class="btn btn-secondary btn-sm">
+        Seleccionar Archivo
+      </button>
 
-        <!-- Input para nuevo tipo -->
-        <div class="new-type-input" *ngIf="isCreatingNewType">
-          <input type="text" 
-                 placeholder="Nombre del nuevo tipo de contenido" 
-                 class="form-input" 
-                 [(ngModel)]="newTypeName" 
-                 name="newTypeName"
-                 [required]="isCreatingNewType" />
-        </div>
-      </div>
+    </div>
+  </div>
 
-      <!-- TÍTULO -->
-      <div class="form-group">
-        <label class="form-label">Título *</label>
-        <input type="text" placeholder="Título del contenido" class="form-input" [(ngModel)]="title" name="title" required />
-      </div>
+  <!-- TIPO -->
+  <div class="form-group">
+    <label class="form-label">Tipo de Contenido</label>
 
-      <!-- DESCRIPCIÓN -->
-      <div class="form-group">
-        <label class="form-label">Descripción *</label>
-        <textarea rows="3" required placeholder="Descripción detallada del contenido" class="form-textarea" [(ngModel)]="description" name="description"></textarea>
-      </div>
+    <select class="form-select"
+            [(ngModel)]="selectedTypeId"
+            name="contentType">
 
-      <!-- AÑO DE PUBLICACIÓN -->
-      <div class="form-group">
-        <label class="form-label">Año de Publicación *</label>
-        <input type="number" 
-               placeholder="Ej: 2024" 
-               class="form-input" 
-               [(ngModel)]="publicationYear" 
-               name="publicationYear"
-               min="1900" 
-               required
-               [max]="currentYear" />
-      </div>
+      <option [ngValue]="null" disabled>Selecciona un tipo</option>
 
-      <!-- AUTORES -->
-      <div class="form-group">
-      <!--
-        <label class="form-label">Autores</label>
-        <div class="authors-section">
-          <select class="form-select" [(ngModel)]="selectedAuthorId" name="authorSelect">
-            <option [ngValue]="null">Selecciona un autor</option>
-            <option *ngFor="let author of authors" [ngValue]="author.id">
-              {{ author.name }} {{ author.role ? '- ' + author.role : '' }}
-            </option>
-          </select>
-          <button type="button" class="btn btn-secondary btn-sm" (click)="addAuthor()">
-            Agregar Autor
-          </button>
-        </div>
-        -->
-        <div class="tags-list" *ngIf="selectedAuthors.length">
-          <span class="tag" *ngFor="let author of selectedAuthors; let i = index">
-            {{ author.name }}
-            <button type="button" class="tag-remove" (click)="removeAuthor(i)">×</button>
-          </span>
-        </div>
-      </div>
+      <option *ngFor="let type of contentTypes"
+              [ngValue]="type.id">
 
-      <!-- UBICACIÓN DE ALMACENAMIENTO -->
-      <div class="form-group">
-        <label class="form-label">Ubicación de Almacenamiento *</label>
-        <select class="form-select" [(ngModel)]="storageLocationId" name="storageLocation" required>
-          <option [ngValue]="null" disabled>Selecciona una ubicación</option>
-          <option *ngFor="let location of mediaLocations" [ngValue]="location.id">
-            {{ location.path }}
-          </option>
-        </select>
-      </div>
+        {{ type.name }}
 
-      <!-- ETIQUETAS -->
-      <div class="form-group">
-        <label class="form-label">Etiquetas</label>
-        <div class="tags-input">
-          <input type="text" placeholder="Escribe y presiona Enter" class="form-input" [(ngModel)]="tagInput" name="tagInput" (keyup.enter)="addTag()" />
-          <button type="button" class="btn btn-secondary btn-sm" (click)="addTag()">
-            Agregar
-          </button>
-        </div>
-        <div class="tags-list" *ngIf="tags.length">
-          <span class="tag" *ngFor="let tag of tags; let i = index">
-            {{ tag }}
-            <button type="button" class="tag-remove" (click)="removeTag(i)">×</button>
-          </span>
-        </div>
-      </div>
-      <div class="form-group-h actions-container">
-        <button type="button" class="btn btn-secondary btn-sm" (click)="modalRef?.close({ success: false })">Cancelar</button>
-        <button type="submit" class="btn btn-primary btn-sm">Registrar Contenido</button>
-      </div>
-    
-    </form>
-  `,
-  //Actions container 100 % de tamaño, alineado central, con espacio entre botones, botones lo mas grande posible escalado con la pantalla
+      </option>
+
+    </select>
+  </div>
+
+  <!-- TÍTULO -->
+  <div class="form-group">
+    <label class="form-label">Título</label>
+
+    <input type="text"
+           class="form-input"
+           [(ngModel)]="title"
+           name="title"
+           required />
+  </div>
+
+  <!-- DESCRIPCIÓN -->
+  <div class="form-group">
+
+    <label class="form-label">Descripción</label>
+
+    <textarea rows="3"
+              class="form-textarea"
+              [(ngModel)]="description"
+              name="description">
+
+    </textarea>
+
+  </div>
+
+  <!-- AÑO -->
+  <div class="form-group">
+
+    <label class="form-label">Año de Publicación</label>
+
+    <input type="number"
+           class="form-input"
+           [(ngModel)]="publicationYear"
+           name="publicationYear" />
+
+  </div>
+
+  <!-- UBICACIÓN -->
+  <div class="form-group">
+
+    <label class="form-label">Ubicación de almacenamiento</label>
+
+    <select class="form-select"
+            [(ngModel)]="storageLocationId"
+            name="storageLocation">
+
+      <option [ngValue]="null" disabled>Selecciona una ubicación</option>
+
+      <option *ngFor="let location of locations"
+              [ngValue]="location.id">
+
+        {{ location.path }}
+
+      </option>
+
+    </select>
+
+  </div>
+
+  <!-- TAGS -->
+  <div class="form-group">
+
+    <label class="form-label">Etiquetas</label>
+
+    <div class="tags-input">
+
+      <input type="text"
+             class="form-input"
+             [(ngModel)]="tagInput"
+             name="tagInput"
+             placeholder="Escribe y presiona Enter"
+             (keyup.enter)="addTag()" />
+
+      <button type="button"
+              class="btn btn-secondary btn-sm"
+              (click)="addTag()">
+
+        Agregar
+
+      </button>
+
+    </div>
+
+    <div class="tags-list" *ngIf="tags.length">
+
+      <span class="tag" *ngFor="let tag of tags">
+
+        {{ tag }}
+
+        <button type="button"
+                class="tag-remove"
+                (click)="removeTag(tag)">
+          ×
+        </button>
+
+      </span>
+
+    </div>
+
+  </div>
+
+  <!-- BOTONES -->
+
+  <div class="form-group-h actions-container">
+
+    <button type="button"
+            class="btn btn-secondary btn-sm"
+            (click)="modalRef?.close({success:false})">
+
+      {{cancelText }}
+
+    </button>
+
+    <button type="submit"
+            class="btn btn-primary btn-sm">
+
+      {{ confirmText }}
+
+    </button>
+
+  </div>
+
+</form>
+`,
   styles: [`
     .modal-form {
       display: grid;
@@ -319,16 +363,6 @@ import { AuthService } from '../../services/auth.service';
       margin-top: 8px;
     }
 
-    .authors-section {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .authors-section select {
-      flex: 1;
-    }
-
     .tags-input {
       display: flex;
       gap: 8px;
@@ -366,263 +400,211 @@ import { AuthService } from '../../services/auth.service';
     }
   `]
 })
-export class RegisterContentModalComponent implements OnInit {
+export class ContentModalComponent implements OnInit {
   @Input() modalRef?: ModalRef;
-  @Input() initialData?: any;
+  @Input() onSubmit!: () => {};
 
-  // Content Types
-  contentTypes: { id: number; name: string }[] = [];
-  selectedTypeId: number | null = null;
-  isCreatingNewType = false;
-  newTypeName = '';
+  // =========================
+  // FORM DATA
+  // =========================
 
-  // Authors
-  authors: { id: number; name: string; role: string }[] = [];
-  selectedAuthorId: number | null = null;
-  selectedAuthors: { id: number; name: string; role: string }[] = [];
+  id: number | null = null;
 
-  // Media Locations
-  mediaLocations: { id: number; path: string }[] = [];
-  storageLocationId: number | null = null;
-
-  // File
-  selectedFile: File | null = null;
-  isDragOver = false;
-
-  // Metadata
   title = '';
   description = '';
   publicationYear: number | null = null;
+
+  selectedTypeId: number | null = null;
+  storageLocationId: number | null = null;
+
   tags: string[] = [];
   tagInput = '';
 
-  // Current year for validation
-  currentYear = new Date().getFullYear();
+  // =========================
+  // FILE
+  // =========================
 
-  private modalClose = new Subject<any>();
+  selectedFile: File | null = null;
+  currentFileName: string | null = null;
 
+  // =========================
+  // DATA
+  // =========================
+
+  contentTypes: any[] = [];
+  locations: any[] = [];
+
+
+  // =========================
+  // UI
+  // =========================
+
+  isLoading = false;
+  dragActive = false;
+  confirmText = 'Guardar Cambios';
+  cancelText = 'Cancelar Cambios';
   constructor(
     private fileService: FileService,
-    private cdr: ChangeDetectorRef,
-    private auth: AuthService
+    private cdr: ChangeDetectorRef
   ) { }
 
+  // =========================
+  // INIT
+  // =========================
+
   ngOnInit(): void {
+
     this.loadContentTypes();
-    this.loadAuthors();
-    this.loadMediaLocations();
-    this.cdr.detectChanges(); // Asegura que los cambios se reflejen en la vista después de cargar datos
-    if (this.initialData) {
-      // Cargar datos iniciales si existen
-      Object.assign(this, this.initialData);
-    }
+    this.loadLocations();
+
+    this.cdr.detectChanges();
   }
 
-  private loadContentTypes() {
-    this.fileService.getContentTypes().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.contentTypes = response.data;
-          this.cdr.detectChanges();
-        }
-      },
-      error: (err) => {
-        console.error('Error cargando content types:', err);
-      }
+  // =========================
+  // LOAD DATA
+  // =========================
+
+  loadContentTypes() {
+    this.fileService.getContentTypes().subscribe(res => {
+
+      this.contentTypes = res.data;
+      this.cdr.detectChanges();
     });
   }
 
-  private loadAuthors() {
-    this.fileService.getAuthors().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.authors = response.authors;
-          this.cdr.detectChanges();
-        }
-      },
-      error: (err) => {
-        console.error('Error cargando autores:', err);
-      }
+  loadLocations() {
+    this.fileService.getMediaLocations().subscribe(res => {
+      this.locations = res.locations;
+      this.cdr.detectChanges();
     });
   }
 
-  private loadMediaLocations() {
-    this.fileService.getMediaLocations().subscribe({
-      next: (response) => {
-        if (response.success) {
-          console.log('Media locations cargadas:', response.locations);
-          this.mediaLocations = response.locations;
-          this.cdr.detectChanges();
-        }
-      },
-      error: (err) => {
-        console.error('Error cargando ubicaciones:', err);
-      }
-    });
+  // =========================
+  // FILE SELECT
+  // =========================
+
+  onFileSelected(event: any) {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    this.selectedFile = file;
   }
 
-  async onSubmit(event: Event) {
+  onDrop(event: DragEvent) {
+
     event.preventDefault();
+    this.dragActive = false;
 
-    // Validaciones de campos obligatorios
-    if (!this.selectedFile) {
-      alert("Debes seleccionar un archivo");
-      return;
-    }
+    const file = event.dataTransfer?.files[0];
 
-    if (!this.title) {
-      alert("Debes ingresar un título");
-      return;
-    }
-    if (!this.description) {
-      alert("Debes ingresar una descripción");
-      return;
-    }
-    if (!this.publicationYear) {
-      alert("Debes indicar un año de publicacion");
-      return;
-    }
-    if (!this.storageLocationId) {
-      alert("Debes seleccionar una ubicación de almacenamiento");
-      return;
-    }
+    if (!file) return;
 
-    // Validación de tipo de contenido
-    let typeIdToUse: number | null = null;
-
-    if (this.isCreatingNewType) {
-      if (!this.newTypeName || !this.newTypeName.trim()) {
-        alert("Debes ingresar un nombre para el nuevo tipo de contenido");
-        return;
-      }
-
-      try {
-        // Crear nuevo tipo de contenido
-        typeIdToUse = await this.createNewContentType(this.newTypeName.trim());
-      } catch (error) {
-        alert("Error al crear el nuevo tipo de contenido");
-        return;
-      }
-    } else {
-      if (!this.selectedTypeId) {
-        alert("Debes seleccionar un tipo de contenido");
-        return;
-      }
-      typeIdToUse = this.selectedTypeId;
-    }
-
-    const formData = new FormData();
-    formData.append("file", this.selectedFile);
-    formData.append("media_type_id", String(typeIdToUse));
-    formData.append("title", this.title);
-    formData.append("description", this.description || '');
-    formData.append("media_location_id", String(this.storageLocationId));
-
-    if (this.publicationYear) {
-      formData.append("publication_year", String(this.publicationYear));
-    }
-
-    if (this.tags.length) {
-      formData.append("tags", JSON.stringify(this.tags));
-    }
-
-    if (this.selectedAuthors.length) {
-      const authorIds = this.selectedAuthors.map(a => a.id);
-      formData.append("author_ids", JSON.stringify(authorIds));
-    }
-
-    formData.append("author_ids", JSON.stringify([this.auth.getCurrentUser()?.id_user]));
-
-    console.log(formData);
-
-    this.fileService.createMedia(formData).subscribe({
-      next: (response: any) => {
-        if (response.success) {
-          this.modalRef?.close({ success: true });
-          this.cdr.detectChanges();
-          window.location.reload();
-        } else {
-          alert("Error al registrar el contenido");
-        }
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error creando contenido:', err);
-        alert("Error al registrar el contenido");
-        this.cdr.detectChanges();
-      }
-    });
-
-  }
-
-  private createNewContentType(name: string): Promise<number> {
-    return new Promise((resolve, reject) => {
-      this.fileService.createContentType(name).subscribe({
-        next: (response: any) => {
-          if (response.success && response.id) {
-            // Recargar tipos de contenido
-            this.loadContentTypes();
-            resolve(response.id);
-          } else {
-            reject(new Error('Error al crear tipo de contenido'));
-          }
-        },
-        error: (err) => {
-          console.error('Error creando tipo de contenido:', err);
-          reject(err);
-        }
-      });
-    });
-  }
-
-  addAuthor() {
-    if (this.selectedAuthorId) {
-      const author = this.authors.find(a => a.id === this.selectedAuthorId);
-      if (author && !this.selectedAuthors.some(a => a.id === author.id)) {
-        this.selectedAuthors.push({ ...author });
-        this.selectedAuthorId = null;
-      }
-    }
-  }
-
-  removeAuthor(index: number) {
-    this.selectedAuthors.splice(index, 1);
-  }
-
-  onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      this.selectedFile = input.files[0];
-    }
+    this.selectedFile = file;
   }
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
-    this.isDragOver = true;
+    this.dragActive = true;
   }
 
-  onDragLeave(event: DragEvent) {
-    event.preventDefault();
-    this.isDragOver = false;
+  onDragLeave() {
+    this.dragActive = false;
   }
 
-  onDrop(event: DragEvent) {
-    event.preventDefault();
-    this.isDragOver = false;
-
-    if (event.dataTransfer?.files.length) {
-      this.selectedFile = event.dataTransfer.files[0];
-    }
-  }
+  // =========================
+  // TAGS
+  // =========================
 
   addTag() {
-    if (this.tagInput.trim()) {
-      this.tags.push(this.tagInput.trim());
-      this.tagInput = '';
-    }
+
+    const tag = this.tagInput.trim();
+
+    if (!tag) return;
+
+    this.tags.push(tag);
+    this.tagInput = '';
   }
 
-  removeTag(index: number) {
-    this.tags.splice(index, 1);
+  removeTag(tag: string) {
+    this.tags = this.tags.filter(t => t !== tag);
   }
+
+  // =========================
+  // SUBMIT
+  // =========================
+
+  submit() {
+    const formData = new FormData();
+
+    if (this.selectedFile)
+      formData.append('file', this.selectedFile);
+
+    formData.append('title', this.title);
+    formData.append('description', this.description);
+
+    if (this.publicationYear)
+      formData.append('publication_year', String(this.publicationYear));
+
+    if (this.selectedTypeId)
+      formData.append('media_type_id', String(this.selectedTypeId));
+
+    if (this.storageLocationId)
+      formData.append('media_location_id', String(this.storageLocationId));
+
+    if (this.tags.length)
+      formData.append('tags', this.tags.toString());
+
+    this.isLoading = true;
+
+    // =========================
+    // EDIT
+    // =========================
+
+    if (this.id) {
+
+      this.fileService.updateMedia(this.id, formData).subscribe({
+
+        next: () => {
+          this.modalRef?.close({ success: true });
+          this.cdr.detectChanges();
+          window.location.reload();
+        },
+
+        error: () => {
+          this.isLoading = false;
+          alert('Error actualizando contenido');
+        }
+
+      });
+
+    }
+
+    // =========================
+    // CREATE
+    // =========================
+
+    else {
+
+      this.fileService.createMedia(formData).subscribe({
+
+        next: () => {
+          this.modalRef?.close({ success: true });
+          this.cdr.detectChanges();
+          window.location.reload();
+        },
+
+        error: () => {
+          this.isLoading = false;
+          alert('Error creando contenido');
+        }
+
+      });
+
+    }
+
+
+  }
+
 }

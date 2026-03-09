@@ -42,7 +42,6 @@ main .main {
 
 .users-header-info {
     flex: 1;
-    min-width: 280px;
 }
 
 .users-title {
@@ -239,6 +238,8 @@ main .main {
 /* Utilidades */
 .text-right {
     text-align: right;
+    display: flex;
+    flex-direction: row;
 }
 
 /* Responsive */
@@ -296,12 +297,20 @@ main .main {
     margin: 0 auto;
 }
 
+.location-container {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
 .locations-card {
     background: var(--bg-card);
     border-radius: 14px;
     border: 1px solid var(--border-primary);
     padding: 24px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    flex-wrap: nowrap;
 }
 
 /* header */
@@ -335,6 +344,11 @@ main .main {
     grid-template-columns: 280px 1fr;
     gap: 20px;
     width: 100%;
+}
+
+.location-path {
+    display: flex;
+    text-wrap-mode: nowrap;
 }
 
 /* árbol */
@@ -419,6 +433,20 @@ main .main {
 /* responsive */
 
 @media (max-width: 900px) {
+
+    .users-title,
+    .locations-title {
+        font-size: small;
+    }
+
+    .users-description,
+    .locations-description {
+        width: 100%;
+        font-size: smaller;
+        overflow: hidden;
+    }
+
+
 
     .locations-layout {
         grid-template-columns: 1fr;

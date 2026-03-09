@@ -101,38 +101,34 @@ export class FileService {
     // ✏ EDITAR METADATA
     // ===========================
 
-    updateMedia(id: number, data: Partial<MediaItem>): Observable<{ success: boolean }> {
-        return this.http.put<{ success: boolean }>(
+    updateMedia(id: number, formData: FormData) {
+        return this.http.put(
             `${this.API}/files/${id}`,
-            data,
+            formData,
             { headers: this.getHeaders() }
         );
+
     }
 
     // ===========================
     // 🎨 ICONOS POR CONTENT TYPE
     // ===========================
 
-    getContentTypeIcon(contentType: string): string {
-        switch (contentType?.toLowerCase()) {
-            case 'cortometraje': return SvgIcons.video;
-            case 'videoclip': return SvgIcons.video;
-            case 'streaming': return SvgIcons.video;
-            case 'telediario': return SvgIcons.video;
-            case 'publicidad': return SvgIcons.file;
-            case 'webinar': return SvgIcons.video;
-            default: return SvgIcons.location;
+    getContentTypeIcon(filename: string): string {
+        switch (this.getType(filename)) {
+            case 'video': return SvgIcons.video;
+            case 'image': return SvgIcons.image;
+            case 'audio': return SvgIcons.audio;
+            default: return SvgIcons.file;
         }
     }
 
-    getContentTypeColor(contentType: string): string {
-        switch (contentType?.toLowerCase()) {
-            case 'cortometraje': return 'bg-blue-500';
-            case 'videoclip': return 'bg-purple-500';
-            case 'streaming': return 'bg-green-500';
-            case 'telediario': return 'bg-red-500';
-            case 'publicidad': return 'bg-orange-500';
-            case 'webinar': return 'bg-indigo-500';
+    getContentTypeColor(filename: string): string {
+        switch (this.getType(filename)) {
+            case 'video': return 'bg-purple-500';
+            case 'audio': return 'bg-green-500';
+            case 'image': return 'bg-orange-500';
+            case 'other': return 'bg-indigo-500';
             default: return 'bg-gray-500';
         }
     }
@@ -143,12 +139,41 @@ export class FileService {
 
     getThumbnailUrl(media: MediaItem): string {
         console.log(media)
-        // si es video, devuelve la ruta del thumbnail, si no, devuelve el endpointe que devuelve la imagen
-        if (!media.media_path.toLowerCase().match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
-            return `${this.API}/files/${media.id}/thumbnail`;
-        }
 
+        switch (this.getType(media.filename)) {
+            case "video":
+                return `${this.API}/files/${media.id}/thumbnail`;
+
+            case "image":
+                return `${this.API}/files/${media.id}/download`;
+            default:
+                return `https://placehold.net/shape-600x600.png`
+        }
+    }
+
+    getFile(media: MediaItem): string {
         return `${this.API}/files/${media.id}/download`;
+    }
+
+    getType(filename: string): 'video' | 'image' | 'audio' | 'document' | 'other' {
+        const ext = filename.split('.').pop()?.toLowerCase();
+
+        if (!ext) return 'other';
+
+        const videoExt = new Set(['mp4', 'webm', 'mov', 'avi', 'mkv']);
+        const imageExt = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']);
+        const audioExt = new Set(['mp3', 'wav', 'ogg', 'flac', 'm4a']);
+        const documentExt = new Set([
+            'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+            'txt', 'csv', 'md', 'rtf'
+        ]);
+
+        if (videoExt.has(ext)) return 'video';
+        if (imageExt.has(ext)) return 'image';
+        if (audioExt.has(ext)) return 'audio';
+        if (documentExt.has(ext)) return 'document';
+
+        return 'other';
     }
 
     getAuthors(): Observable<{ success: boolean; authors: { id: number; name: string; role: string }[] }> {

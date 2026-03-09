@@ -6,12 +6,13 @@ export interface MediaItem {
     recording_year: number | null;
     duration: string | null;
     media_path: string;
-
+    filename: string;
     media_type_id: number;
+    media_location_id: number;
 
     // Campos provenientes de JOIN
     media_type?: string;
-    tags?: Tag[];
+    tags?: string;
     // Relaciones
     authors_ids?: Number[];
     authors?: Author[];
@@ -27,11 +28,6 @@ export interface Author {
 }
 
 export interface ContentType {
-    id: number;
-    name: string;
-}
-
-export interface Tag {
     id: number;
     name: string;
 }

@@ -109,7 +109,7 @@
 .input-tooltip {
   position: absolute;
   z-index: 50;
-  top: 110%;
+  top: -110%;
   left: 0;
   width: 100%;
   background: #1f2937;

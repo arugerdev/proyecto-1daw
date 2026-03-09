@@ -122,14 +122,14 @@
                 <div class="locations-table-container">
                     <table class="users-table">
                         <thead>
-                            <tr>
-                                <th>Path</th>
+                            <tr class="location-container">
+                                <th >Path</th>
                                 <th class="text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr *ngFor="let loc of locations">
-                                <td>📁 {{ loc.path }}</td>
+                            <tr *ngFor="let loc of locations" class="location-container">
+                                <td class="location-path">📁 {{ loc.path }}</td>
                                 <td class="text-right">
                                     <button class="users-action-btn" title="Editar" (click)="renameFolder(loc)">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"

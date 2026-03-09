@@ -1,11 +1,20 @@
+/* =====================================================
+   FILE GRID COMPONENT - RESPONSIVE
+===================================================== */
+
 .files-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
     gap: 24px;
     padding: 24px;
     margin-top: 24px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
+/* =====================================================
+   EMPTY STATE (Cuando no hay archivos)
+===================================================== */
 .empty-state {
     grid-column: 1 / -1;
     text-align: center;
@@ -13,6 +22,12 @@
     background: var(--bg-card);
     border-radius: 12px;
     border: 2px dashed var(--border-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .empty-state svg {
@@ -20,55 +35,25 @@
     margin-bottom: 16px;
     width: 48px;
     height: 48px;
+    stroke: currentColor;
 }
 
 .empty-state h3 {
     font-size: 20px;
     margin: 0 0 8px 0;
     color: var(--text-primary);
+    font-weight: 600;
 }
 
 .empty-state p {
     color: var(--text-secondary);
     margin: 0 0 24px 0;
+    font-size: 14px;
 }
 
-.scroll-sentinel {
-    grid-column: 1 / -1;
-    padding: 20px;
-    text-align: center;
-}
-
-.loading-spinner {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: var(--text-secondary);
-    background: var(--bg-card-soft);
-    padding: 12px 24px;
-    border-radius: 40px;
-    display: inline-flex;
-}
-
-.spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--border-primary);
-    border-top-color: var(--btn-primary-bg);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-.end-message {
-    color: var(--text-secondary);
-    font-style: italic;
-    background: var(--bg-card-soft);
-    padding: 12px 24px;
-    border-radius: 40px;
-    display: inline-block;
-}
-
+/* =====================================================
+   BOTÓN PRIMARIO (reutilizado del empty state)
+===================================================== */
 .button-primary {
     display: inline-flex;
     align-items: center;
@@ -81,7 +66,7 @@
     border-radius: 0.5rem;
     border: none;
     cursor: pointer;
-    transition: background-color 0.15s;
+    transition: all 0.15s ease;
     white-space: nowrap;
     background: var(--btn-primary-bg);
     color: var(--btn-primary-text);
@@ -89,18 +74,376 @@
 
 .button-primary:hover {
     background: var(--btn-primary-hover);
+    transform: translateY(-1px);
 }
 
+.button-primary:active {
+    transform: translateY(0);
+}
+
+/* =====================================================
+   SCROLL SENTINEL (Para scroll infinito)
+===================================================== */
+.scroll-sentinel {
+    grid-column: 1 / -1;
+    padding: 20px;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Spinner de carga */
+.loading-spinner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-card-soft);
+    padding: 12px 24px;
+    border-radius: 40px;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-primary);
+    border-top-color: var(--btn-primary-bg);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    flex-shrink: 0;
+}
+
+/* Mensaje de fin */
+.end-message {
+    color: var(--text-secondary);
+    font-style: italic;
+    background: var(--bg-card-soft);
+    padding: 12px 24px;
+    border-radius: 40px;
+    display: inline-block;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* =====================================================
+   ANIMACIONES
+===================================================== */
 @keyframes spin {
     to {
         transform: rotate(360deg);
     }
 }
 
-@media (max-width: 768px) {
+/* =====================================================
+   MEDIA QUERIES - RESPONSIVE
+===================================================== */
+
+/* Pantallas grandes (laptops/desktops pequeños) */
+@media screen and (max-width: 1200px) {
+    .files-grid {
+        grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+        gap: 20px;
+        padding: 20px;
+    }
+}
+
+/* Tablets grandes y pantallas medianas */
+@media screen and (max-width: 1024px) {
+    .files-grid {
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 18px;
+        padding: 18px;
+        margin-top: 18px;
+    }
+
+    .empty-state {
+        padding: 50px 16px;
+    }
+
+    .empty-state h3 {
+        font-size: 18px;
+    }
+
+    .empty-state p {
+        font-size: 13px;
+    }
+}
+
+/* Tablets pequeñas */
+@media screen and (max-width: 900px) {
+    .files-grid {
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .loading-spinner {
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+
+    .end-message {
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+}
+
+/* Móviles grandes y tablets en vertical */
+@media screen and (max-width: 768px) {
     .files-grid {
         grid-template-columns: 1fr;
         gap: 16px;
         padding: 16px;
+        margin-top: 16px;
+    }
+
+    .empty-state {
+        padding: 40px 16px;
+    }
+
+    .empty-state svg {
+        width: 40px;
+        height: 40px;
+        margin-bottom: 12px;
+    }
+
+    .empty-state h3 {
+        font-size: 18px;
+        margin-bottom: 6px;
+    }
+
+    .empty-state p {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .button-primary {
+        height: 44px;
+        padding: 0 20px;
+        font-size: 14px;
+        width: auto;
+        min-width: 160px;
+    }
+
+    .scroll-sentinel {
+        padding: 16px;
+    }
+
+    .loading-spinner {
+        padding: 10px 18px;
+        gap: 10px;
+    }
+
+    .spinner {
+        width: 18px;
+        height: 18px;
+    }
+
+    .end-message {
+        padding: 10px 18px;
+    }
+}
+
+/* Móviles pequeños */
+@media screen and (max-width: 480px) {
+    .files-grid {
+        gap: 12px;
+        padding: 12px;
+        margin-top: 12px;
+    }
+
+    .empty-state {
+        padding: 30px 12px;
+        border-radius: 10px;
+    }
+
+    .empty-state svg {
+        width: 36px;
+        height: 36px;
+        margin-bottom: 10px;
+    }
+
+    .empty-state h3 {
+        font-size: 16px;
+        margin-bottom: 4px;
+    }
+
+    .empty-state p {
+        font-size: 12px;
+        margin-bottom: 16px;
+    }
+
+    .button-primary {
+        height: 40px;
+        padding: 0 16px;
+        font-size: 13px;
+        min-width: 140px;
+    }
+
+    .scroll-sentinel {
+        padding: 12px;
+    }
+
+    .loading-spinner {
+        padding: 8px 16px;
+        font-size: 12px;
+        gap: 8px;
+        border-radius: 30px;
+        width: 100%;
+        max-width: 280px;
+    }
+
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border-width: 2px;
+    }
+
+    .end-message {
+        padding: 8px 16px;
+        font-size: 12px;
+        border-radius: 30px;
+        width: 100%;
+        max-width: 280px;
+    }
+}
+
+/* Móviles muy pequeños */
+@media screen and (max-width: 360px) {
+    .files-grid {
+        gap: 10px;
+        padding: 10px;
+        margin-top: 10px;
+    }
+
+    .empty-state {
+        padding: 24px 10px;
+    }
+
+    .empty-state svg {
+        width: 32px;
+        height: 32px;
+        margin-bottom: 8px;
+    }
+
+    .empty-state h3 {
+        font-size: 15px;
+    }
+
+    .empty-state p {
+        font-size: 11px;
+        margin-bottom: 14px;
+    }
+
+    .button-primary {
+        height: 38px;
+        padding: 0 14px;
+        font-size: 12px;
+        min-width: 130px;
+    }
+
+    .loading-spinner {
+        padding: 8px 12px;
+        font-size: 11px;
+        max-width: 240px;
+    }
+
+    .end-message {
+        padding: 8px 12px;
+        font-size: 11px;
+        max-width: 240px;
+    }
+}
+
+/* =====================================================
+   OPTIMIZACIONES PARA DISPOSITIVOS TÁCTILES
+===================================================== */
+@media (hover: none) and (pointer: coarse) {
+    .button-primary {
+        cursor: default;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .button-primary:active {
+        background: var(--btn-primary-hover);
+        transform: scale(0.98);
+    }
+
+    .loading-spinner,
+    .end-message {
+        cursor: default;
+        user-select: none;
+    }
+}
+
+/* =====================================================
+   MODO OSCURO
+===================================================== */
+@media (prefers-color-scheme: dark) {
+    .loading-spinner {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .end-message {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .empty-state {
+        border-color: var(--border-primary);
+    }
+}
+
+/* =====================================================
+   ACCESIBILIDAD - MOVIMIENTO REDUCIDO
+===================================================== */
+@media (prefers-reduced-motion: reduce) {
+    .spinner {
+        animation: none;
+    }
+
+    .button-primary {
+        transition: none;
+    }
+
+    .button-primary:hover {
+        transform: none;
+    }
+
+    .button-primary:active {
+        transform: none;
+    }
+}
+
+/* =====================================================
+   CLASES ELIMINADAS (NO UTILIZADAS)
+===================================================== */
+/* 
+   Clases que no aparecen en el template y han sido eliminadas:
+   - No se encontraron clases adicionales no utilizadas en el template actual
+   - El template solo usa: files-grid, empty-state, button-primary, 
+     scroll-sentinel, loading-spinner, spinner, end-message
+   - Todas estas clases se mantienen y optimizan arriba
+*/
+
+/* =====================================================
+   SOPORTE PARA ORIENTACIÓN
+===================================================== */
+@media screen and (max-height: 600px) and (orientation: landscape) {
+    .files-grid {
+        margin-top: 12px;
+    }
+
+    .empty-state {
+        padding: 30px 16px;
+    }
+
+    .scroll-sentinel {
+        padding: 12px;
     }
 }

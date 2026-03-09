@@ -1,3 +1,7 @@
+/* =====================================================
+   FILE CARD COMPONENT - RESPONSIVE
+===================================================== */
+
 .file-card {
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
@@ -8,6 +12,8 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    width: 100%;
+    position: relative;
 }
 
 .file-card:hover {
@@ -16,12 +22,15 @@
     border-color: var(--border-focus);
 }
 
-/* Contenedor de imagen */
+/* =====================================================
+   IMAGEN / THUMBNAIL
+===================================================== */
 .card-image-container {
     position: relative;
     aspect-ratio: 16 / 9;
     background: var(--bg-card-soft);
     overflow: hidden;
+    width: 100%;
 }
 
 .card-image {
@@ -31,7 +40,14 @@
     transition: transform 0.3s ease;
 }
 
-/* Icono de tipo */
+/* Efecto hover en la imagen */
+.file-card:hover .card-image {
+    transform: scale(1.05);
+}
+
+/* =====================================================
+   ICONO DE TIPO
+===================================================== */
 .type-icon {
     position: absolute;
     top: 12px;
@@ -41,41 +57,37 @@
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     z-index: 2;
-    aspect-ratio: 1;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .type-icon-svg {
-    aspect-ratio: 1;
     display: flex;
-    aspect-ratio: 1;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
 }
 
-.type-icon-text {
-    font-size: 16px;
-    line-height: 1;
+.type-icon-svg svg {
+    width: 18px;
+    height: 18px;
+    stroke: white;
 }
 
-.bg-blue-500 {
-    background-color: #3b82f6;
-}
+/* Colores por tipo (se asignan dinámicamente desde TS) */
+.bg-blue-500 { background-color: #3b82f6; }
+.bg-green-500 { background-color: #22c55e; }
+.bg-purple-500 { background-color: #a855f7; }
+.bg-orange-500 { background-color: #f97316; }
+.bg-gray-500 { background-color: #6b7280; }
 
-.bg-green-500 {
-    background-color: #22c55e;
-}
-
-.bg-purple-500 {
-    background-color: #a855f7;
-}
-
-.bg-orange-500 {
-    background-color: #f97316;
-}
-
-.bg-gray-500 {
-    background-color: #6b7280;
-}
-
-/* Badge de duración */
+/* =====================================================
+   BADGE DE DURACIÓN
+===================================================== */
 .duration-badge {
     position: absolute;
     bottom: 12px;
@@ -87,9 +99,12 @@
     font-size: 12px;
     font-weight: 500;
     z-index: 2;
+    backdrop-filter: blur(2px);
 }
 
-/* Overlay */
+/* =====================================================
+   OVERLAY Y BOTÓN PREVIEW
+===================================================== */
 .card-overlay {
     position: absolute;
     inset: 0;
@@ -100,59 +115,59 @@
     align-items: center;
     justify-content: center;
     z-index: 3;
+    pointer-events: none;
 }
 
 .file-card:hover .card-overlay {
     opacity: 1;
-}
-
-.metadata-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
+    pointer-events: auto;
 }
 
 .preview-button {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--bg);
-    border: none;
+    background: var(--bg-modal);
+    border: 1px solid var(--border-primary);
     padding: 8px 16px;
     border-radius: 6px;
     font-size: 14px;
     font-weight: 500;
-    color: white;
+    color: var(--text-primary);
     cursor: pointer;
     transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
 }
 
 .preview-button:hover {
     background: var(--bg-card-soft);
-    color: var(--text-primary);
     transform: scale(1.05);
 }
 
 .preview-icon {
     width: 16px;
     height: 16px;
+    stroke: currentColor;
 }
 
-/* Contenido de la tarjeta */
+/* =====================================================
+   CONTENIDO DE LA TARJETA
+===================================================== */
 .card-content {
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
     flex: 1;
-    justify-content: space-between;
 }
 
+/* Sección de título */
 .title-section {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 8px;
+    width: 100%;
 }
 
 .card-title {
@@ -166,35 +181,10 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
     flex: 1;
+    word-break: break-word;
 }
 
-/* Badges */
-.badge {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    white-space: nowrap;
-}
-
-.badge-default {
-    background: var(--btn-primary-bg);
-    color: var(--btn-primary-text);
-}
-
-.badge-secondary {
-    background: var(--bg-card-soft);
-    color: var(--text-secondary);
-}
-
-.badge-outline {
-    background: transparent;
-    border: 1px solid var(--border-primary);
-    color: var(--text-secondary);
-}
-
+/* Descripción */
 .card-description {
     margin: 0;
     font-size: 13px;
@@ -204,114 +194,104 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    word-break: break-word;
 }
 
-.category-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    background: var(--bg-card-soft);
-    border-radius: 16px;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    width: fit-content;
-}
-
-/* Tags */
-.tags-container {
+/* Contenedor de metadatos */
+.metadata-container {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-.tag {
-    font-size: 11px;
-    background: var(--bg-card-soft);
-    color: var(--text-secondary);
-    padding: 4px 8px;
-    border-radius: 4px;
-}
-
-.tag-more {
-    font-size: 11px;
-    color: var(--text-muted);
-    padding: 4px 8px;
-}
-
-/* Metadata */
-.metadata {
-    display: flex;
-    gap: 16px;
-    padding-top: 8px;
+    flex-direction: column;
+    gap: 6px;
     border-top: 1px solid var(--border-soft);
+    padding-top: 8px;
+    margin-top: 4px;
 }
 
 .metadata-item {
     display: flex;
-    align-items: center;
-    gap: 4px;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    flex-wrap: wrap;
+}
+
+.metadata-item strong {
+    color: var(--text-primary);
+    font-weight: 600;
+    min-width: 70px;
     font-size: 11px;
-    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
-.metadata-icon {
-    width: 12px;
-    height: 12px;
-    stroke: currentColor;
-}
-
-/* Ubicación */
+/* Ubicación (solo admins) */
 .location {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     font-size: 11px;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding: 4px 0;
+    border-top: 1px solid var(--border-soft);
+    margin-top: 4px;
 }
 
-.location-icon {
-    font-size: 12px;
+.location-svg {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.location-svg svg {
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
 }
 
 .location-text {
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    width:100%;
+    max-width:calc(100vw - 104px);
 }
 
-/* Acciones */
+/* =====================================================
+   ACCIONES (botones)
+===================================================== */
 .card-actions {
     display: flex;
     gap: 4px;
     justify-content: flex-end;
     margin-top: auto;
     padding-top: 8px;
-    opacity: 0.6;
-    transition: opacity 0.2s ease;
-}
-
-.file-card:hover .card-actions {
-    opacity: 1;
+    border-top: 1px solid var(--border-soft);
 }
 
 .action-btn {
     background: transparent;
     border: none;
-    padding: 6px;
-    border-radius: 4px;
+    padding: 8px;
+    border-radius: 6px;
     cursor: pointer;
     color: var(--text-secondary);
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    overflow: hidden;
 }
 
 .action-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
 }
 
 .action-btn:hover {
@@ -323,3 +303,335 @@
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
 }
+
+/* Efecto ripple en touch */
+.action-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.3);
+    opacity: 0;
+    border-radius: 100%;
+    transform: scale(1, 1) translate(-50%);
+    transform-origin: 50% 50%;
+}
+
+/* =====================================================
+   MEDIA QUERIES - RESPONSIVE
+===================================================== */
+
+/* Tablets y pantallas medianas */
+@media screen and (max-width: 1024px) {
+    .card-content {
+        padding: 14px;
+        gap: 10px;
+    }
+
+    .card-title {
+        font-size: 15px;
+    }
+
+    .metadata-item {
+        font-size: 11px;
+    }
+}
+
+/* Móviles */
+@media screen and (max-width: 768px) {
+    .file-card {
+        border-radius: 10px;
+    }
+
+    .card-content {
+        padding: 12px;
+        gap: 8px;
+    }
+
+    .card-title {
+        font-size: 14px;
+        -webkit-line-clamp: 2;
+    }
+
+    .card-description {
+        font-size: 12px;
+        -webkit-line-clamp: 2;
+    }
+
+    .type-icon {
+        top: 8px;
+        left: 8px;
+        width: 28px;
+        height: 28px;
+        padding: 6px;
+    }
+
+    .type-icon-svg svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .duration-badge {
+        bottom: 8px;
+        right: 8px;
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+
+    .preview-button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .preview-icon {
+        width: 14px;
+        height: 14px;
+    }
+
+    .metadata-item {
+        font-size: 11px;
+        gap: 4px;
+    }
+
+    .metadata-item strong {
+        min-width: 60px;
+        font-size: 10px;
+    }
+
+    .card-actions {
+        padding-top: 6px;
+        gap: 2px;
+    }
+
+    .action-btn {
+        padding: 6px;
+    }
+
+    .action-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .location {
+        font-size: 10px;
+        padding: 3px 0;
+    }
+
+    .location-svg svg {
+        width: 10px;
+        height: 10px;
+    }
+}
+
+/* Móviles pequeños */
+@media screen and (max-width: 480px) {
+    .card-content {
+        padding: 10px;
+    }
+
+    .card-title {
+        font-size: 13px;
+        -webkit-line-clamp: 2;
+    }
+
+    .card-description {
+        font-size: 11px;
+        -webkit-line-clamp: 2;
+    }
+
+    .type-icon {
+        top: 6px;
+        left: 6px;
+        width: 24px;
+        height: 24px;
+        padding: 4px;
+    }
+
+    .type-icon-svg svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .duration-badge {
+        bottom: 6px;
+        right: 6px;
+        font-size: 10px;
+        padding: 2px 5px;
+    }
+
+    .metadata-item {
+        font-size: 10px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+
+    .metadata-item strong {
+        min-width: auto;
+        font-size: 9px;
+    }
+
+    .card-actions {
+        justify-content: space-around;
+        padding-top: 4px;
+    }
+
+    .action-btn {
+        padding: 8px;
+        flex: 1;
+        max-width: 44px;
+    }
+
+    .action-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .preview-button {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+
+    .preview-icon {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+/* Móviles muy pequeños */
+@media screen and (max-width: 360px) {
+    .card-content {
+        padding: 8px;
+    }
+
+    .card-title {
+        font-size: 12px;
+    }
+
+    .card-description {
+        font-size: 10px;
+        -webkit-line-clamp: 1;
+    }
+
+    .type-icon {
+        width: 22px;
+        height: 22px;
+    }
+
+    .type-icon-svg svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .metadata-item {
+        font-size: 9px;
+    }
+
+    .action-btn {
+        padding: 6px;
+    }
+
+    .action-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+/* =====================================================
+   OPTIMIZACIONES PARA DISPOSITIVOS TÁCTILES
+===================================================== */
+@media (hover: none) and (pointer: coarse) {
+    .file-card {
+        cursor: default;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .file-card:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
+    }
+
+    .card-overlay {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    /* En táctil, mostrar siempre el botón de preview en una posición fija */
+    .file-card .preview-button {
+        opacity: 0.9;
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        width: calc(100% - 16px);
+        justify-content: center;
+        background: var(--bg-modal);
+        z-index: 4;
+    }
+
+    .action-btn {
+        padding: 10px;
+    }
+
+    .action-btn:active {
+        background: var(--bg-card-soft);
+        transform: scale(0.95);
+    }
+
+    .action-btn.delete:active {
+        background: rgba(239, 68, 68, 0.2);
+    }
+
+    /* Área táctil más grande */
+    .action-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* =====================================================
+   MODO OSCURO (soporte básico)
+===================================================== */
+@media (prefers-color-scheme: dark) {
+    .preview-button {
+        background: rgba(30, 30, 30, 0.9);
+        border-color: var(--border-primary);
+    }
+
+    .duration-badge {
+        background: rgba(0, 0, 0, 0.9);
+    }
+}
+
+/* =====================================================
+   ACCESIBILIDAD
+===================================================== */
+@media (prefers-reduced-motion: reduce) {
+    .file-card,
+    .card-image,
+    .card-overlay,
+    .preview-button,
+    .action-btn {
+        transition: none;
+    }
+
+    .file-card:hover {
+        transform: none;
+    }
+
+    .file-card:hover .card-image {
+        transform: none;
+    }
+}
+
+/* Clases removidas (no utilizadas):
+   - .badge, .badge-default, .badge-secondary, .badge-outline
+   - .category-badge
+   - .tags-container, .tag, .tag-more
+   - .metadata (reemplazado por metadata-container)
+   - .metadata-icon
+   - .location-icon
+   - .group-hover:scale-105 (se maneja con CSS nativo)
+*/
