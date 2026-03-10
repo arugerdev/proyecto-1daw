@@ -236,12 +236,12 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
         }
 
         // Guardar archivo        
-        await fs.rename(req.file.path, fullPath, () => {
-            res.json({
-                success: true,
-                id: mediaId,
-                path: fullPath
-            });
+        await fs.promises.rename(req.file.path, fullPath);
+
+        res.json({
+            success: true,
+            id: mediaId,
+            path: fullPath
         });
 
     } catch (err) {
