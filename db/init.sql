@@ -60,9 +60,10 @@ VALUES (
     "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", 
     "admin"
 );
+/*
 INSERT INTO users (nombre, contrasena, rol) 
 VALUES (
     "viewer", 
     "$2a$12$RCCN9wh0S27yBoUkYaUb4us6m9J8IO6UC/rtpeKLlxXPJ/luoJZE6", 
     "viewer"
-);
+);*/
