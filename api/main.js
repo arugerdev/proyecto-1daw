@@ -236,14 +236,13 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
         }
 
         // Guardar archivo        
-        await fs.promises.rename(req.file.path, fullPath);
+        await moveFile(req.file.path, fullPath);
 
         res.json({
             success: true,
             id: mediaId,
             path: fullPath
         });
-
     } catch (err) {
 
         console.error("Upload error:", err);
@@ -1009,6 +1008,19 @@ app.delete('/api/locations/:id', verifyToken, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+async function moveFile(src, dest) {
+    try {
+        await fs.promises.rename(src, dest);
+    } catch (err) {
+        if (err.code === "EXDEV") {
+            await fs.promises.copyFile(src, dest);
+            await fs.promises.unlink(src);
+        } else {
+            throw err;
+        }
+    }
+}
 
 // Función helper para formatear bytes
 function formatBytes(bytes, decimals = 2) {
