@@ -197,7 +197,7 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
             fs.mkdirSync(basePaths[0].path, { recursive: true });
 
         const filename = Date.now() + "_" + file.originalname;
-        const fullPath = path.join(basePaths[0].path, filename);
+        const fullPath = path.normalize(path.join(basePaths[0].path, filename));
 
         // Insertar media
         const [result] = await connection.promise().query(`
