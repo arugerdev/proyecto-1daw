@@ -385,8 +385,9 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
     });
 });
 
-// Endpoint para descargar archivo
+// Endpoint para descargar o mostrar archivo
 app.get('/api/files/:id/download', async (req, res) => {
+    const { embedded } = req.query; // detecta ?embedded=true
     const [rows] = await connection.promise().query(
         "SELECT media_path, filename FROM media_items WHERE id = ?",
         [req.params.id]
@@ -397,12 +398,18 @@ app.get('/api/files/:id/download', async (req, res) => {
 
     const filePath = rows[0].media_path;
     const filename = rows[0].filename;
-
     const mimeType = mime.lookup(filename) || "application/octet-stream";
 
     res.setHeader("Content-Type", mimeType);
 
-    res.download(filePath, filename);
+    if (embedded && embedded === "true") {
+        // Mostrar dentro de iframe/embed
+        res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+        fs.createReadStream(filePath).pipe(res);
+    } else {
+        // Forzar descarga
+        res.download(filePath, filename);
+    }
 });
 
 // Endpoint para eliminar archivo

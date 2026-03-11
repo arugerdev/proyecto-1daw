@@ -34,7 +34,7 @@ import { FileService } from '../../services/file.service';
     <!-- PDF / OFFICE -->
     <embed
       *ngIf="isPdf || isOffice"
-      [src]="fileSource"
+      [src]="fileSource + '?embedded=true'"
       type="application/pdf"
       width="100%"
       height="1000"
