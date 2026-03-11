@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ModalRef } from '../models/modal.model';
 import { MediaItem } from '../models/file.model';
 import { FileService } from '../../services/file.service';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-details-modal',
@@ -251,7 +252,11 @@ flex-direction:column;
 })
 export class DetailsModalComponent implements OnInit {
 
-  constructor(private fileService: FileService, private cdr: ChangeDetectorRef) { }
+  constructor(
+    private fileService: FileService,
+    private cdr: ChangeDetectorRef,
+    private sanitizer: DomSanitizer
+  ) { }
 
   @Input() modalRef?: ModalRef;
   @Input() file!: MediaItem;
@@ -264,13 +269,13 @@ export class DetailsModalComponent implements OnInit {
   isOther = false;
 
   canViewPaths = false;
-  fileSource: string | null = null;
+  fileSource: SafeResourceUrl | null = null;
 
   ngOnInit() {
     if (!this.file?.media_path) return;
 
     const ext = this.file.media_path.split('.').pop()?.toLowerCase();
-    this.fileSource = this.fileService.getFile(this.file);
+    let rawSource = this.fileService.getFile(this.file);
     if (!ext) return;
 
     // FORMATS
@@ -285,13 +290,15 @@ export class DetailsModalComponent implements OnInit {
     else if (audioFormats.includes(ext)) this.isAudio = true;
     else if (pdfFormats.includes(ext)) {
       this.isPdf = true;
-      this.fileSource += + '?embedded=true';
+      rawSource += '?embedded=true';
     }
     else if (officeFormats.includes(ext)) {
       this.isOffice = true;
-      this.fileSource += + '?embedded=true';
+      rawSource += '?embedded=true';
     }
     else this.isOther = true;
+
+    this.fileSource = this.sanitizer.bypassSecurityTrustResourceUrl(rawSource);
 
     this.cdr.detectChanges();
   }
