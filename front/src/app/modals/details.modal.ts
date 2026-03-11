@@ -31,11 +31,15 @@ import { FileService } from '../../services/file.service';
       Tu navegador no soporta audio.
     </audio>
 
-    <!-- PDF -->
-    <iframe *ngIf="isPdf"
-            [src]="fileSource"
-            class="viewer pdf">
-    </iframe>
+    <!-- PDF / OFFICE -->
+    <embed
+      *ngIf="isPdf || isOffice"
+      [src]="fileSource"
+      type="application/pdf"
+      width="100%"
+      height="1000"
+      class="viewer pdf"
+      />
 
     <!-- OTROS -->
     <div *ngIf="isOther" class="other-file">
@@ -47,11 +51,9 @@ import { FileService } from '../../services/file.service';
 
   </div>
 
-
   <div class="details-info">
 
-  
-  <h2 class="title">{{file?.title}}</h2>
+    <h2 class="title">{{file?.title}}</h2>
 
     <div class="detail-row">
       <span class="label">Descripción</span>
@@ -63,7 +65,6 @@ import { FileService } from '../../services/file.service';
       <span class="value">{{file?.publication_year}}</span>
     </div>
 
-    
     <div class="detail-row" *ngIf="canViewPaths">
       <span class="label">Ruta</span>
       <span class="value">{{file?.media_path}}</span>
@@ -79,6 +80,7 @@ import { FileService } from '../../services/file.service';
 
 `,
   styles: [`
+
 .details-container{
   display:flex;
   flex-direction:column;
@@ -244,6 +246,7 @@ flex-direction:column;
     }
 }
 
+
 `]
 })
 export class DetailsModalComponent implements OnInit {
@@ -257,25 +260,31 @@ export class DetailsModalComponent implements OnInit {
   isImage = false;
   isAudio = false;
   isPdf = false;
+  isOffice = false;
   isOther = false;
 
   canViewPaths = false;
-
   fileSource: string | null = null;
 
   ngOnInit() {
     if (!this.file?.media_path) return;
 
     const ext = this.file.media_path.split('.').pop()?.toLowerCase();
-
-    this.fileSource = this.fileService.getFile(this.file)
-
+    this.fileSource = this.fileService.getFile(this.file);
     if (!ext) return;
 
-    if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) this.isVideo = true;
-    else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) this.isImage = true;
-    else if (['mp3', 'wav', 'ogg'].includes(ext)) this.isAudio = true;
-    else if (['pdf'].includes(ext)) this.isPdf = true;
+    // FORMATS
+    const videoFormats = ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi', 'flv'];
+    const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'];
+    const audioFormats = ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'];
+    const pdfFormats = ['pdf'];
+    const officeFormats = ['docx', 'xlsx', 'pptx'];
+
+    if (videoFormats.includes(ext)) this.isVideo = true;
+    else if (imageFormats.includes(ext)) this.isImage = true;
+    else if (audioFormats.includes(ext)) this.isAudio = true;
+    else if (pdfFormats.includes(ext)) this.isPdf = true;
+    else if (officeFormats.includes(ext)) this.isOffice = true;
     else this.isOther = true;
   }
 
