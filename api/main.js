@@ -1126,12 +1126,13 @@ app.post('/api/filesystem/create', verifyToken, async (req, res) => {
         // Normalizar ruta
         const resolvedPath = path.resolve(requestedPath);
 
+/*
         // Seguridad: impedir salir del sistema de discos montados (o ruta base)
         const basePath = '/'; // puedes adaptarlo según tu sistema
         if (!resolvedPath.startsWith(basePath)) {
             return res.status(403).json({ success: false, error: "Acceso fuera del directorio permitido" });
         }
-
+*/
         const newFolderPath = path.join(resolvedPath, folderName);
 
         // Crear la carpeta si no existe
