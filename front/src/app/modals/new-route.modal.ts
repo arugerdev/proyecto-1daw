@@ -266,7 +266,7 @@ export class RouteModalComponent {
         const sep = this.path.includes('\\') ? '\\' : '/';
         const parts = this.path.split(sep).filter(Boolean);
         parts.pop();
-        this.path = parts.length ? sep + parts.join(sep) + sep : '';
+        this.path = parts.length ? (sep === '/' ? sep : '') + parts.join(sep) + sep : '';
         this.loadFolders();
     }
 
