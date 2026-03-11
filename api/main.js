@@ -11,7 +11,7 @@ const fs = require('fs')
 const path = require('path')
 const ffmpegPath = require("ffmpeg-static");
 const mime = require('mime-types');
-
+const os = require('os')
 
 
 const app = express()
@@ -1007,6 +1007,112 @@ app.delete('/api/locations/:id', verifyToken, async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
+});
+
+app.get('/api/filesystem/list', verifyToken, async (req, res) => {
+
+    try {
+
+        let requestedPath = req.query.path || "";
+
+        // ============================
+        // SI NO HAY PATH → DEVOLVER DISCOS
+        // ============================
+
+        if (!requestedPath) {
+
+            if (os.platform() === "win32") {
+
+                // Windows: detectar discos
+                const disks = [];
+
+                for (let i = 65; i <= 90; i++) {
+
+                    const letter = String.fromCharCode(i);
+                    const disk = `${letter}:\\`;
+
+                    if (fs.existsSync(disk)) {
+                        disks.push(disk);
+                    }
+
+                }
+
+                return res.json({
+                    success: true,
+                    disks
+                });
+
+            } else {
+
+                // Linux
+                const disks = ["/"];
+
+                const mountPoints = ["/mnt", "/media"];
+
+                for (const mount of mountPoints) {
+
+                    if (fs.existsSync(mount)) {
+
+                        const entries = await fs.promises.readdir(mount);
+
+                        for (const entry of entries) {
+                            disks.push(path.join(mount, entry));
+                        }
+
+                    }
+
+                }
+
+                return res.json({
+                    success: true,
+                    disks
+                });
+
+            }
+
+        }
+
+        // ============================
+        // NORMALIZAR RUTA
+        // ============================
+
+        const resolvedPath = path.resolve(requestedPath);
+
+        if (!fs.existsSync(resolvedPath)) {
+
+            return res.status(404).json({
+                success: false,
+                error: "Ruta no encontrada"
+            });
+
+        }
+
+        const entries = await fs.promises.readdir(resolvedPath, {
+            withFileTypes: true
+        });
+
+        const folders = entries
+            .filter(entry => entry.isDirectory())
+            .map(entry => entry.name)
+            .sort((a, b) => a.localeCompare(b));
+
+        res.json({
+            success: true,
+            path: resolvedPath,
+            folders
+        });
+
+    } catch (err) {
+
+        console.error("Filesystem list error:", err);
+
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+
+    }
+
 });
 
 async function moveFile(src, dest) {

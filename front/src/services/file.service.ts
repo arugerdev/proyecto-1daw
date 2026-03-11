@@ -248,4 +248,21 @@ export class FileService {
     formatDuration(duration: string | null): string {
         return duration ?? '—';
     }
+
+    // ===========================
+    // 📂 FILESYSTEM
+    // ===========================
+
+    listFolders(path: string): Observable<{ success: boolean; folders: string[] }> {
+
+        const params = new HttpParams().set('path', path);
+
+        return this.http.get<{ success: boolean; folders: string[] }>(
+            `${this.API}/filesystem/list`,
+            {
+                headers: this.getHeaders(),
+                params
+            }
+        );
+    }
 }

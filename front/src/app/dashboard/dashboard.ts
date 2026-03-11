@@ -109,9 +109,8 @@ export class DashboardPage implements OnInit {
                         this.loadLocations();
                     });
                 },
-                size: 'xl',
-
-            }
+            },
+            size: 'full',
         })
 
     }

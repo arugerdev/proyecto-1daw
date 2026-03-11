@@ -1,56 +1,113 @@
-import { Component, Input, ViewChild } from '@angular/core';
+
+
+import { ChangeDetectorRef, Component, Input, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalRef } from '../models/modal.model';
+import { FileService } from '../../services/file.service';
 
 @Component({
     selector: 'app-route-modal',
     standalone: true,
     imports: [CommonModule, FormsModule],
     template: `
-        <form #routeForm="ngForm" class="modal-form" (ngSubmit)="onSubmit()">
+<form #routeForm="ngForm" class="modal-form" (ngSubmit)="onSubmit()">
 
-            <div class="form-group">
-                <label class="form-label" for="path">Ruta</label>
+<div class="form-group">
 
-                <input
-                    class="form-input"
-                    type="text"
-                    id="path"
-                    name="path"
-                    [(ngModel)]="path"
-                    placeholder="/media/movies"
-                    required
-                    #pathInput="ngModel">
+<label class="form-label">Ruta actual</label>
 
-                <small class="form-hint" *ngIf="pathInput.invalid && pathInput.touched">
-                    La ruta es obligatoria
-                </small>
+<input
+class="form-input"
+type="text"
+name="path"
+[(ngModel)]="path"
+readonly>
 
-                <small class="form-hint">
-                    Introduce la nueva ruta del directorio.
-                </small>
-            </div>
+<div class="explorer">
 
-            <div class="modal-form-actions">
-                <button
-                    type="button"
-                    class="btn btn-secondary"
-                    (click)="onCancel()">
-                    Cancelar
-                </button>
+<button
+type="button"
+class="btn btn-secondary"
+(click)="goUp()">
+⬆ Atrás
+</button>
 
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                    [disabled]="routeForm.invalid">
-                    Aceptar
-                </button>
-            </div>
+<div class="folder-list">
 
-        </form>
-    `,
+<!-- DISKS -->
+<div
+class="folder"
+*ngFor="let disk of disks"
+(click)="openDisk(disk)">
+💾 {{disk}}
+</div>
+
+<!-- FOLDERS -->
+<div
+class="folder"
+*ngFor="let folder of folders"
+(click)="openFolder(folder)">
+📁 {{folder}}
+</div>
+
+</div>
+
+</div>
+
+<small class="form-hint">
+Selecciona una carpeta del servidor.
+</small>
+
+</div>
+
+<div class="modal-form-actions">
+
+<button
+type="button"
+class="btn btn-secondary"
+(click)="onCancel()">
+Cancelar
+</button>
+
+<button
+type="submit"
+class="btn btn-primary">
+Usar esta ruta
+</button>
+
+</div>
+
+</form>
+
+`,
     styles: [`
+.explorer{
+border:1px solid var(--border-soft);
+border-radius:8px;
+padding:10px;
+max-height:250px;
+overflow:auto;
+}
+
+.folder{
+padding:6px;
+cursor:pointer;
+border-radius:6px;
+color: var(--text-primary);
+}
+
+.folder:hover{
+background:var(--btn-secondary-hover);
+}
+
+.folder-list{
+margin-top:8px;
+display:flex;
+flex-direction:column;
+gap:4px;
+}
+
         .modal-form {
             min-width:20vw;
             gap: 18px;
@@ -138,9 +195,8 @@ import { ModalRef } from '../models/modal.model';
         .btn-secondary:hover {
             background: var(--btn-secondary-hover);
         }
-    `]
+`]
 })
-
 export class RouteModalComponent {
 
     @Input() modalRef?: ModalRef;
@@ -148,6 +204,13 @@ export class RouteModalComponent {
     @ViewChild('routeForm') routeForm: any;
 
     path: string = '';
+    folders: string[] = [];
+    disks: string[] = [];
+
+    constructor(
+        private fileService: FileService,
+        private cdr: ChangeDetectorRef
+    ) { }
 
     ngOnInit() {
 
@@ -159,18 +222,105 @@ export class RouteModalComponent {
             }
         }
 
+        this.loadFolders();
+        this.cdr.detectChanges();
+    }
+
+    loadFolders() {
+
+        this.fileService.listFolders(this.path).subscribe({
+
+            next: (res: any) => {
+
+                if (res.disks) {
+
+                    this.disks = res.disks;
+                    this.folders = [];
+                    this.path = '';
+
+                } else {
+
+                    this.disks = [];
+                    this.folders = res.folders || [];
+
+                }
+
+                this.cdr.detectChanges();
+            },
+
+            error: (err) => {
+                console.error('Filesystem error', err);
+            }
+
+        });
+
+        this.cdr.detectChanges();
+
+    }
+
+    openDisk(disk: string) {
+
+        this.path = disk;
+        this.loadFolders();
+
+        this.cdr.detectChanges();
+
+    }
+
+    openFolder(folder: string) {
+
+        if (!this.path) {
+            this.path = folder;
+            this.cdr.detectChanges();
+        }
+        else {
+
+            const separator = this.path.includes('\\') ? '\\' : '/';
+
+            if (this.path.endsWith(separator))
+                this.path = this.path + folder;
+            else
+                this.path = this.path + separator + folder;
+
+            this.cdr.detectChanges();
+        }
+
+        this.loadFolders();
+        this.cdr.detectChanges();
+    }
+
+    goUp() {
+
+        if (!this.path) {
+            this.loadFolders();
+            this.cdr.detectChanges();
+            return;
+        }
+
+        const separator = this.path.includes('\\') ? '\\' : '/';
+
+        const parts = this.path.split(separator).filter(Boolean);
+        parts.pop();
+
+        if (parts.length === 0) {
+            this.path = '';
+        } else {
+            this.path = parts.join(separator);
+
+            if (separator === '\\')
+                this.path += '\\';
+            else
+                this.path = '/' + this.path;
+        }
+
+        this.loadFolders();
+        this.cdr.detectChanges();
     }
 
     onSubmit() {
 
-        if (this.routeForm.invalid) {
-            Object.keys(this.routeForm.controls).forEach(field => {
-                const control = this.routeForm.control.get(field);
-                control?.markAsTouched({ onlySelf: true });
-            });
-            return;
-        }
-        this.onResult(this.path)
+        this.onResult(this.path);
+
         this.modalRef?.close({
             success: true,
             path: this.path
