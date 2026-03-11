@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModalRef } from '../models/modal.model';
 import { MediaItem } from '../models/file.model';
@@ -34,7 +34,7 @@ import { FileService } from '../../services/file.service';
     <!-- PDF / OFFICE -->
     <embed
       *ngIf="isPdf || isOffice"
-      [src]="fileSource + '?embedded=true'"
+      [src]="fileSource"
       type="application/pdf"
       width="100%"
       height="1000"
@@ -251,7 +251,7 @@ flex-direction:column;
 })
 export class DetailsModalComponent implements OnInit {
 
-  constructor(private fileService: FileService) { }
+  constructor(private fileService: FileService, private cdr: ChangeDetectorRef) { }
 
   @Input() modalRef?: ModalRef;
   @Input() file!: MediaItem;
@@ -283,9 +283,17 @@ export class DetailsModalComponent implements OnInit {
     if (videoFormats.includes(ext)) this.isVideo = true;
     else if (imageFormats.includes(ext)) this.isImage = true;
     else if (audioFormats.includes(ext)) this.isAudio = true;
-    else if (pdfFormats.includes(ext)) this.isPdf = true;
-    else if (officeFormats.includes(ext)) this.isOffice = true;
+    else if (pdfFormats.includes(ext)) {
+      this.isPdf = true;
+      this.fileSource += + '?embedded=true';
+    }
+    else if (officeFormats.includes(ext)) {
+      this.isOffice = true;
+      this.fileSource += + '?embedded=true';
+    }
     else this.isOther = true;
+
+    this.cdr.detectChanges();
   }
 
   close() {
