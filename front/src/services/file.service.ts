@@ -265,4 +265,12 @@ export class FileService {
             }
         );
     }
+
+    createFolder(path: string, folderName: string): Observable<any> {
+        return this.http.post<{ success: boolean; }>(
+            `${this.API}/filesystem/create`,
+            { path, folderName },
+            { headers: this.getHeaders() }
+        );
+    }
 }

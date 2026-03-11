@@ -1,6 +1,6 @@
 
 
-import { ChangeDetectorRef, Component, Input, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ModalRef } from '../models/modal.model';
@@ -13,73 +13,81 @@ import { FileService } from '../../services/file.service';
     template: `
 <form #routeForm="ngForm" class="modal-form" (ngSubmit)="onSubmit()">
 
-<div class="form-group">
+  <div class="form-group">
+    <label class="form-label">Ruta actual</label>
+    <input
+      class="form-input"
+      type="text"
+      name="path"
+      [(ngModel)]="path"
+    >
+    
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="goUp()">
+        ⬆ Atrás
+      </button>
+  
+      <button
+        *ngIf="disks.length <= 0"
+        type="button"
+        class="btn btn-primary"
+        style="margin-left:8px"
+        (click)="startCreateFolder()">
+        📂 Nueva carpeta
+      </button>
+    <div class="explorer">
 
-<label class="form-label">Ruta actual</label>
 
-<input
-class="form-input"
-type="text"
-name="path"
-[(ngModel)]="path"
-readonly>
+      <div class="folder-list">
 
-<div class="explorer">
+        <!-- DISKS -->
+        <div
+          class="folder"
+          *ngFor="let disk of disks"
+          (click)="openDisk(disk)">
+          💾 {{disk}}
+        </div>
 
-<button
-type="button"
-class="btn btn-secondary"
-(click)="goUp()">
-⬆ Atrás
-</button>
+        <!-- FOLDERS -->
+        <div *ngFor="let folder of folders">
+          
+          <!-- Input para nueva carpeta -->
+          <input *ngIf="creatingFolder && folder === '__new__'"
+            #newFolderInput
+            type="text"
+            class="form-input"
+            [(ngModel)]="newFolderName"
+            (blur)="finishCreateFolder()"
+            (keydown.enter)="finishCreateFolder()"
+            [ngModelOptions]="{standalone: true}"
+            />
 
-<div class="folder-list">
+          <!-- Carpeta normal -->
+          <div *ngIf="! (creatingFolder && folder === '__new__')"
+            class="folder"
+            (click)="openFolder(folder)">
+            📁 {{folder}}
+          </div>
 
-<!-- DISKS -->
-<div
-class="folder"
-*ngFor="let disk of disks"
-(click)="openDisk(disk)">
-💾 {{disk}}
-</div>
+        </div>
 
-<!-- FOLDERS -->
-<div
-class="folder"
-*ngFor="let folder of folders"
-(click)="openFolder(folder)">
-📁 {{folder}}
-</div>
+      </div>
 
-</div>
+    </div>
 
-</div>
+    <small class="form-hint">
+      Selecciona una carpeta del servidor.
+    </small>
+  </div>
 
-<small class="form-hint">
-Selecciona una carpeta del servidor.
-</small>
-
-</div>
-
-<div class="modal-form-actions">
-
-<button
-type="button"
-class="btn btn-secondary"
-(click)="onCancel()">
-Cancelar
-</button>
-
-<button
-type="submit"
-class="btn btn-primary">
-Usar esta ruta
-</button>
-
-</div>
+  <div class="modal-form-actions">
+    <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancelar</button>
+    <button type="submit" class="btn btn-primary">Usar esta ruta</button>
+  </div>
 
 </form>
-
 `,
     styles: [`
 .explorer{
@@ -202,10 +210,14 @@ export class RouteModalComponent {
     @Input() modalRef?: ModalRef;
     @Input() onResult!: (a: any) => {};
     @ViewChild('routeForm') routeForm: any;
+    @ViewChild('newFolderInput') newFolderInput!: ElementRef;
 
     path: string = '';
     folders: string[] = [];
     disks: string[] = [];
+
+    creatingFolder: boolean = false;
+    newFolderName: string = '';
 
     constructor(
         private fileService: FileService,
@@ -213,123 +225,93 @@ export class RouteModalComponent {
     ) { }
 
     ngOnInit() {
-
         if (this.modalRef) {
             const data = this.modalRef.componentRef.instance.data;
-
-            if (data?.path) {
-                this.path = data.path;
-            }
+            if (data?.path) this.path = data.path;
         }
-
         this.loadFolders();
         this.cdr.detectChanges();
     }
 
     loadFolders() {
-
         this.fileService.listFolders(this.path).subscribe({
-
             next: (res: any) => {
-
                 if (res.disks) {
-
                     this.disks = res.disks;
                     this.folders = [];
                     this.path = '';
-
                 } else {
-
                     this.disks = [];
                     this.folders = res.folders || [];
-
                 }
-
                 this.cdr.detectChanges();
             },
-
-            error: (err) => {
-                console.error('Filesystem error', err);
-            }
-
+            error: (err) => console.error('Filesystem error', err)
         });
-
-        this.cdr.detectChanges();
-
     }
 
     openDisk(disk: string) {
-
         this.path = disk;
         this.loadFolders();
-
-        this.cdr.detectChanges();
-
     }
 
     openFolder(folder: string) {
-
-        if (!this.path) {
-            this.path = folder;
-            this.cdr.detectChanges();
-        }
-        else {
-
-            const separator = this.path.includes('\\') ? '\\' : '/';
-
-            if (this.path.endsWith(separator))
-                this.path = this.path + folder;
-            else
-                this.path = this.path + separator + folder;
-
-            this.cdr.detectChanges();
-        }
-
+        const sep = this.path.includes('\\') ? '\\' : '/';
+        this.path = this.path.endsWith(sep) ? this.path + folder : this.path + sep + folder;
         this.loadFolders();
-        this.cdr.detectChanges();
     }
 
     goUp() {
+        if (!this.path) { this.loadFolders(); return; }
+        const sep = this.path.includes('\\') ? '\\' : '/';
+        const parts = this.path.split(sep).filter(Boolean);
+        parts.pop();
+        this.path = parts.length ? sep + parts.join(sep) + sep : '';
+        this.loadFolders();
+    }
 
-        if (!this.path) {
-            this.loadFolders();
-            this.cdr.detectChanges();
+    startCreateFolder() {
+        if (this.creatingFolder) return;
+        this.creatingFolder = true;
+        this.newFolderName = '';
+        this.folders.unshift('__new__'); // placeholder para input
+        this.cdr.detectChanges();
+        setTimeout(() => this.newFolderInput.nativeElement.focus(), 0);
+    }
+
+    finishCreateFolder() {
+        console.log(this.newFolderInput)
+        console.log(this.newFolderName)
+        if (!this.newFolderName.trim()) {
+            this.cancelCreateFolder();
             return;
         }
 
-        const separator = this.path.includes('\\') ? '\\' : '/';
+        this.fileService.createFolder(this.path, this.newFolderName.trim()).subscribe({
+            next: () => {
+                this.openFolder(this.newFolderName.trim())
+                this.creatingFolder = false;
+                this.loadFolders();
+            },
+            error: (err) => {
+                console.error('Error creating folder:', err);
+                this.creatingFolder = false;
+                this.loadFolders();
+            }
+        });
+    }
 
-        const parts = this.path.split(separator).filter(Boolean);
-        parts.pop();
-
-        if (parts.length === 0) {
-            this.path = '';
-        } else {
-            this.path = parts.join(separator);
-
-            if (separator === '\\')
-                this.path += '\\';
-            else
-                this.path = '/' + this.path;
-        }
-
-        this.loadFolders();
-        this.cdr.detectChanges();
+    cancelCreateFolder() {
+        this.creatingFolder = false;
+        this.folders = this.folders.filter(f => f !== '__new__');
     }
 
     onSubmit() {
-
         this.onResult(this.path);
-
-        this.modalRef?.close({
-            success: true,
-            path: this.path
-        });
-
+        this.modalRef?.close({ success: true, path: this.path });
     }
 
     onCancel() {
         this.modalRef?.close({ success: false });
     }
-
 }

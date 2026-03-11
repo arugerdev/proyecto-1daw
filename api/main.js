@@ -1115,6 +1115,39 @@ app.get('/api/filesystem/list', verifyToken, async (req, res) => {
 
 });
 
+app.post('/api/filesystem/create', verifyToken, async (req, res) => {
+    try {
+        let { path: requestedPath, folderName } = req.body;
+
+        if (!requestedPath || !folderName) {
+            return res.status(400).json({ success: false, error: "Faltan parámetros" });
+        }
+
+        // Normalizar ruta
+        const resolvedPath = path.resolve(requestedPath);
+
+        // Seguridad: impedir salir del sistema de discos montados (o ruta base)
+        const basePath = '/'; // puedes adaptarlo según tu sistema
+        if (!resolvedPath.startsWith(basePath)) {
+            return res.status(403).json({ success: false, error: "Acceso fuera del directorio permitido" });
+        }
+
+        const newFolderPath = path.join(resolvedPath, folderName);
+
+        // Crear la carpeta si no existe
+        if (!fs.existsSync(newFolderPath)) {
+            fs.mkdirSync(newFolderPath, { recursive: true });
+            return res.json({ success: true, path: newFolderPath });
+        } else {
+            return res.status(409).json({ success: false, error: "La carpeta ya existe" });
+        }
+
+    } catch (err) {
+        console.error("Filesystem create error:", err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 async function moveFile(src, dest) {
     try {
         await fs.promises.rename(src, dest);
