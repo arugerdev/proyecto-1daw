@@ -76,6 +76,17 @@ export class FileService {
     // 📥 DESCARGAR
     // ===========================
 
+    // ─── FIX ──────────────────────────────────────────────────────────────────
+    // getDownloadUrl devuelve la URL directa al endpoint de descarga.
+    // Usada por file-grid para crear un <a href> nativo en lugar de XHR,
+    // evitando el problema de CORS con credenciales en peticiones blob.
+    // downloadMedia se mantiene por si hay otros consumidores que lo usen,
+    // pero onDownload en file-grid ya no lo llama.
+    // ─────────────────────────────────────────────────────────────────────────
+    getDownloadUrl(id: number): string {
+        return `${this.API}/files/${id}/download`;
+    }
+
     downloadMedia(id: number): Observable<Blob> {
         return this.http.get(
             `${this.API}/files/${id}/download`,

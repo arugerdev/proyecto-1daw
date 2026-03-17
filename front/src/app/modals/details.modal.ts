@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ModalRef } from '../models/modal.model';
 import { MediaItem } from '../models/file.model';
 import { FileService } from '../../services/file.service';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-details-modal',
@@ -16,26 +16,25 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
   <div class="preview-container">
 
     <!-- VIDEO -->
-    <video *ngIf="isVideo" controls class="viewer">
-      <source [src]="fileSource">
+    <video *ngIf="isVideo" [src]="mediaUrl" controls class="viewer">
       Tu navegador no soporta video.
     </video>
 
     <!-- IMAGEN -->
     <img *ngIf="isImage"
-         [src]="fileSource"
+         [src]="mediaUrl"
          class="viewer"/>
 
     <!-- AUDIO -->
-    <audio *ngIf="isAudio" controls class="viewer">
-      <source [src]="fileSource">
+    <audio *ngIf="isAudio" [src]="mediaUrl" controls class="viewer">
       Tu navegador no soporta audio.
     </audio>
 
     <!-- PDF / OFFICE -->
+    <!-- SafeResourceUrl para <embed src> -->
     <embed
       *ngIf="isPdf || isOffice"
-      [src]="fileSource"
+      [src]="resourceUrl"
       type="application/pdf"
       width="100%"
       height="1000"
@@ -45,7 +44,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
     <!-- OTROS -->
     <div *ngIf="isOther" class="other-file">
       <p>Este archivo no se puede previsualizar.</p>
-      <a [href]="fileSource" target="_blank" class="btn btn-primary">
+      <a [href]="mediaUrl" target="_blank" class="btn btn-primary">
         Descargar archivo
       </a>
     </div>
@@ -269,14 +268,30 @@ export class DetailsModalComponent implements OnInit {
   isOther = false;
 
   canViewPaths = false;
-  fileSource: SafeResourceUrl | null = null;
+
+  // ─── FIX ──────────────────────────────────────────────────────────────────
+  // Angular tiene dos tipos de URLs seguras con propósitos distintos:
+  //
+  //   bypassSecurityTrustUrl         → para [src] en <img>, <video>, <audio>,
+  //                                    <source> y [href] en <a>.
+  //
+  //   bypassSecurityTrustResourceUrl → para [src] en <iframe>, <embed>,
+  //                                    <object> y [data] en <object>.
+  //
+  // El código original usaba bypassSecurityTrustResourceUrl para todo, lo que
+  // hacía que Angular descartase silenciosamente el src de <video> y <audio>,
+  // dejando el reproductor vacío sin ningún error en consola.
+  // ─────────────────────────────────────────────────────────────────────────
+  mediaUrl: SafeUrl | null = null;           // <video>, <audio>, <img>, <a>
+  resourceUrl: SafeResourceUrl | null = null; // <embed>
 
   ngOnInit() {
     if (!this.file?.media_path) return;
 
     const ext = this.file.media_path.split('.').pop()?.toLowerCase();
-    let rawSource = this.fileService.getFile(this.file);
     if (!ext) return;
+
+    const rawSource = this.fileService.getFile(this.file);
 
     // FORMATS
     const videoFormats = ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi', 'flv'];
@@ -285,20 +300,30 @@ export class DetailsModalComponent implements OnInit {
     const pdfFormats = ['pdf'];
     const officeFormats = ['docx', 'xlsx', 'pptx'];
 
-    if (videoFormats.includes(ext)) this.isVideo = true;
-    else if (imageFormats.includes(ext)) this.isImage = true;
-    else if (audioFormats.includes(ext)) this.isAudio = true;
-    else if (pdfFormats.includes(ext)) {
-      this.isPdf = true;
-      rawSource += '?embedded=true';
-    }
-    else if (officeFormats.includes(ext)) {
-      this.isOffice = true;
-      rawSource += '?embedded=true';
-    }
-    else this.isOther = true;
+    if (videoFormats.includes(ext)) {
+      this.isVideo = true;
+      this.mediaUrl = this.sanitizer.bypassSecurityTrustUrl(rawSource);
 
-    this.fileSource = this.sanitizer.bypassSecurityTrustResourceUrl(rawSource);
+    } else if (imageFormats.includes(ext)) {
+      this.isImage = true;
+      this.mediaUrl = this.sanitizer.bypassSecurityTrustUrl(rawSource);
+
+    } else if (audioFormats.includes(ext)) {
+      this.isAudio = true;
+      this.mediaUrl = this.sanitizer.bypassSecurityTrustUrl(rawSource);
+
+    } else if (pdfFormats.includes(ext)) {
+      this.isPdf = true;
+      this.resourceUrl = this.sanitizer.bypassSecurityTrustResourceUrl(rawSource + '?embedded=true');
+
+    } else if (officeFormats.includes(ext)) {
+      this.isOffice = true;
+      this.resourceUrl = this.sanitizer.bypassSecurityTrustResourceUrl(rawSource + '?embedded=true');
+
+    } else {
+      this.isOther = true;
+      this.mediaUrl = this.sanitizer.bypassSecurityTrustUrl(rawSource);
+    }
 
     this.cdr.detectChanges();
   }

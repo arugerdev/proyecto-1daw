@@ -89,18 +89,11 @@ export class FileGridComponent implements OnInit, OnDestroy {
     ) { }
 
     ngOnInit() {
-        console.log('FileGridComponent initializing with files:', this.files);
         this.loadFiles(true);
         this.setupSearch();
         this.setupInfiniteScroll();
-        console.log('FileGridComponent initialized with files:', this.files);
-
-        this.auth.refreshUserRole().pipe(
-            takeUntil(this.destroy$)
-        ).subscribe(user => {
-            this.canUploadContent = !!user?.permissions?.canUpload;
-            this.cdr.markForCheck();
-        });
+        this.canUploadContent = this.auth.hasPermission('canUpload')
+        this.cdr.markForCheck();
     }
 
     ngOnDestroy() {
@@ -217,17 +210,23 @@ export class FileGridComponent implements OnInit, OnDestroy {
     }
 
     onDownload(file: MediaItem) {
-        this.fileService.downloadMedia(file.id).subscribe({
-            next: (blob) => {
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = file.title;
-                a.click();
-                window.URL.revokeObjectURL(url);
-            },
-            error: (error) => console.error('Error downloading:', error)
-        });
+        // ─── FIX ──────────────────────────────────────────────────────────────
+        // HttpClient con responseType:'blob' envía el header Authorization,
+        // lo que convierte la petición en "credencialed". El browser exige que
+        // el servidor responda con el origin exacto (no '*'), y cualquier fallo
+        // CORS con blob resulta en status 0 / ERR_FAILED sin mensaje útil.
+        //
+        // El endpoint /download no requiere token, así que podemos usar un
+        // <a href> directo: el browser lo descarga de forma nativa, sin XHR
+        // y sin restricciones CORS para descargas de archivos.
+        // ─────────────────────────────────────────────────────────────────────
+        const url = this.fileService.getDownloadUrl(file.id);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 
     onEdit(file: MediaItem) {

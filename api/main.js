@@ -13,13 +13,23 @@ const ffmpegPath = require("ffmpeg-static");
 const mime = require('mime-types');
 const os = require('os')
 
-
 const app = express()
 
 app.use(express.json());
 
+// ─── CORS FIX ────────────────────────────────────────────────────────────────
+// `origin: '*'` con `credentials: true` viola la spec CORS.
+// Cuando Angular envía el header Authorization (credencial), el browser exige
+// que el servidor responda con el origin exacto del cliente, no con '*'.
+// Si responde '*', el browser bloquea la respuesta → status 0 / ERR_FAILED.
+// Solución: reflejar el origin de la petición de vuelta al cliente.
+// ─────────────────────────────────────────────────────────────────────────────
 app.use(cors({
-    origin: '*',
+    origin: function (origin, callback) {
+        // Permite peticiones sin origin (curl, Postman, server-to-server)
+        // y refleja el origin exacto del cliente en el resto de casos.
+        callback(null, origin || '*');
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
     credentials: true,
@@ -54,13 +64,15 @@ function verifyToken(req, res, next) {
     });
 }
 
+// ─── MEJORA 1 ────────────────────────────────────────────────────────────────
+// Multer escribe ahora en el directorio temporal del sistema operativo.
+// Esto evita fallos de cross-device rename cuando el destino final está
+// en un volumen distinto al directorio de trabajo del proceso.
+// ─────────────────────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) { // Usar la ruta base del .env 
-
-        const basePath = mediaPath || path.join(__dirname, "media");
-        const dir = path.join(basePath);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
+    destination: function (req, file, cb) {
+        const tmpDir = os.tmpdir();
+        cb(null, tmpDir);
     },
     filename: function (req, file, cb) {
         const uniqueName = Date.now() + "_" + file.originalname;
@@ -235,7 +247,12 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
             }
         }
 
-        // Guardar archivo        
+        // ─── MEJORA 2 ─────────────────────────────────────────────────────────
+        // moveFile ahora hace flush al disco (fdatasync) antes de cerrar
+        // y asigna permisos 0o644 tras el movimiento, garantizando que el
+        // archivo sea legible por el servidor web sin importar la umask del
+        // proceso o del sistema de ficheros de destino.
+        // ─────────────────────────────────────────────────────────────────────
         await moveFile(req.file.path, fullPath);
 
         res.json({
@@ -244,6 +261,14 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
             path: fullPath
         });
     } catch (err) {
+
+        // ─── MEJORA 3 ─────────────────────────────────────────────────────────
+        // Si algo falla después de que multer escribió el temporal, limpiarlo
+        // para no dejar basura en os.tmpdir().
+        // ─────────────────────────────────────────────────────────────────────
+        if (req.file?.path && fs.existsSync(req.file.path)) {
+            fs.unlink(req.file.path, () => {});
+        }
 
         console.error("Upload error:", err);
 
@@ -385,9 +410,15 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
     });
 });
 
-// Endpoint para descargar o mostrar archivo
+// ─── MEJORA 4 ────────────────────────────────────────────────────────────────
+// Endpoint de descarga con soporte de Range requests (HTTP 206).
+// Esto permite:
+//  - Reanudar descargas interrumpidas sin empezar desde cero.
+//  - Hacer seek en reproductores de vídeo/audio sin descargar todo el fichero.
+//  - Reducir fallos en archivos grandes, ya que cada segmento es más pequeño.
+// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/files/:id/download', async (req, res) => {
-    const { embedded } = req.query; // detecta ?embedded=true
+    const { embedded } = req.query;
     const [rows] = await connection.promise().query(
         "SELECT media_path, filename FROM media_items WHERE id = ?",
         [req.params.id]
@@ -400,15 +431,62 @@ app.get('/api/files/:id/download', async (req, res) => {
     const filename = rows[0].filename;
     const mimeType = mime.lookup(filename) || "application/octet-stream";
 
-    res.setHeader("Content-Type", mimeType);
+    if (!fs.existsSync(filePath))
+        return res.status(404).json({ error: "Archivo no encontrado en disco" });
 
-    if (embedded && embedded === "true") {
-        // Mostrar dentro de iframe/embed
-        res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
-        fs.createReadStream(filePath).pipe(res);
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const rangeHeader = req.headers.range;
+
+    if (rangeHeader) {
+        // Parsear el header Range: bytes=start-end
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+        // Rango inválido
+        if (start >= fileSize || end >= fileSize) {
+            res.status(416).set("Content-Range", `bytes */${fileSize}`).end();
+            return;
+        }
+
+        const chunkSize = end - start + 1;
+
+        res.status(206).set({
+            "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+            "Accept-Ranges": "bytes",
+            "Content-Length": chunkSize,
+            "Content-Type": mimeType,
+            "Content-Disposition": embedded === "true"
+                ? `inline; filename="${filename}"`
+                : `attachment; filename="${filename}"`
+        });
+
+        fs.createReadStream(filePath, { start, end }).pipe(res);
+
     } else {
-        // Forzar descarga
-        res.download(filePath, filename);
+        // ─── MEJORA 5 ─────────────────────────────────────────────────────────
+        // res.download() reescribe los headers internamente (llama a sendFile
+        // que llama a send), pisando los headers CORS que puso el middleware y
+        // provocando que el browser rechace la respuesta con status 0 / ERR_FAILED.
+        // Siempre usamos createReadStream con headers explícitos para tener
+        // control total y garantizar que los CORS headers llegan al cliente.
+        // ─────────────────────────────────────────────────────────────────────
+        res.set({
+            "Accept-Ranges": "bytes",
+            "Content-Length": fileSize,
+            "Content-Type": mimeType,
+            "Content-Disposition": embedded === "true"
+                ? `inline; filename="${filename}"`
+                : `attachment; filename="${filename}"`
+        });
+
+        const stream = fs.createReadStream(filePath);
+        stream.on('error', (err) => {
+            console.error("Stream error:", err);
+            if (!res.headersSent) res.status(500).end();
+        });
+        stream.pipe(res);
     }
 });
 
@@ -556,7 +634,6 @@ function getPermissionsByRole(rol) {
     return permissions[rol] || permissions.viewer;
 }
 
-//Endpoint para generar thumbnail de video, no necesita token, esto deberia devolver la url directamente, si no existe el video, devolver un placeholder, si no existe el thumbnail, generarlo con ffmpeg y devolverlo
 app.get('/api/files/:id/thumbnail', async (req, res) => {
     try {
         const [rows] = await connection.promise().query(
@@ -1022,15 +1099,10 @@ app.get('/api/filesystem/list', verifyToken, async (req, res) => {
 
         let requestedPath = req.query.path || "";
 
-        // ============================
-        // SI NO HAY PATH → DEVOLVER DISCOS
-        // ============================
-
         if (!requestedPath) {
 
             if (os.platform() === "win32") {
 
-                // Windows: detectar discos
                 const disks = [];
 
                 for (let i = 65; i <= 90; i++) {
@@ -1051,7 +1123,6 @@ app.get('/api/filesystem/list', verifyToken, async (req, res) => {
 
             } else {
 
-                // Linux
                 const disks = ["/"];
 
                 const mountPoints = ["/mnt", "/media"];
@@ -1078,10 +1149,6 @@ app.get('/api/filesystem/list', verifyToken, async (req, res) => {
             }
 
         }
-
-        // ============================
-        // NORMALIZAR RUTA
-        // ============================
 
         const resolvedPath = path.resolve(requestedPath);
 
@@ -1130,19 +1197,9 @@ app.post('/api/filesystem/create', verifyToken, async (req, res) => {
             return res.status(400).json({ success: false, error: "Faltan parámetros" });
         }
 
-        // Normalizar ruta
         const resolvedPath = path.resolve(requestedPath);
-
-/*
-        // Seguridad: impedir salir del sistema de discos montados (o ruta base)
-        const basePath = '/'; // puedes adaptarlo según tu sistema
-        if (!resolvedPath.startsWith(basePath)) {
-            return res.status(403).json({ success: false, error: "Acceso fuera del directorio permitido" });
-        }
-*/
         const newFolderPath = path.join(resolvedPath, folderName);
 
-        // Crear la carpeta si no existe
         if (!fs.existsSync(newFolderPath)) {
             fs.mkdirSync(newFolderPath, { recursive: true });
             return res.json({ success: true, path: newFolderPath });
@@ -1156,17 +1213,58 @@ app.post('/api/filesystem/create', verifyToken, async (req, res) => {
     }
 });
 
+// ─── MEJORA 2 (implementación) ────────────────────────────────────────────────
+// moveFile mejorado:
+//  1. Intenta rename() — operación atómica y rápida en el mismo filesystem.
+//  2. Si falla por cross-device (EXDEV), copia con stream y fdatasync para
+//     garantizar que los datos están en disco antes de considerar la escritura
+//     completa, luego borra el original.
+//  3. Asigna permisos 0o644 al fichero de destino en ambos casos, para que
+//     el proceso web pueda leerlo independientemente de la umask del sistema.
+// ─────────────────────────────────────────────────────────────────────────────
 async function moveFile(src, dest) {
     try {
         await fs.promises.rename(src, dest);
     } catch (err) {
         if (err.code === "EXDEV") {
-            await fs.promises.copyFile(src, dest);
+            // Cross-device: copiar con flush garantizado
+            await copyFileWithSync(src, dest);
             await fs.promises.unlink(src);
         } else {
             throw err;
         }
     }
+
+    // Asignar permisos de lectura/escritura para propietario y lectura para grupo/otros
+    await fs.promises.chmod(dest, 0o644);
+}
+
+// Copia el fichero src → dest usando streams y hace fdatasync antes de cerrar,
+// garantizando que el contenido esté completamente escrito en disco.
+function copyFileWithSync(src, dest) {
+    return new Promise((resolve, reject) => {
+        const readStream = fs.createReadStream(src);
+        const writeStream = fs.createWriteStream(dest);
+
+        readStream.on('error', reject);
+
+        writeStream.on('error', reject);
+
+        writeStream.on('finish', () => {
+            // fdatasync: fuerza que el kernel vacíe los buffers al disco
+            // antes de resolver la promesa, evitando archivos truncados
+            // si el proceso muere justo después de la escritura.
+            fs.fdatasync(writeStream.fd, (syncErr) => {
+                if (syncErr) return reject(syncErr);
+                writeStream.close((closeErr) => {
+                    if (closeErr) return reject(closeErr);
+                    resolve();
+                });
+            });
+        });
+
+        readStream.pipe(writeStream);
+    });
 }
 
 // Función helper para formatear bytes

@@ -26,10 +26,8 @@ export class Header {
     ngOnInit() {
         this.subRoute = this.router.url != '/'
 
-        this.auth.refreshUserRole().subscribe(user => {
-            this.canManageUsers = !!user?.permissions?.canManageUsers;
-            this.cdr.markForCheck();
-        });
+        this.canManageUsers = this.auth.hasPermission('canManageUsers')
+        this.cdr.markForCheck();
     }
 
     back() {

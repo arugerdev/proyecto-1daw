@@ -60,6 +60,12 @@ VALUES (
     "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", 
     "admin"
 );
+INSERT INTO users (nombre, contrasena, rol) 
+VALUES (
+    "owner", 
+    "$2a$12$fuMNGmEML8OKjv4/S2Fg9O9WwztFRFrQoZncVjFtb7LgE.XK031Cu", 
+    "admin"
+);
 /*
 INSERT INTO users (nombre, contrasena, rol) 
 VALUES (

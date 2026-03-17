@@ -52,13 +52,14 @@
                             <!-- Mostrar los usuarios en la tabla -->
                             <!-- El usuario admin (id = 1) NO deberia poder modificarse ni eliminarse -->
                             <tr class="users-table-row" *ngFor="let user of users">
-                                <td class="users-table-td users-table-td-bold">{{ user.name }}</td>
-                                <td class="users-table-td">
+                                <td class="users-table-td users-table-td-bold" *ngIf="user.id !== 1">{{ user.name }}
+                                </td>
+                                <td class="users-table-td" *ngIf="user.id !== 1">
                                     <span class="badge badge-admin">
                                         {{ user.rol }}
                                     </span>
                                 </td>
-                                <td class="users-table-td text-right">
+                                <td class="users-table-td text-right" *ngIf="user.id !== 1">
                                     <div class="users-actions">
                                         <button class="users-action-btn" title="Editar" (click)="onEdit(user.id)">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -71,8 +72,8 @@
                                             </svg>
                                         </button>
 
-                                        <button class="users-action-btn users-action-delete" *ngIf="user.id !== 1" title="Eliminar"
-                                            (click)="deleteUser(user.id)">
+                                        <button class="users-action-btn users-action-delete" *ngIf="user.id !== 2"
+                                            title="Eliminar" (click)="deleteUser(user.id)">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                                 stroke-linejoin="round">
@@ -123,7 +124,7 @@
                     <table class="users-table">
                         <thead>
                             <tr class="location-container">
-                                <th >Path</th>
+                                <th>Path</th>
                                 <th class="text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -159,10 +160,10 @@
                         </tbody>
                     </table>
 
-            </div>
+                </div>
 
+            </div>
         </div>
-    </div>
     </div>
 
 </main>
