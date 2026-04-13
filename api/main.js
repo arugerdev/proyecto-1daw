@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { execFile } = require("child_process");
+const { execFile, exec } = require("child_process");
 const cors = require('cors')
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -12,6 +12,19 @@ const path = require('path')
 const ffmpegPath = require("ffmpeg-static");
 const mime = require('mime-types');
 const os = require('os')
+const util = require('util');
+const execPromise = util.promisify(exec);
+
+
+
+const PROJECT_ROOT = path.resolve(__dirname, '../');
+const LOG_FILE = path.join(PROJECT_ROOT, 'update.log');
+const STATUS_FILE = path.join(PROJECT_ROOT, 'update-status.json');
+const UTILS_DIR = path.join(PROJECT_ROOT, 'utils');
+
+if (!fs.existsSync(path.join(PROJECT_ROOT, 'logs'))) {
+    fs.mkdirSync(path.join(PROJECT_ROOT, 'logs'), { recursive: true });
+}
 
 const app = express()
 
@@ -51,19 +64,6 @@ const connection = mysql.createPool({
     queueLimit: 0
 });
 
-function verifyToken(req, res, next) {
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) return res.status(401).json({ error: "Token requerido" });
-
-    jwt.verify(token, secret, (err, decoded) => {
-        if (err) return res.status(403).json({ error: "Token inválido" });
-
-        req.user = decoded;
-        next();
-    });
-}
-
 // ─── MEJORA 1 ────────────────────────────────────────────────────────────────
 // Multer escribe ahora en el directorio temporal del sistema operativo.
 // Esto evita fallos de cross-device rename cuando el destino final está
@@ -79,7 +79,460 @@ const storage = multer.diskStorage({
         cb(null, uniqueName);
     }
 });
+
 const upload = multer({ storage });
+
+
+function verifyToken(req, res, next) {
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) return res.status(401).json({ error: "Token requerido" });
+
+    jwt.verify(token, secret, (err, decoded) => {
+        if (err) return res.status(403).json({ error: "Token inválido" });
+
+        req.user = decoded;
+        next();
+    });
+}
+
+// ─── MEJORA 2 (implementación) ────────────────────────────────────────────────
+// moveFile mejorado:
+//  1. Intenta rename() — operación atómica y rápida en el mismo filesystem.
+//  2. Si falla por cross-device (EXDEV), copia con stream y fdatasync para
+//     garantizar que los datos están en disco antes de considerar la escritura
+//     completa, luego borra el original.
+//  3. Asigna permisos 0o644 al fichero de destino en ambos casos, para que
+//     el proceso web pueda leerlo independientemente de la umask del sistema.
+// ─────────────────────────────────────────────────────────────────────────────
+async function moveFile(src, dest) {
+    try {
+        await fs.promises.rename(src, dest);
+    } catch (err) {
+        if (err.code === "EXDEV") {
+            // Cross-device: copiar con flush garantizado
+            await copyFileWithSync(src, dest);
+            await fs.promises.unlink(src);
+        } else {
+            throw err;
+        }
+    }
+
+    // Asignar permisos de lectura/escritura para propietario y lectura para grupo/otros
+    await fs.promises.chmod(dest, 0o644);
+}
+
+// Copia el fichero src → dest usando streams y hace fdatasync antes de cerrar,
+// garantizando que el contenido esté completamente escrito en disco.
+function copyFileWithSync(src, dest) {
+    return new Promise((resolve, reject) => {
+        const readStream = fs.createReadStream(src);
+        const writeStream = fs.createWriteStream(dest);
+
+        readStream.on('error', reject);
+
+        writeStream.on('error', reject);
+
+        writeStream.on('finish', () => {
+            // fdatasync: fuerza que el kernel vacíe los buffers al disco
+            // antes de resolver la promesa, evitando archivos truncados
+            // si el proceso muere justo después de la escritura.
+            fs.fdatasync(writeStream.fd, (syncErr) => {
+                if (syncErr) return reject(syncErr);
+                writeStream.close((closeErr) => {
+                    if (closeErr) return reject(closeErr);
+                    resolve();
+                });
+            });
+        });
+
+        readStream.pipe(writeStream);
+    });
+}
+
+// Función helper para formatear bytes
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+
+
+// Función para escribir logs
+async function writeLog(message, type = 'INFO') {
+    const timestamp = new Date().toISOString();
+    const logLine = `[${timestamp}] [${type}] ${message}\n`;
+    try {
+        await fs.promises.appendFile(LOG_FILE, logLine);
+        console.log(logLine);
+    } catch (error) {
+        console.error('Error writing log:', error);
+    }
+}
+
+// Función para actualizar estado
+async function updateStatus(status, step, message, error = null) {
+    const statusData = {
+        status, // 'idle', 'updating', 'success', 'error'
+        step,
+        message,
+        error: error ? error.toString() : null,
+        timestamp: new Date().toISOString(),
+        lastUpdate: status === 'success' ? new Date().toISOString() : null
+    };
+    try {
+        await fs.promises.writeFile(STATUS_FILE, JSON.stringify(statusData, null, 2));
+    } catch (error) {
+        console.error('Error writing status:', error);
+    }
+    return statusData;
+}
+
+// Función para obtener el estado actual
+async function getCurrentStatus() {
+    try {
+        const data = await fs.promises.readFile(STATUS_FILE, 'utf8');
+        return JSON.parse(data);
+    } catch (error) {
+        return {
+            status: 'idle',
+            step: 'none',
+            message: 'No hay actualizaciones previas',
+            error: null,
+            timestamp: new Date().toISOString(),
+            lastUpdate: null
+        };
+    }
+}
+
+// Función para verificar si hay actualizaciones disponibles
+async function checkForUpdates() {
+    try {
+        // Obtener el commit actual
+        const { stdout: currentCommit } = await execPromise('git rev-parse HEAD', {
+            cwd: PROJECT_ROOT,
+            shell: 'powershell.exe'
+        });
+
+        // Fetch los últimos cambios
+        await execPromise('git fetch origin', {
+            cwd: PROJECT_ROOT,
+            shell: 'powershell.exe'
+        });
+
+        // Obtener el commit de la rama remota (main/master)
+        let remoteCommit;
+        try {
+            const { stdout } = await execPromise('git rev-parse origin/main', {
+                cwd: PROJECT_ROOT,
+                shell: 'powershell.exe'
+            });
+            remoteCommit = stdout;
+        } catch {
+            const { stdout } = await execPromise('git rev-parse origin/master', {
+                cwd: PROJECT_ROOT,
+                shell: 'powershell.exe'
+            });
+            remoteCommit = stdout;
+        }
+
+        const hasUpdates = currentCommit.trim() !== remoteCommit.trim();
+
+        // Obtener información de los cambios
+        let changes = [];
+        if (hasUpdates) {
+            const { stdout } = await execPromise(`git log ${currentCommit.trim()}..${remoteCommit.trim()} --oneline`, {
+                cwd: PROJECT_ROOT,
+                shell: 'powershell.exe'
+            });
+            changes = stdout.split('\n').filter(line => line.trim());
+        }
+
+        return {
+            hasUpdates,
+            currentCommit: currentCommit.trim().substring(0, 7),
+            remoteCommit: remoteCommit.trim().substring(0, 7),
+            changes: changes.slice(0, 10)
+        };
+    } catch (error) {
+        await writeLog(`Error checking updates: ${error.message}`, 'ERROR');
+        throw error;
+    }
+}
+
+// Función para reiniciar la aplicación usando tus scripts batch
+async function restartApp() {
+    try {
+        await writeLog('Restarting application using scheduled tasks...');
+
+        // Opción 1: Reiniciar las tareas programadas
+        // Suponiendo que tienes tareas programadas llamadas "CMS_API" y "CMS_FRONT"
+
+        // Detener las tareas si están corriendo
+        await execPromise('schtasks /end /tn "CMS_API"', { shell: 'powershell.exe' }).catch(() => { });
+        await execPromise('schtasks /end /tn "CMS_FRONT"', { shell: 'powershell.exe' }).catch(() => { });
+
+        // Esperar un momento
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Iniciar las tareas nuevamente
+        await execPromise('schtasks /run /tn "CMS_API"', { shell: 'powershell.exe' });
+        await execPromise('schtasks /run /tn "CMS_FRONT"', { shell: 'powershell.exe' });
+
+        await writeLog('Scheduled tasks restarted successfully');
+        return true;
+
+    } catch (error) {
+        await writeLog(`Error restarting scheduled tasks: ${error.message}`, 'ERROR');
+
+        // Opción 2: Fallback - Ejecutar los scripts batch directamente
+        try {
+            await writeLog('Fallback: Starting scripts directly...');
+
+            // Iniciar API
+            const apiScript = path.join(UTILS_DIR, 'startApi.bat');
+            const frontScript = path.join(UTILS_DIR, 'startFront.bat');
+
+            // Ejecutar scripts en segundo plano
+            const { spawn } = require('child_process');
+
+            spawn('cmd.exe', ['/c', 'start', '/min', apiScript], {
+                detached: true,
+                stdio: 'ignore'
+            }).unref();
+
+            spawn('cmd.exe', ['/c', 'start', '/min', frontScript], {
+                detached: true,
+                stdio: 'ignore'
+            }).unref();
+
+            await writeLog('Scripts started in background');
+            return true;
+
+        } catch (fallbackError) {
+            await writeLog(`Fallback also failed: ${fallbackError.message}`, 'ERROR');
+            return false;
+        }
+    }
+}
+
+// Función para detener la aplicación actual
+async function stopCurrentApp() {
+    try {
+        await writeLog('Stopping current application...');
+
+        // Detener el proceso actual de Node.js
+        // Esto es necesario porque vamos a actualizar los archivos
+        await execPromise('taskkill /F /IM node.exe', { shell: 'powershell.exe' }).catch(() => { });
+
+        // Esperar un momento
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        await writeLog('Current application stopped');
+        return true;
+    } catch (error) {
+        await writeLog(`Error stopping app: ${error.message}`, 'ERROR');
+        return false;
+    }
+}
+
+// Función principal de actualización
+async function performUpdate() {
+    const updateId = Date.now();
+    await writeLog(`=== Starting update process ${updateId} ===`);
+
+    try {
+        // 1. Verificar estado inicial
+        await updateStatus('updating', 'checking', 'Verificando actualizaciones disponibles...');
+        await writeLog('Step 1: Checking for updates');
+
+        const updateInfo = await checkForUpdates();
+        if (!updateInfo.hasUpdates) {
+            await updateStatus('idle', 'completed', 'No hay actualizaciones disponibles');
+            await writeLog('No updates available');
+            return { success: false, message: 'No hay actualizaciones disponibles' };
+        }
+
+        // 2. Detener la aplicación actual (para liberar archivos)
+        await updateStatus('updating', 'stopping', 'Deteniendo la aplicación actual...');
+        await writeLog('Step 2: Stopping current application');
+        await stopCurrentApp();
+
+        // 3. Descargar cambios
+        await updateStatus('updating', 'fetching', 'Descargando cambios desde GitHub...');
+        await writeLog('Step 3: Fetching changes from GitHub');
+        await execPromise('git fetch origin', {
+            cwd: PROJECT_ROOT,
+            shell: 'powershell.exe'
+        });
+
+        // 4. Guardar cambios locales si existen
+        await updateStatus('updating', 'stashing', 'Guardando cambios locales temporales...');
+        await writeLog('Step 4: Stashing local changes');
+        try {
+            await execPromise('git stash push -m "Auto-stash before update"', {
+                cwd: PROJECT_ROOT,
+                shell: 'powershell.exe'
+            });
+        } catch (error) {
+            await writeLog('No changes to stash or stash failed', 'WARN');
+        }
+
+        // 5. Actualizar código
+        await updateStatus('updating', 'updating', 'Actualizando código desde GitHub...');
+        await writeLog('Step 5: Pulling changes');
+
+        let pullSuccess = false;
+        try {
+            await execPromise('git pull origin main', {
+                cwd: PROJECT_ROOT,
+                shell: 'powershell.exe'
+            });
+            pullSuccess = true;
+        } catch {
+            try {
+                await execPromise('git pull origin master', {
+                    cwd: PROJECT_ROOT,
+                    shell: 'powershell.exe'
+                });
+                pullSuccess = true;
+            } catch (pullError) {
+                await writeLog(`Pull failed: ${pullError.message}`, 'ERROR');
+            }
+        }
+
+        if (!pullSuccess) {
+            throw new Error('Failed to pull changes');
+        }
+
+        // 6. Instalar dependencias
+        await updateStatus('updating', 'installing', 'Instalando dependencias...');
+        await writeLog('Step 6: Installing dependencies');
+
+        // API dependencies
+        await execPromise('npm install', {
+            cwd: path.join(PROJECT_ROOT, 'api'),
+            shell: 'powershell.exe'
+        });
+
+        // Front dependencies
+        await execPromise('npm install', {
+            cwd: path.join(PROJECT_ROOT, 'front'),
+            shell: 'powershell.exe'
+        });
+
+        // 7. Ejecutar migraciones si existen
+        await updateStatus('updating', 'migrations', 'Ejecutando migraciones de base de datos...');
+        await writeLog('Step 7: Running migrations');
+        try {
+            await execPromise('npm run migrate', {
+                cwd: PROJECT_ROOT,
+                shell: 'powershell.exe'
+            });
+        } catch (error) {
+            await writeLog(`Migration warning: ${error.message}`, 'WARN');
+        }
+
+        // 8. Restaurar cambios guardados
+        await updateStatus('updating', 'restoring', 'Restaurando cambios locales...');
+        await writeLog('Step 8: Restoring stashed changes');
+        try {
+            await execPromise('git stash pop', {
+                cwd: PROJECT_ROOT,
+                shell: 'powershell.exe'
+            });
+        } catch (error) {
+            await writeLog('No stashed changes to restore', 'WARN');
+        }
+
+        // 9. Reiniciar la aplicación
+        await updateStatus('updating', 'restarting', 'Reiniciando la aplicación...');
+        await writeLog('Step 9: Restarting application');
+
+        // Esperar un momento
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Reiniciar usando las tareas programadas
+        await restartApp();
+
+        await updateStatus('success', 'completed', 'Actualización completada exitosamente');
+        await writeLog(`=== Update completed successfully ${updateId} ===`);
+
+        return {
+            success: true,
+            message: 'Actualización completada exitosamente',
+            updateInfo
+        };
+
+    } catch (error) {
+        await writeLog(`=== Update failed ${updateId}: ${error.message} ===`, 'ERROR');
+        await updateStatus('error', 'failed', 'Error durante la actualización', error.message);
+
+        // Intentar restaurar estado anterior
+        try {
+            await execPromise('git stash pop', {
+                cwd: PROJECT_ROOT,
+                shell: 'powershell.exe'
+            }).catch(() => { });
+        } catch (restoreError) {
+            await writeLog(`Error restoring state: ${restoreError.message}`, 'ERROR');
+        }
+
+        // Intentar reiniciar la aplicación aunque haya fallado
+        await restartApp();
+
+        return {
+            success: false,
+            message: `Error durante la actualización: ${error.message}`,
+            error: error.message
+        };
+    }
+}
+
+function getPermissionsByRole(rol) {
+    const permissions = {
+        admin: {
+            canUpload: true,
+            canDelete: true,
+            canEdit: true,
+            canDownload: true,
+            canManageUsers: true,
+            canViewAllContent: true,
+            role: 'admin',
+            level: 3
+        },
+        moderator: {
+            canUpload: true,
+            canDelete: false,
+            canEdit: true,
+            canDownload: true,
+            canManageUsers: false,
+            canViewAllContent: true,
+            role: 'moderator',
+            level: 2
+        },
+        viewer: {
+            canUpload: false,
+            canDelete: false,
+            canEdit: false,
+            canDownload: false,
+            canManageUsers: false,
+            canViewAllContent: true,
+            role: 'viewer',
+            level: 1
+        }
+    };
+
+    return permissions[rol] || permissions.viewer;
+}
+
 
 app.post('/api/login', async (req, res) => {
     const data = req.body;
@@ -267,7 +720,7 @@ app.post('/api/upload-content', verifyToken, upload.single("file"), async (req, 
         // para no dejar basura en os.tmpdir().
         // ─────────────────────────────────────────────────────────────────────
         if (req.file?.path && fs.existsSync(req.file.path)) {
-            fs.unlink(req.file.path, () => {});
+            fs.unlink(req.file.path, () => { });
         }
 
         console.error("Upload error:", err);
@@ -597,42 +1050,6 @@ app.get('/api/user/role', verifyToken, async (req, res) => {
     }
 });
 
-function getPermissionsByRole(rol) {
-    const permissions = {
-        admin: {
-            canUpload: true,
-            canDelete: true,
-            canEdit: true,
-            canDownload: true,
-            canManageUsers: true,
-            canViewAllContent: true,
-            role: 'admin',
-            level: 3
-        },
-        moderator: {
-            canUpload: true,
-            canDelete: false,
-            canEdit: true,
-            canDownload: true,
-            canManageUsers: false,
-            canViewAllContent: true,
-            role: 'moderator',
-            level: 2
-        },
-        viewer: {
-            canUpload: false,
-            canDelete: false,
-            canEdit: false,
-            canDownload: false,
-            canManageUsers: false,
-            canViewAllContent: true,
-            role: 'viewer',
-            level: 1
-        }
-    };
-
-    return permissions[rol] || permissions.viewer;
-}
 
 app.get('/api/files/:id/thumbnail', async (req, res) => {
     try {
@@ -1213,72 +1630,79 @@ app.post('/api/filesystem/create', verifyToken, async (req, res) => {
     }
 });
 
-// ─── MEJORA 2 (implementación) ────────────────────────────────────────────────
-// moveFile mejorado:
-//  1. Intenta rename() — operación atómica y rápida en el mismo filesystem.
-//  2. Si falla por cross-device (EXDEV), copia con stream y fdatasync para
-//     garantizar que los datos están en disco antes de considerar la escritura
-//     completa, luego borra el original.
-//  3. Asigna permisos 0o644 al fichero de destino en ambos casos, para que
-//     el proceso web pueda leerlo independientemente de la umask del sistema.
-// ─────────────────────────────────────────────────────────────────────────────
-async function moveFile(src, dest) {
-    try {
-        await fs.promises.rename(src, dest);
-    } catch (err) {
-        if (err.code === "EXDEV") {
-            // Cross-device: copiar con flush garantizado
-            await copyFileWithSync(src, dest);
-            await fs.promises.unlink(src);
-        } else {
-            throw err;
-        }
+// Endpoint para verificar actualizaciones
+app.get('/api/update/check', verifyToken, async (req, res) => {
+    // Solo OWNER (id == 1)
+    if (req.user.id_user !== 1) {
+        return res.status(403).json({ error: "Solo el owner puede verificar actualizaciones" });
     }
 
-    // Asignar permisos de lectura/escritura para propietario y lectura para grupo/otros
-    await fs.promises.chmod(dest, 0o644);
-}
+    try {
+        const updateInfo = await checkForUpdates();
+        const status = await getCurrentStatus();
 
-// Copia el fichero src → dest usando streams y hace fdatasync antes de cerrar,
-// garantizando que el contenido esté completamente escrito en disco.
-function copyFileWithSync(src, dest) {
-    return new Promise((resolve, reject) => {
-        const readStream = fs.createReadStream(src);
-        const writeStream = fs.createWriteStream(dest);
+        res.json({
+            success: true,
+            data: {
+                ...updateInfo,
+                currentStatus: status
+            }
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
 
-        readStream.on('error', reject);
+// Endpoint para obtener estado de actualización
+app.get('/api/update/status', verifyToken, async (req, res) => {
+    // Solo OWNER (id == 1)
+    if (req.user.id_user !== 1) {
+        return res.status(403).json({ error: "Solo el owner puede ver el estado" });
+    }
 
-        writeStream.on('error', reject);
+    try {
+        const status = await getCurrentStatus();
+        res.json({
+            success: true,
+            data: status
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
 
-        writeStream.on('finish', () => {
-            // fdatasync: fuerza que el kernel vacíe los buffers al disco
-            // antes de resolver la promesa, evitando archivos truncados
-            // si el proceso muere justo después de la escritura.
-            fs.fdatasync(writeStream.fd, (syncErr) => {
-                if (syncErr) return reject(syncErr);
-                writeStream.close((closeErr) => {
-                    if (closeErr) return reject(closeErr);
-                    resolve();
-                });
-            });
+// Endpoint para ejecutar actualización
+app.post('/api/update/execute', verifyToken, async (req, res) => {
+    // Solo OWNER (id == 1)
+    if (req.user.id_user !== 1) {
+        return res.status(403).json({ error: "Solo el owner puede ejecutar actualizaciones" });
+    }
+
+    try {
+        // Iniciar la actualización en segundo plano
+        performUpdate().then(result => {
+            writeLog(`Background update completed: ${result.success ? 'success' : 'failed'}`);
+        }).catch(error => {
+            writeLog(`Background update error: ${error.message}`, 'ERROR');
         });
 
-        readStream.pipe(writeStream);
-    });
-}
-
-// Función helper para formatear bytes
-function formatBytes(bytes, decimals = 2) {
-    if (bytes === 0) return '0 Bytes';
-
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
+        res.json({
+            success: true,
+            message: 'Actualización iniciada en segundo plano'
+        });
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+    }
+});
 
 app.listen(port, () => {
     console.log(`CMS API running on port ${port}`);

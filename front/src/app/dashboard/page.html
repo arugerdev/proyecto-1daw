@@ -1,6 +1,73 @@
 <main class="main" style="display: flex; flex-direction: column; padding: 0; margin: 0; height: 100%; padding: 1rem;">
     <app-header style="width: 100%;"></app-header>
 
+    <!-- SECCIÓN DE ACTUALIZACIÓN (SOLO OWNER) -->
+    <div class="update-section" *ngIf="showUpdateSection">
+        <div class="update-container">
+            <div class="card update-card">
+                <div class="update-header">
+                    <div class="update-header-info">
+                        <h2 class="update-title">Actualización del Sistema</h2>
+                        <p class="update-description">
+                            Mantén tu aplicación actualizada con los últimos cambios del repositorio.
+                        </p>
+                    </div>
+
+                    <button (click)="executeUpdate()" class="button button-primary update-btn"
+                        [disabled]="isUpdating || (updateInfo && !updateInfo.hasUpdates)"
+                        [class.button-disabled]="isUpdating || (updateInfo && !updateInfo.hasUpdates)">
+                        <span *ngIf="!isUpdating">🔄 Actualizar Ahora</span>
+                        <span *ngIf="isUpdating">⚙️ Actualizando...</span>
+                    </button>
+                </div>
+
+                <!-- Estado actual -->
+                <div class="update-status" [class]="getStatusClass()">
+                    <div class="status-icon">{{ getStatusIcon() }}</div>
+                    <div class="status-content">
+                        <div class="status-message">{{ currentStatus.message }}</div>
+                        <div class="status-step"
+                            *ngIf="currentStatus.step !== 'completed' && currentStatus.step !== 'none'">
+                            Paso: {{ currentStatus.step }}
+                        </div>
+                        <div class="status-error" *ngIf="currentStatus.error">
+                            Error: {{ currentStatus.error }}
+                        </div>
+                        <div class="status-timestamp">
+                            Última verificación: {{ currentStatus.timestamp | date:'medium' }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de versión -->
+                <div class="update-version-info" *ngIf="updateInfo">
+                    <div class="version-row">
+                        <span class="version-label">Versión actual:</span>
+                        <span class="version-value">{{ updateInfo.currentCommit || 'desconocida' }}</span>
+                    </div>
+                    <div class="version-row" *ngIf="updateInfo.hasUpdates">
+                        <span class="version-label">Nueva versión:</span>
+                        <span class="version-value version-new">{{ updateInfo.remoteCommit }}</span>
+                    </div>
+                    <div class="version-row" *ngIf="!updateInfo.hasUpdates && updateInfo?.currentStatus && updateInfo?.currentStatus?.lastUpdate">
+                        <span class="version-label">Última actualización:</span>
+                        <span class="version-value">{{ updateInfo?.currentStatus?.lastUpdate | date:'medium' }}</span>
+                    </div>
+                </div>
+
+                <!-- Lista de cambios -->
+                <div class="update-changes" *ngIf="hasChangesToShow">
+                    <h3 class="changes-title">📝 Cambios disponibles:</h3>
+                    <ul class="changes-list">
+                        <li *ngFor="let change of changesList" class="change-item">
+                            {{ change }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- SECCIÓN DE USUARIOS -->
     <div class="users-section">
         <div class="users-container">
@@ -165,5 +232,17 @@
             </div>
         </div>
     </div>
+
+    <footer class="app-footer" *ngIf="showUpdateSection">
+        <div class="footer-content">
+            <div class="version-info">
+                <span class="version-badge">📦 App Version</span>
+                <span class="version-number">{{ updateInfo?.currentCommit || 'desconocida' }}</span>
+            </div>
+            <div class="update-info-footer" *ngIf="updateInfo?.currentStatus?.lastUpdate">
+                <span>Última verificación: {{ updateInfo?.currentStatus?.lastUpdate | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+        </div>
+    </footer>
 
 </main>

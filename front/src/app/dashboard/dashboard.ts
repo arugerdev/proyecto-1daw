@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { Header } from '../../components/header/header.component';
 import { ModalService } from '../../components/modal/modal.component';
 import { AuthService } from '../../services/auth.service';
@@ -8,6 +8,8 @@ import { ConfirmationModalComponent } from '../modals/confirmation.modal';
 import { RouteModalComponent } from '../modals/new-route.modal';
 import { UserModalComponent } from '../modals/new-user.modal';
 import { Router } from '@angular/router';
+import { UpdateInfo, UpdateService } from '../../services/update.service';
+import { Subscription } from 'rxjs';
 
 @Component({
     selector: 'dashboard-page',
@@ -15,91 +17,220 @@ import { Router } from '@angular/router';
     templateUrl: './page.html',
     styleUrl: './style.css'
 })
-export class DashboardPage implements OnInit {
-    protected readonly title = signal('Administración del sistem');
+export class DashboardPage implements OnInit, OnDestroy {
+    protected readonly title = signal('Administración del sistema');
+    
+    // Propiedades existentes
+    users: { id: number; name: string; rol: string; password?: string }[] = [];
+    locations: { id: number, path: string }[] = [];
+    tree: any[] = [];
+
+    // Propiedades para actualización
+    updateInfo: UpdateInfo | null = null;
+    isUpdating = false;
+    updateSubscription: Subscription | null = null;
+    showUpdateSection = false; // Solo para owner
 
     constructor(
         private modalService: ModalService,
         private auth: AuthService,
         private file: FileService,
         private cdr: ChangeDetectorRef,
-        private router: Router
-
+        private router: Router,
+        private updateService: UpdateService
     ) { }
 
-    users: { id: number; name: string; rol: string; password?: string }[] = [];
-
-    locations: { id: number, path: string }[] = [];
-    tree: any[] = [];
-
     ngOnInit() {
-
         this.auth.getAllUsers().subscribe(users => {
             this.users = users;
             this.cdr.markForCheck();
         });
 
         this.loadLocations();
+
+        const currentUser = this.auth.getCurrentUser();
+        if (currentUser && currentUser.id_user === 1) {
+            this.showUpdateSection = true;
+            this.checkForUpdates();
+
+            // Suscribirse a cambios de estado
+            this.updateSubscription = this.updateService.getUpdateStatusObservable()
+                .subscribe(updateInfo => {
+                    if (updateInfo) {
+                        this.updateInfo = updateInfo;
+                        this.isUpdating = updateInfo.currentStatus.status === 'updating';
+                        this.cdr.markForCheck();
+                    }
+                });
+        }
     }
 
-    loadLocations() {
+    ngOnDestroy() {
+        if (this.updateSubscription) {
+            this.updateSubscription.unsubscribe();
+        }
+    }
 
-        this.file.getMediaLocations().subscribe(data => {
+    // ===========================
+    // MÉTODOS DE ACTUALIZACIÓN
+    // ===========================
 
-            this.locations = data.locations;
-
-            this.tree = this.buildTree(data.locations);
-
-            this.cdr.markForCheck();
-
+    checkForUpdates() {
+        this.updateService.checkForUpdates().subscribe({
+            next: (info) => {
+                this.updateInfo = info;
+                this.cdr.markForCheck();
+            },
+            error: (error) => {
+                console.error('Error checking updates:', error);
+                this.modalService.open(ConfirmationModalComponent, {
+                    title: 'Error al verificar actualizaciones',
+                    data: {
+                        message: `No se pudieron verificar las actualizaciones: ${error.error?.error || error.message}`,
+                        confirmText: 'Entendido',
+                        cancelText: '',
+                        hideCancelButton: true,
+                        onConfirm: () => {}
+                    }
+                });
+            }
         });
+    }
 
+    executeUpdate() {
+        // Usar modal de confirmación en lugar de confirm()
+        this.modalService.open(ConfirmationModalComponent, {
+            title: 'Actualizar Sistema',
+            data: {
+                message: `¿Estás seguro de que quieres actualizar la aplicación?\n\n` +
+                         `Esto reiniciará los servicios y puede causar una breve interrupción.\n\n` +
+                         `Versión actual: ${this.updateInfo?.currentCommit || 'desconocida'}\n` +
+                         `Nueva versión: ${this.updateInfo?.remoteCommit || 'desconocida'}`,
+                confirmText: 'Sí, actualizar',
+                cancelText: 'Cancelar',
+                onConfirm: () => {
+                    this.updateService.executeUpdate().subscribe({
+                        next: (response) => {
+                            console.log('Update started:', response);
+                            this.modalService.open(ConfirmationModalComponent, {
+                                title: 'Actualización Iniciada',
+                                data: {
+                                    message: `La actualización ha comenzado en segundo plano.\n\n` +
+                                             `Puedes monitorear el progreso en esta misma pantalla.\n\n` +
+                                             `Los servicios se reiniciarán automáticamente al finalizar.`,
+                                    confirmText: 'Entendido',
+                                    cancelText: '',
+                                    hideCancelButton: true,
+                                    onConfirm: () => {}
+                                }
+                            });
+                        },
+                        error: (error) => {
+                            console.error('Error starting update:', error);
+                            this.modalService.open(ConfirmationModalComponent, {
+                                title: 'Error al Iniciar Actualización',
+                                data: {
+                                    message: `No se pudo iniciar la actualización: ${error.error?.error || error.message}`,
+                                    confirmText: 'Entendido',
+                                    cancelText: '',
+                                    hideCancelButton: true,
+                                    onConfirm: () => {}
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    // Getters para el template
+    get hasChangesToShow(): boolean {
+        return !!(this.updateInfo?.hasUpdates && 
+                  this.updateInfo?.changes && 
+                  this.updateInfo.changes.length > 0);
+    }
+    
+    get changesList(): string[] {
+        return this.updateInfo?.changes || [];
+    }
+    
+    get currentStatus() {
+        return this.updateInfo?.currentStatus || {
+            status: 'idle',
+            step: 'none',
+            message: 'No hay actualizaciones',
+            error: null,
+            timestamp: new Date().toISOString(),
+            lastUpdate: null
+        };
+    }
+
+    getStatusIcon(): string {
+        if (!this.updateInfo) return '⏳';
+
+        switch (this.updateInfo.currentStatus.status) {
+            case 'updating': return '🔄';
+            case 'success': return '✅';
+            case 'error': return '❌';
+            default: return '⏹️';
+        }
+    }
+
+    getStatusClass(): string {
+        if (!this.updateInfo) return '';
+
+        switch (this.updateInfo.currentStatus.status) {
+            case 'updating': return 'status-updating';
+            case 'success': return 'status-success';
+            case 'error': return 'status-error';
+            default: return 'status-idle';
+        }
+    }
+
+    // ===========================
+    // MÉTODOS EXISTENTES
+    // ===========================
+
+    loadLocations() {
+        this.file.getMediaLocations().subscribe(data => {
+            this.locations = data.locations;
+            this.tree = this.buildTree(data.locations);
+            this.cdr.markForCheck();
+        });
     }
 
     buildTree(locations: any[]) {
-
         const root: any = {};
 
         locations.forEach(loc => {
-
             const parts = loc.path.split('/').filter(Boolean);
-
             let current = root;
 
             parts.forEach((part: string | number) => {
-
                 if (!current[part]) {
-
                     current[part] = {
                         name: part,
                         children: {},
                         path: loc.path
                     };
-
                 }
-
                 current = current[part].children;
-
             });
-
         });
 
         function convert(node: any): any {
-
             return Object.values(node).map((n: any) => ({
                 name: n.name,
                 path: n.path,
                 children: convert(n.children)
             }));
-
         }
 
         return convert(root);
-
     }
 
     createFolder() {
-
         this.modalService.open(RouteModalComponent, {
             title: "Crear Ruta",
             data: {
@@ -111,12 +242,10 @@ export class DashboardPage implements OnInit {
                 },
             },
             size: 'full',
-        })
-
+        });
     }
 
     renameFolder(loc: any) {
-
         this.modalService.open(RouteModalComponent, {
             title: "Editar Ruta",
             data: {
@@ -127,13 +256,11 @@ export class DashboardPage implements OnInit {
                     });
                 },
                 size: 'xl',
-
             }
-        })
+        });
     }
 
     deleteFolder(loc: any) {
-
         this.modalService.open(ConfirmationModalComponent, {
             title: `¿Eliminar "${loc.path}"? Esta acción no se puede deshacer.`,
             data: {
@@ -147,39 +274,53 @@ export class DashboardPage implements OnInit {
                 }
             }
         });
-
     }
 
     deleteUser(userId: number) {
         if (userId === 1) {
-            alert('No se puede eliminar el usuario administrador principal');
-            return;
-        }
-
-        // Obtener el usuario antes de eliminarlo
-        const userToDelete = this.users.find(user => user.id === userId);
-        if (!userToDelete) {
-            alert('Usuario no encontrado');
-            return;
-        }
-
-        // Verificar si el usuario está intentando eliminarse a sí mismo
-        const currentUser = this.auth.getCurrentUser();
-        if (currentUser && currentUser.id_user === userId) {
             this.modalService.open(ConfirmationModalComponent, {
-                title: `Eliminar tu propio usuario`,
+                title: 'No se puede eliminar',
                 data: {
-                    message: `⚠ ATENCIÓN: Esta acción no se puede hacer, debe ser el otro administrador el que elimine tu cuenta.`,
-                    confirmText: 'Entiendo',
-                    cancelText: 'Cancelar',
-                    onConfirm: () => {
-                    }
+                    message: 'No se puede eliminar el usuario administrador principal.',
+                    confirmText: 'Entendido',
+                    cancelText: '',
+                    hideCancelButton: true,
+                    onConfirm: () => {}
                 }
             });
             return;
         }
 
-        // Confirmación normal para otros usuarios
+        const userToDelete = this.users.find(user => user.id === userId);
+        if (!userToDelete) {
+            this.modalService.open(ConfirmationModalComponent, {
+                title: 'Usuario no encontrado',
+                data: {
+                    message: 'El usuario que intentas eliminar no existe.',
+                    confirmText: 'Entendido',
+                    cancelText: '',
+                    hideCancelButton: true,
+                    onConfirm: () => {}
+                }
+            });
+            return;
+        }
+
+        const currentUser = this.auth.getCurrentUser();
+        if (currentUser && currentUser.id_user === userId) {
+            this.modalService.open(ConfirmationModalComponent, {
+                title: `No puedes eliminarte a ti mismo`,
+                data: {
+                    message: `⚠ ATENCIÓN: No puedes eliminar tu propia cuenta.\n\n` +
+                             `Debe ser el otro administrador quien elimine tu cuenta.`,
+                    confirmText: 'Entendido',
+                    cancelText: 'Cancelar',
+                    onConfirm: () => {}
+                }
+            });
+            return;
+        }
+
         this.modalService.open(ConfirmationModalComponent, {
             title: `¿Eliminar el usuario "${userToDelete.name}"?`,
             data: {
@@ -197,27 +338,43 @@ export class DashboardPage implements OnInit {
         this.auth.deleteUser(userId).subscribe({
             next: (res: any) => {
                 if (res.success) {
-                    // Eliminación exitosa
                     this.users = this.users.filter(user => user.id !== userId);
 
-                    // Si el usuario se eliminó a sí mismo, cerrar sesión
                     if (isSelfDelete) {
-                        alert('Tu cuenta ha sido eliminada. Serás redirigido al login.');
-                        this.auth.logout();
+                        this.modalService.open(ConfirmationModalComponent, {
+                            title: 'Cuenta Eliminada',
+                            data: {
+                                message: 'Tu cuenta ha sido eliminada. Serás redirigido al login.',
+                                confirmText: 'Aceptar',
+                                cancelText: '',
+                                hideCancelButton: true,
+                                onConfirm: () => {
+                                    this.auth.logout();
+                                }
+                            }
+                        });
+                    } else {
+                        this.modalService.open(ConfirmationModalComponent, {
+                            title: 'Usuario Eliminado',
+                            data: {
+                                message: `El usuario "${userToDelete.name}" ha sido eliminado exitosamente.`,
+                                confirmText: 'Aceptar',
+                                cancelText: '',
+                                hideCancelButton: true,
+                                onConfirm: () => {}
+                            }
+                        });
                     }
 
                     this.cdr.markForCheck();
                 } else {
-                    // Manejar error devuelto por el servicio
                     this.handleDeletionError(res.error, userToDelete);
                 }
             },
             error: (error) => {
                 console.error('Error en la suscripción de eliminación:', error);
 
-                // Extraer mensaje de error
                 let errorMessage = 'Error al eliminar el usuario';
-
                 if (error.error && error.error.error) {
                     errorMessage = error.error.error;
                 } else if (error.message) {
@@ -230,7 +387,6 @@ export class DashboardPage implements OnInit {
     }
 
     private handleDeletionError(errorMessage: string, userToDelete: any) {
-        // Mostrar el error en un modal o alert
         this.modalService.open(ConfirmationModalComponent, {
             title: 'Error al eliminar usuario',
             data: {
@@ -238,9 +394,7 @@ export class DashboardPage implements OnInit {
                 confirmText: 'Entendido',
                 cancelText: '',
                 hideCancelButton: true,
-                onConfirm: () => {
-                    // Solo cerrar el modal
-                }
+                onConfirm: () => {}
             }
         });
 
@@ -254,38 +408,31 @@ export class DashboardPage implements OnInit {
             size: 'xl',
             showCloseButton: true,
             closeOnOverlayClick: true,
-            buttons: [
-                /*               {
-                                   text: 'Cancelar',
-                                   variant: 'secondary',
-                                   handler: (modalRef) => modalRef.close()
-                               },
-                               {
-                                   text: 'Crear Usuario',
-                                   variant: 'primary',
-                                   type: 'submit',
-                                   closeOnClick: false
-                               }
-               */
-            ],
-            data: {
-            }
+            buttons: [],
+            data: {}
         });
 
         modalRef.afterClosed$.subscribe(result => {
             if (result?.success) {
-                this.ngOnInit(); // Refrescar la lista de usuarios
+                this.ngOnInit();
             }
         });
-
     }
 
     onEdit(userId: number) {
-        // Abrimos la modal que ya tenemos con los datos de ese usuario cargados, y al hacer submit se debe de hacer un UPDATE en lugar de un CREATE
         const user = this.users.find(u => u.id === userId);
 
         if (!user) {
-            alert('Usuario no encontrado');
+            this.modalService.open(ConfirmationModalComponent, {
+                title: 'Usuario no encontrado',
+                data: {
+                    message: 'El usuario que intentas editar no existe.',
+                    confirmText: 'Entendido',
+                    cancelText: '',
+                    hideCancelButton: true,
+                    onConfirm: () => {}
+                }
+            });
             return;
         }
 
@@ -304,10 +451,9 @@ export class DashboardPage implements OnInit {
             }
         });
 
-        // Escuchamos el resultado de la modal para actualizar el usuario en la lista después de editarlo
         modalRef.afterClosed$.subscribe(result => {
             if (result?.success) {
-                this.ngOnInit(); // Refrescar la lista de usuarios
+                this.ngOnInit();
             }
         });
     }
