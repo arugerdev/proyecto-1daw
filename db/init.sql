@@ -56,14 +56,14 @@ CREATE TABLE IF NOT EXISTS media_author (
 -- #################### DEFAULT USERS ####################
 INSERT INTO users (id_user, nombre, contrasena, rol) 
 VALUES (
-    0,
+    1,
     "owner", 
     "$2a$12$fuMNGmEML8OKjv4/S2Fg9O9WwztFRFrQoZncVjFtb7LgE.XK031Cu", 
     "admin"
 );
 INSERT INTO users (id_user, nombre, contrasena, rol) 
 VALUES (
-    1,
+    2,
     "admin", 
     "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", 
     "admin"
