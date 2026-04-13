@@ -97,7 +97,7 @@
                             <option *ngFor="let type of types" [value]="type.id">{{type.name}}</option>
                         </select>
 
-                        <button [class]="canUploadContent ? 'a-admin' : 'a-admin disabled'"
+                        <button *ngIf="canUploadContent" [class]="canUploadContent ? 'a-admin' : 'a-admin disabled'"
                             (click)="canUploadContent ? openModal() : ''" class="button button-primary">
                             <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2">

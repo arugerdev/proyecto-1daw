@@ -50,12 +50,9 @@ export class IndexPage implements OnInit, OnDestroy {
     ) { }
 
     ngOnInit() {
-        this.auth.refreshUserRole().pipe(
-            takeUntil(this.destroy$)
-        ).subscribe(user => {
-            this.canUploadContent = !!user?.permissions?.canUpload;
-            this.cdr.markForCheck();
-        });
+
+        this.canUploadContent = this.auth.hasPermission('canUpload');
+        this.cdr.markForCheck();
 
         this.loadInitialData();
     }

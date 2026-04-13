@@ -62,7 +62,14 @@ VALUES (
 );
 INSERT INTO users (nombre, contrasena, rol) 
 VALUES (
+    "owner", 
+    "$2a$12$fuMNGmEML8OKjv4/S2Fg9O9WwztFRFrQoZncVjFtb7LgE.XK031Cu", 
+    "admin"
+);
+/*
+INSERT INTO users (nombre, contrasena, rol) 
+VALUES (
     "viewer", 
     "$2a$12$RCCN9wh0S27yBoUkYaUb4us6m9J8IO6UC/rtpeKLlxXPJ/luoJZE6", 
     "viewer"
-);
+);*/

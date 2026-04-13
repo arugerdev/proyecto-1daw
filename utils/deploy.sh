@@ -6,7 +6,7 @@ echo "================================"
 
 # Detener y eliminar contenedores existentes
 echo "🛑 Deteniendo contenedores existentes..."
-docker compose down -v 2>/dev/null
+docker compose down 2>/dev/null
 
 # Limpiar caché de build
 echo "🧹 Limpiando caché de Docker..."

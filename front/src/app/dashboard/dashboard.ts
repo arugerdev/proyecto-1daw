@@ -109,9 +109,8 @@ export class DashboardPage implements OnInit {
                         this.loadLocations();
                     });
                 },
-                size: 'xl',
-
-            }
+            },
+            size: 'full',
         })
 
     }
@@ -168,13 +167,12 @@ export class DashboardPage implements OnInit {
         const currentUser = this.auth.getCurrentUser();
         if (currentUser && currentUser.id_user === userId) {
             this.modalService.open(ConfirmationModalComponent, {
-                title: `¿Eliminar tu propio usuario?`,
+                title: `Eliminar tu propio usuario`,
                 data: {
-                    message: `⚠ ATENCIÓN: Estás intentando eliminar tu propia cuenta. Esta acción te desconectará del sistema y no podrás recuperar el acceso.`,
-                    confirmText: 'Sí, eliminar mi cuenta',
+                    message: `⚠ ATENCIÓN: Esta acción no se puede hacer, debe ser el otro administrador el que elimine tu cuenta.`,
+                    confirmText: 'Entiendo',
                     cancelText: 'Cancelar',
                     onConfirm: () => {
-                        this.executeUserDeletion(userId, userToDelete, true);
                     }
                 }
             });

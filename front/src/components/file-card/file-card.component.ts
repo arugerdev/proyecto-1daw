@@ -136,15 +136,11 @@ export class FileCardComponent {
     public auth: AuthService,
     private cdr: ChangeDetectorRef
   ) {
-    this.auth.refreshUserRole().subscribe(user => {
-      // solo usuarios con permisos canViewAllContent pueden ver rutas
-      this.canViewPath = !!user?.permissions?.canUpload;
-      this.canDownloadContent = !!user?.permissions?.canDownload;
-      this.canEditContent = !!user?.permissions?.canEdit
-      this.canDeleteContent = !!user?.permissions?.canDelete
-
-      this.cdr.markForCheck();
-    });
+    this.canViewPath = this.auth.hasPermission('canViewAllContent');
+    this.canDownloadContent = this.auth.hasPermission('canDownload')
+    this.canEditContent = this.auth.hasPermission('canEdit')
+    this.canDeleteContent = this.auth.hasPermission('canDelete')
+    this.cdr.markForCheck();
   }
 
   getTipoIcon(): SafeHtml {
