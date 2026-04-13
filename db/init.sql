@@ -2,7 +2,7 @@ DROP DATABASE IF EXISTS administradorMultimedia;
 CREATE DATABASE administradorMultimedia;
 USE administradorMultimedia;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id_user INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(50) UNIQUE,
     contrasena VARCHAR(255),
@@ -11,7 +11,7 @@ CREATE TABLE users (
     CHECK (rol IN ("admin", "moderator", "viewer"))
 );
 
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     id_sesion INT AUTO_INCREMENT PRIMARY KEY,
     id_user INT,
     key_session VARCHAR(512),
@@ -19,17 +19,17 @@ CREATE TABLE sessions (
     FOREIGN KEY (id_user) REFERENCES users(id_user) ON DELETE CASCADE
 );
 
-CREATE TABLE media_types (
+CREATE TABLE IF NOT EXISTS media_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(512) UNIQUE
 );
 
-CREATE TABLE media_locations (
+CREATE TABLE IF NOT EXISTS media_locations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     path TEXT
 );
 
-CREATE TABLE media_items (
+CREATE TABLE IF NOT EXISTS media_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title TEXT,
     description TEXT,
@@ -45,7 +45,7 @@ CREATE TABLE media_items (
     FOREIGN KEY (media_type_id) REFERENCES media_types(id) ON DELETE SET NULL
 );
 
-CREATE TABLE media_author (
+CREATE TABLE IF NOT EXISTS media_author (
     media_id INT,
     user_id INT,
     PRIMARY KEY (media_id, user_id),
@@ -54,16 +54,18 @@ CREATE TABLE media_author (
 );
 
 -- #################### DEFAULT USERS ####################
-INSERT INTO users (nombre, contrasena, rol) 
+INSERT INTO users (id_user, nombre, contrasena, rol) 
 VALUES (
-    "admin", 
-    "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", 
-    "admin"
-);
-INSERT INTO users (nombre, contrasena, rol) 
-VALUES (
+    0,
     "owner", 
     "$2a$12$fuMNGmEML8OKjv4/S2Fg9O9WwztFRFrQoZncVjFtb7LgE.XK031Cu", 
+    "admin"
+);
+INSERT INTO users (id_user, nombre, contrasena, rol) 
+VALUES (
+    1,
+    "admin", 
+    "$2b$12$vbj7TFESQuAcFTBXgacpuu7GGewrfmuOVN8vxQxE2DIaoqSHFi69e", 
     "admin"
 );
 /*
