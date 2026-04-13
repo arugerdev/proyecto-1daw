@@ -273,18 +273,18 @@ async function restartApp() {
         await writeLog('Restarting application using scheduled tasks...');
 
         // Opción 1: Reiniciar las tareas programadas
-        // Suponiendo que tienes tareas programadas llamadas "CMS_API" y "CMS_FRONT"
+        // Suponiendo que tienes tareas programadas llamadas "t_api" y "t_front"
 
         // Detener las tareas si están corriendo
-        await execPromise('schtasks /end /tn "CMS_API"', { shell: 'powershell.exe' }).catch(() => { });
-        await execPromise('schtasks /end /tn "CMS_FRONT"', { shell: 'powershell.exe' }).catch(() => { });
+        await execPromise('schtasks /end /tn "t_api"', { shell: 'powershell.exe' }).catch(() => { });
+        await execPromise('schtasks /end /tn "t_front"', { shell: 'powershell.exe' }).catch(() => { });
 
         // Esperar un momento
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         // Iniciar las tareas nuevamente
-        await execPromise('schtasks /run /tn "CMS_API"', { shell: 'powershell.exe' });
-        await execPromise('schtasks /run /tn "CMS_FRONT"', { shell: 'powershell.exe' });
+        await execPromise('schtasks /run /tn "t_api"', { shell: 'powershell.exe' });
+        await execPromise('schtasks /run /tn "t_front"', { shell: 'powershell.exe' });
 
         await writeLog('Scheduled tasks restarted successfully');
         return true;
@@ -343,7 +343,7 @@ async function stopCurrentApp() {
     }
 }
 
-// Función principal de actualización
+// Función principal de actualización - VERSIÓN CORREGIDA
 async function performUpdate() {
     const updateId = Date.now();
     await writeLog(`=== Starting update process ${updateId} ===`);
@@ -360,22 +360,17 @@ async function performUpdate() {
             return { success: false, message: 'No hay actualizaciones disponibles' };
         }
 
-        // 2. Detener la aplicación actual (para liberar archivos)
-        await updateStatus('updating', 'stopping', 'Deteniendo la aplicación actual...');
-        await writeLog('Step 2: Stopping current application');
-        await stopCurrentApp();
-
-        // 3. Descargar cambios
+        // 2. Descargar cambios (sin detener nada)
         await updateStatus('updating', 'fetching', 'Descargando cambios desde GitHub...');
-        await writeLog('Step 3: Fetching changes from GitHub');
+        await writeLog('Step 2: Fetching changes from GitHub');
         await execPromise('git fetch origin', {
             cwd: PROJECT_ROOT,
             shell: 'powershell.exe'
         });
 
-        // 4. Guardar cambios locales si existen
+        // 3. Guardar cambios locales si existen
         await updateStatus('updating', 'stashing', 'Guardando cambios locales temporales...');
-        await writeLog('Step 4: Stashing local changes');
+        await writeLog('Step 3: Stashing local changes');
         try {
             await execPromise('git stash push -m "Auto-stash before update"', {
                 cwd: PROJECT_ROOT,
@@ -385,9 +380,9 @@ async function performUpdate() {
             await writeLog('No changes to stash or stash failed', 'WARN');
         }
 
-        // 5. Actualizar código
+        // 4. Actualizar código
         await updateStatus('updating', 'updating', 'Actualizando código desde GitHub...');
-        await writeLog('Step 5: Pulling changes');
+        await writeLog('Step 4: Pulling changes');
 
         let pullSuccess = false;
         try {
@@ -412,9 +407,9 @@ async function performUpdate() {
             throw new Error('Failed to pull changes');
         }
 
-        // 6. Instalar dependencias
+        // 5. Instalar dependencias
         await updateStatus('updating', 'installing', 'Instalando dependencias...');
-        await writeLog('Step 6: Installing dependencies');
+        await writeLog('Step 5: Installing dependencies');
 
         // API dependencies
         await execPromise('npm install', {
@@ -428,21 +423,21 @@ async function performUpdate() {
             shell: 'powershell.exe'
         });
 
-        // 7. Ejecutar migraciones si existen
+        // 6. Ejecutar migraciones si existen
         await updateStatus('updating', 'migrations', 'Ejecutando migraciones de base de datos...');
-        await writeLog('Step 7: Running migrations');
+        await writeLog('Step 6: Running migrations');
         try {
             await execPromise('npm run migrate', {
-                cwd: PROJECT_ROOT,
+                cwd: path.join(PROJECT_ROOT, 'api'),
                 shell: 'powershell.exe'
             });
         } catch (error) {
             await writeLog(`Migration warning: ${error.message}`, 'WARN');
         }
 
-        // 8. Restaurar cambios guardados
+        // 7. Restaurar cambios guardados
         await updateStatus('updating', 'restoring', 'Restaurando cambios locales...');
-        await writeLog('Step 8: Restoring stashed changes');
+        await writeLog('Step 7: Restoring stashed changes');
         try {
             await execPromise('git stash pop', {
                 cwd: PROJECT_ROOT,
@@ -452,22 +447,167 @@ async function performUpdate() {
             await writeLog('No stashed changes to restore', 'WARN');
         }
 
-        // 9. Reiniciar la aplicación
-        await updateStatus('updating', 'restarting', 'Reiniciando la aplicación...');
-        await writeLog('Step 9: Restarting application');
+        // 8. Crear script de reinicio en segundo plano
+        await updateStatus('updating', 'preparing-restart', 'Preparando reinicio...');
+        await writeLog('Step 8: Creating restart script');
 
-        // Esperar un momento
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Asegurar que la carpeta logs existe
+        const logsDir = path.join(PROJECT_ROOT, 'logs');
+        if (!fs.existsSync(logsDir)) {
+            fs.mkdirSync(logsDir, { recursive: true });
+        }
 
-        // Reiniciar usando las tareas programadas
-        await restartApp();
+        const restartScriptPath = path.join(logsDir, 'restart-after-update.bat');
+        const restartLogPath = path.join(logsDir, 'restart.log');
 
-        await updateStatus('success', 'completed', 'Actualización completada exitosamente');
+        // Escapar las rutas para Windows
+        const escapedProjectRoot = PROJECT_ROOT.replace(/\\/g, '\\\\');
+        const escapedRestartLogPath = restartLogPath.replace(/\\/g, '\\\\');
+
+        const restartScriptContent = `@echo off
+setlocal enabledelayedexpansion
+
+echo [%date% %time%] ========================================== >> "${restartLogPath}"
+echo [%date% %time%] Iniciando script de reinicio post-actualizacion >> "${restartLogPath}"
+echo [%date% %time%] ========================================== >> "${restartLogPath}"
+
+REM Obtener el directorio del proyecto
+set "PROJECT_ROOT=${escapedProjectRoot}"
+echo [%date% %time%] Project Root: !PROJECT_ROOT! >> "${restartLogPath}"
+
+REM Esperar 5 segundos para asegurar que el proceso actual termine
+echo [%date% %time%] Esperando 5 segundos... >> "${restartLogPath}"
+timeout /t 5 /nobreak > nul
+
+REM Verificar si las tareas existen
+echo [%date% %time%] Verificando tareas programadas... >> "${restartLogPath}"
+schtasks /query /tn "t_api" > nul 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] ERROR: Tarea t_api no encontrada >> "${restartLogPath}"
+) else (
+    echo [%date% %time%] Tarea t_api encontrada >> "${restartLogPath}"
+)
+
+schtasks /query /tn "t_front" > nul 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] ERROR: Tarea t_front no encontrada >> "${restartLogPath}"
+) else (
+    echo [%date% %time%] Tarea t_front encontrada >> "${restartLogPath}"
+)
+
+REM Detener las tareas programadas actuales
+echo [%date% %time%] Deteniendo tareas programadas... >> "${restartLogPath}"
+schtasks /end /tn "t_api" >> "${restartLogPath}" 2>&1
+schtasks /end /tn "t_front" >> "${restartLogPath}" 2>&1
+
+REM Esperar a que los procesos terminen
+echo [%date% %time%] Esperando 3 segundos... >> "${restartLogPath}"
+timeout /t 3 /nobreak > nul
+
+REM Matar cualquier proceso Node.js remanente
+echo [%date% %time%] Limpiando procesos Node.js remanentes... >> "${restartLogPath}"
+taskkill /F /IM node.exe >> "${restartLogPath}" 2>&1
+
+REM Esperar adicional
+timeout /t 2 /nobreak > nul
+
+REM Iniciar las tareas nuevamente
+echo [%date% %time%] Iniciando tareas programadas... >> "${restartLogPath}"
+schtasks /run /tn "t_api" >> "${restartLogPath}" 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] ERROR: No se pudo iniciar t_api >> "${restartLogPath}"
+) else (
+    echo [%date% %time%] t_api iniciada correctamente >> "${restartLogPath}"
+)
+
+schtasks /run /tn "t_front" >> "${restartLogPath}" 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] ERROR: No se pudo iniciar t_front >> "${restartLogPath}"
+) else (
+    echo [%date% %time%] t_front iniciada correctamente >> "${restartLogPath}"
+)
+
+REM Verificar que los procesos estan corriendo
+echo [%date% %time%] Verificando procesos... >> "${restartLogPath}"
+timeout /t 3 /nobreak > nul
+tasklist /FI "IMAGENAME eq node.exe" >> "${restartLogPath}" 2>&1
+
+echo [%date% %time%] ========================================== >> "${restartLogPath}"
+echo [%date% %time%] Reinicio completado >> "${restartLogPath}"
+echo [%date% %time%] ========================================== >> "${restartLogPath}"
+
+REM Mantener el script para debug (no borrar)
+echo [%date% %time%] Script de reinicio mantenido para debug >> "${restartLogPath}"
+
+exit /b 0
+`;
+
+        try {
+            await fs.promises.writeFile(restartScriptPath, restartScriptContent, 'utf8');
+            await writeLog(`Restart script created successfully at: ${restartScriptPath}`);
+
+            // Verificar que el archivo se creó
+            if (fs.existsSync(restartScriptPath)) {
+                await writeLog(`Restart script file size: ${(await fs.promises.stat(restartScriptPath)).size} bytes`);
+            } else {
+                throw new Error('File was not created');
+            }
+        } catch (error) {
+            await writeLog(`Failed to create restart script: ${error.message}`, 'ERROR');
+            throw error;
+        }
+        // 9. Ejecutar el script de reinicio en segundo plano (VERSIÓN CORREGIDA)
+        await updateStatus('updating', 'scheduling-restart', 'Programando reinicio...');
+        await writeLog('Step 9: Scheduling restart');
+
+        // Verificar que el script existe antes de ejecutarlo
+        if (!fs.existsSync(restartScriptPath)) {
+            throw new Error(`Restart script not found at: ${restartScriptPath}`);
+        }
+
+        // Ejecutar el script de reinicio en un proceso separado
+        const { spawn } = require('child_process');
+
+        // Usar diferentes métodos para asegurar que se ejecute
+        try {
+            // Método 1: Usar start para ejecutar en ventana separada
+            const restartProcess = spawn('cmd.exe', ['/c', 'start', '/min', 'cmd.exe', '/c', restartScriptPath], {
+                detached: true,
+                stdio: 'ignore',
+                shell: true
+            });
+            restartProcess.unref();
+
+            await writeLog(`Restart script executed with method 1 (PID: ${restartProcess.pid})`);
+        } catch (error) {
+            await writeLog(`Method 1 failed: ${error.message}`, 'WARN');
+
+            // Método 2: Ejecutar directamente
+            try {
+                const { exec } = require('child_process');
+                exec(`"${restartScriptPath}"`, {
+                    detached: true,
+                    stdio: 'ignore'
+                }).unref();
+
+                await writeLog('Restart script executed with method 2');
+            } catch (error2) {
+                await writeLog(`Method 2 also failed: ${error2.message}`, 'ERROR');
+                throw error2;
+            }
+        }
+        
+        // 10. Marcar como completado
+        await updateStatus('success', 'completed', 'Actualización completada. La aplicación se reiniciará en unos segundos...');
         await writeLog(`=== Update completed successfully ${updateId} ===`);
+
+        // IMPORTANTE: NO detenemos el proceso actual aquí
+        // El script de reinicio se encargará de reiniciar los servicios
+        // mientras este proceso continúa ejecutándose hasta que sea reemplazado
 
         return {
             success: true,
-            message: 'Actualización completada exitosamente',
+            message: 'Actualización completada. La aplicación se reiniciará en unos segundos.',
             updateInfo
         };
 
@@ -484,9 +624,6 @@ async function performUpdate() {
         } catch (restoreError) {
             await writeLog(`Error restoring state: ${restoreError.message}`, 'ERROR');
         }
-
-        // Intentar reiniciar la aplicación aunque haya fallado
-        await restartApp();
 
         return {
             success: false,
@@ -1678,6 +1815,7 @@ app.get('/api/update/status', verifyToken, async (req, res) => {
 });
 
 // Endpoint para ejecutar actualización
+// Endpoint para ejecutar actualización
 app.post('/api/update/execute', verifyToken, async (req, res) => {
     // Solo OWNER (id == 1)
     if (req.user.id_user !== 1) {
@@ -1685,16 +1823,23 @@ app.post('/api/update/execute', verifyToken, async (req, res) => {
     }
 
     try {
-        // Iniciar la actualización en segundo plano
+        // Iniciar la actualización en segundo plano pero SIN detener el proceso actual
+        // La actualización misma se encargará de programar el reinicio
         performUpdate().then(result => {
             writeLog(`Background update completed: ${result.success ? 'success' : 'failed'}`);
+
+            // Si la actualización fue exitosa, el script de reinicio se encargará del resto
+            if (result.success) {
+                writeLog('Restart scheduled. The application will restart shortly.');
+            }
         }).catch(error => {
             writeLog(`Background update error: ${error.message}`, 'ERROR');
         });
 
+        // Responder inmediatamente
         res.json({
             success: true,
-            message: 'Actualización iniciada en segundo plano'
+            message: 'Actualización iniciada en segundo plano. La aplicación se reiniciará automáticamente.'
         });
     } catch (err) {
         res.status(500).json({
