@@ -19,7 +19,7 @@ import { Subscription } from 'rxjs';
 })
 export class DashboardPage implements OnInit, OnDestroy {
     protected readonly title = signal('Administración del sistema');
-    
+
     // Propiedades existentes
     users: { id: number; name: string; rol: string; password?: string }[] = [];
     locations: { id: number, path: string }[] = [];
@@ -43,6 +43,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     ngOnInit() {
         this.auth.getAllUsers().subscribe(users => {
             this.users = users;
+            this.cdr.detectChanges();
             this.cdr.markForCheck();
         });
 
@@ -52,6 +53,8 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (currentUser && currentUser.id_user === 1) {
             this.showUpdateSection = true;
             this.checkForUpdates();
+            this.cdr.detectChanges();
+            this.cdr.markForCheck();
 
             // Suscribirse a cambios de estado
             this.updateSubscription = this.updateService.getUpdateStatusObservable()
@@ -59,6 +62,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                     if (updateInfo) {
                         this.updateInfo = updateInfo;
                         this.isUpdating = updateInfo.currentStatus.status === 'updating';
+                        this.cdr.detectChanges();
                         this.cdr.markForCheck();
                     }
                 });
@@ -79,6 +83,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.updateService.checkForUpdates().subscribe({
             next: (info) => {
                 this.updateInfo = info;
+                this.cdr.detectChanges();
                 this.cdr.markForCheck();
             },
             error: (error) => {
@@ -90,7 +95,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                         confirmText: 'Entendido',
                         cancelText: '',
                         hideCancelButton: true,
-                        onConfirm: () => {}
+                        onConfirm: () => { }
                     }
                 });
             }
@@ -103,9 +108,9 @@ export class DashboardPage implements OnInit, OnDestroy {
             title: 'Actualizar Sistema',
             data: {
                 message: `¿Estás seguro de que quieres actualizar la aplicación?\n\n` +
-                         `Esto reiniciará los servicios y puede causar una breve interrupción.\n\n` +
-                         `Versión actual: ${this.updateInfo?.currentCommit || 'desconocida'}\n` +
-                         `Nueva versión: ${this.updateInfo?.remoteCommit || 'desconocida'}`,
+                    `Esto reiniciará los servicios y puede causar una breve interrupción.\n\n` +
+                    `Versión actual: ${this.updateInfo?.currentCommit || 'desconocida'}\n` +
+                    `Nueva versión: ${this.updateInfo?.remoteCommit || 'desconocida'}`,
                 confirmText: 'Sí, actualizar',
                 cancelText: 'Cancelar',
                 onConfirm: () => {
@@ -116,12 +121,12 @@ export class DashboardPage implements OnInit, OnDestroy {
                                 title: 'Actualización Iniciada',
                                 data: {
                                     message: `La actualización ha comenzado en segundo plano.\n\n` +
-                                             `Puedes monitorear el progreso en esta misma pantalla.\n\n` +
-                                             `Los servicios se reiniciarán automáticamente al finalizar.`,
+                                        `Puedes monitorear el progreso en esta misma pantalla.\n\n` +
+                                        `Los servicios se reiniciarán automáticamente al finalizar.`,
                                     confirmText: 'Entendido',
                                     cancelText: '',
                                     hideCancelButton: true,
-                                    onConfirm: () => {}
+                                    onConfirm: () => { }
                                 }
                             });
                         },
@@ -134,7 +139,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                                     confirmText: 'Entendido',
                                     cancelText: '',
                                     hideCancelButton: true,
-                                    onConfirm: () => {}
+                                    onConfirm: () => { }
                                 }
                             });
                         }
@@ -146,15 +151,15 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     // Getters para el template
     get hasChangesToShow(): boolean {
-        return !!(this.updateInfo?.hasUpdates && 
-                  this.updateInfo?.changes && 
-                  this.updateInfo.changes.length > 0);
+        return !!(this.updateInfo?.hasUpdates &&
+            this.updateInfo?.changes &&
+            this.updateInfo.changes.length > 0);
     }
-    
+
     get changesList(): string[] {
         return this.updateInfo?.changes || [];
     }
-    
+
     get currentStatus() {
         return this.updateInfo?.currentStatus || {
             status: 'idle',
@@ -196,6 +201,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.file.getMediaLocations().subscribe(data => {
             this.locations = data.locations;
             this.tree = this.buildTree(data.locations);
+            this.cdr.detectChanges();
             this.cdr.markForCheck();
         });
     }
@@ -285,7 +291,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                     confirmText: 'Entendido',
                     cancelText: '',
                     hideCancelButton: true,
-                    onConfirm: () => {}
+                    onConfirm: () => { }
                 }
             });
             return;
@@ -300,7 +306,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                     confirmText: 'Entendido',
                     cancelText: '',
                     hideCancelButton: true,
-                    onConfirm: () => {}
+                    onConfirm: () => { }
                 }
             });
             return;
@@ -312,10 +318,10 @@ export class DashboardPage implements OnInit, OnDestroy {
                 title: `No puedes eliminarte a ti mismo`,
                 data: {
                     message: `⚠ ATENCIÓN: No puedes eliminar tu propia cuenta.\n\n` +
-                             `Debe ser el otro administrador quien elimine tu cuenta.`,
+                        `Debe ser el otro administrador quien elimine tu cuenta.`,
                     confirmText: 'Entendido',
                     cancelText: 'Cancelar',
-                    onConfirm: () => {}
+                    onConfirm: () => { }
                 }
             });
             return;
@@ -361,11 +367,12 @@ export class DashboardPage implements OnInit, OnDestroy {
                                 confirmText: 'Aceptar',
                                 cancelText: '',
                                 hideCancelButton: true,
-                                onConfirm: () => {}
+                                onConfirm: () => { }
                             }
                         });
                     }
 
+                    this.cdr.detectChanges();
                     this.cdr.markForCheck();
                 } else {
                     this.handleDeletionError(res.error, userToDelete);
@@ -394,10 +401,11 @@ export class DashboardPage implements OnInit, OnDestroy {
                 confirmText: 'Entendido',
                 cancelText: '',
                 hideCancelButton: true,
-                onConfirm: () => {}
+                onConfirm: () => { }
             }
         });
 
+        this.cdr.detectChanges();
         this.cdr.markForCheck();
     }
 
@@ -430,7 +438,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                     confirmText: 'Entendido',
                     cancelText: '',
                     hideCancelButton: true,
-                    onConfirm: () => {}
+                    onConfirm: () => { }
                 }
             });
             return;

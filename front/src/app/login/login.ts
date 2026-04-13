@@ -19,7 +19,7 @@ export class LoginPage {
     constructor(
         private auth: AuthService,
         private storage: LocalStorageService,
-        private router: Router        
+        private router: Router
     ) { }
 
     ngOnInit() {
@@ -57,8 +57,11 @@ export class LoginPage {
                 );
 
                 this.storage.setUserData(data);
-
-                this.router.navigate(['/']);
+                this.auth.refreshUserRole().subscribe(
+                    () => {
+                        this.router.navigate(['/']);
+                    }
+                );
             },
 
             error: () => {
