@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📺 Television Écija — Media Manager
+# 📺 EcijaComarca — Media Manager
 
 **Sistema centralizado de gestión de contenido multimedia para la televisión local de Écija.**
 
@@ -16,7 +16,7 @@
 
 ## 📖 Descripción
 
-Television Écija gestiona vídeos, fotos y contenido multimedia almacenado de forma distribuida en distintos equipos y discos duros. Este software centraliza, organiza y permite administrar todo ese contenido desde una única aplicación web interna, ofreciendo búsquedas avanzadas, filtros, categorización y control de acceso por roles.
+EcijaComarca gestiona vídeos, fotos y contenido multimedia almacenado de forma distribuida en distintos equipos y discos duros. Este software centraliza, organiza y permite administrar todo ese contenido desde una única aplicación web interna, ofreciendo búsquedas avanzadas, filtros, categorización y control de acceso por roles.
 
 ---
 
