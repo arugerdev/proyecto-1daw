@@ -16,3 +16,6 @@ mysql
 api_service_wrapper.bat
 frontend_service_wrapper.bat
 *.log
+
+update-status.json
+**/logs
