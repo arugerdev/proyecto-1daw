@@ -87,7 +87,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                 this.cdr.markForCheck();
             },
             error: (error) => {
-                console.error('Error checking updates:', error);
+                // console.error('Error checking updates:', error);
                 this.modalService.open(ConfirmationModalComponent, {
                     title: 'Error al verificar actualizaciones',
                     data: {
@@ -116,7 +116,6 @@ export class DashboardPage implements OnInit, OnDestroy {
                 onConfirm: () => {
                     this.updateService.executeUpdate().subscribe({
                         next: (response) => {
-                            console.log('Update started:', response);
                             this.modalService.open(ConfirmationModalComponent, {
                                 title: 'Actualización Iniciada',
                                 data: {
@@ -131,7 +130,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                             });
                         },
                         error: (error) => {
-                            console.error('Error starting update:', error);
+                            // console.error('Error starting update:', error);
                             this.modalService.open(ConfirmationModalComponent, {
                                 title: 'Error al Iniciar Actualización',
                                 data: {
@@ -379,7 +378,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                 }
             },
             error: (error) => {
-                console.error('Error en la suscripción de eliminación:', error);
+                // console.error('Error en la suscripción de eliminación:', error);
 
                 let errorMessage = 'Error al eliminar el usuario';
                 if (error.error && error.error.error) {

@@ -123,7 +123,7 @@ export class LocalStorageService {
             const serializedValue = JSON.stringify(value);
             this.setStorageItem(key, serializedValue);
         } catch (error) {
-            console.error('Error saving data:', error);
+            // console.error('Error saving data:', error);
         }
     }
 
@@ -132,7 +132,7 @@ export class LocalStorageService {
             const item = this.getStorageItem(key);
             return item ? JSON.parse(item) : null;
         } catch (error) {
-            console.error('Error reading data:', error);
+            // console.error('Error reading data:', error);
             return null;
         }
     }
@@ -141,7 +141,7 @@ export class LocalStorageService {
         try {
             this.removeStorageItem(key);
         } catch (error) {
-            console.error('Error removing data:', error);
+            // console.error('Error removing data:', error);
         }
     }
 
@@ -149,7 +149,7 @@ export class LocalStorageService {
         try {
             this.clearStorage();
         } catch (error) {
-            console.error('Error clearing storage:', error);
+            // console.error('Error clearing storage:', error);
         }
     }
 

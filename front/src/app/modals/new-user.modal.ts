@@ -289,7 +289,7 @@ export class UserModalComponent {
 
                 },
                 error: (error) => {
-                    console.error("Error al actualizar usuario:", error);
+                    // console.error("Error al actualizar usuario:", error);
                     alert("Error al actualizar el usuario");
                 }
             });
@@ -306,7 +306,7 @@ export class UserModalComponent {
                     location.reload();
                 },
                 error: (error) => {
-                    console.error("Error al crear usuario:", error);
+                    // console.error("Error al crear usuario:", error);
                     alert("Error al crear el usuario");
                 }
             });

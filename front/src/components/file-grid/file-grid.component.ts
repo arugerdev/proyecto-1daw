@@ -155,7 +155,6 @@ export class FileGridComponent implements OnInit, OnDestroy {
         ).subscribe({
             next: (response) => {
                 if (response.success) {
-                    console.log(response.data)
                     if (isNewSearch) {
                         this.files = response.data;
                     } else {
@@ -167,7 +166,7 @@ export class FileGridComponent implements OnInit, OnDestroy {
                 }
             },
             error: (error) => {
-                console.error('Error loading media:', error);
+                // console.error('Error loading media:', error);
                 this.hasMore = false;
             }
         });
@@ -230,7 +229,6 @@ export class FileGridComponent implements OnInit, OnDestroy {
     }
 
     onEdit(file: MediaItem) {
-        console.log(file.id)
         this.modalService.open(ContentModalComponent, {
             title: 'Editar Archivo',
             data: {
@@ -268,7 +266,7 @@ export class FileGridComponent implements OnInit, OnDestroy {
                             this.statsChanged.emit();
                             this.cdr.detectChanges();
                         },
-                        error: (error) => console.error('Error deleting:', error)
+                        error: (error) => {/* console.error('Error deleting:', error)*/ }
                     });
                 }
             }

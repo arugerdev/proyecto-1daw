@@ -27,9 +27,6 @@ export class FileService {
 
     getStats(): Observable<{ success: boolean; stats: Stats }> {
 
-        console.log('Obteniendo estadísticas desde:', this.API);
-        console.log((environment as any));
-
         return this.http.get<{ success: boolean; stats: Stats }>(
             `${this.API}/stats`,
             { headers: this.getHeaders() }
@@ -149,8 +146,6 @@ export class FileService {
     // ===========================
 
     getThumbnailUrl(media: MediaItem): string {
-        console.log(media)
-
         switch (this.getType(media.filename)) {
             case "video":
                 return `${this.API}/files/${media.id}/thumbnail`;

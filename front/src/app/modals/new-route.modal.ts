@@ -280,8 +280,6 @@ export class RouteModalComponent {
     }
 
     finishCreateFolder() {
-        console.log(this.newFolderInput)
-        console.log(this.newFolderName)
         if (!this.newFolderName.trim()) {
             this.cancelCreateFolder();
             return;
@@ -294,7 +292,7 @@ export class RouteModalComponent {
                 this.loadFolders();
             },
             error: (err) => {
-                console.error('Error creating folder:', err);
+                // console.error('Error creating folder:', err);
                 this.creatingFolder = false;
                 this.loadFolders();
             }

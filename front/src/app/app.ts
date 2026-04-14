@@ -43,6 +43,5 @@ export class App implements OnInit {
 
   loadPreferences() {
     const preferences = this.storageService.getItem('user_preferences');
-    console.log('Preferences:', preferences);
   }
 }

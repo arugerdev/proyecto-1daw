@@ -225,7 +225,7 @@ export class AuthService {
                 return response;
             }),
             catchError(error => {
-                console.error('Error en deleteUser:', error);
+                // console.error('Error en deleteUser:', error);
 
                 // Extraer mensaje de error de la respuesta
                 let errorMessage = 'Error al eliminar el usuario';

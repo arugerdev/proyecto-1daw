@@ -76,7 +76,6 @@ export class IndexPage implements OnInit, OnDestroy {
             takeUntil(this.destroy$)
         ).subscribe({
             next: (results) => {
-                console.log('Datos iniciales cargados:', results);
                 // Stats
                 if (results.stats?.success) {
                     this.stats = results.stats.stats;
@@ -90,7 +89,7 @@ export class IndexPage implements OnInit, OnDestroy {
                 this.cdr.detectChanges();
             },
             error: (error) => {
-                console.error('Error loading initial data:', error);
+                // console.error('Error loading initial data:', error);
                 this.hasError = true;
                 this.errorMessage = 'Error al cargar los datos. Por favor, recarga la página.';
                 this.cdr.detectChanges();

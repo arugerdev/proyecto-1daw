@@ -229,8 +229,7 @@ import { CommonModule } from '@angular/common';
 
     </div>
 
-    <div class="tags-list" *ngIf="tags.length">
-
+    <div class="tags-list" *ngIf="tags?.length">
       <span class="tag" *ngFor="let tag of tags">
 
         {{ tag }}
@@ -264,7 +263,7 @@ import { CommonModule } from '@angular/common';
             (click)="modalRef?.close({success:false})"
             [disabled]="isLoading">
 
-      {{cancelText }}
+      {{cancelText}}
 
     </button>
 
@@ -709,8 +708,8 @@ export class ContentModalComponent implements OnInit {
     const isYearValid = this.isYearValid();
     const isLocationValid = !!this.storageLocationId;
 
-    return isFileValid && isTypeValid && isTitleValid && 
-           isDescriptionValid && isYearValid && isLocationValid;
+    return isFileValid && isTypeValid && isTitleValid &&
+      isDescriptionValid && isYearValid && isLocationValid;
   }
 
   getTypeErrorMessage(): string {
@@ -768,6 +767,13 @@ export class ContentModalComponent implements OnInit {
   addTag() {
     const tag = this.tagInput.trim();
     if (!tag) return;
+    if (!this.tags) this.tags = [];
+
+    if (this.tags.includes(tag)) {
+      this.tagInput = '';
+      return;
+    }
+
     this.tags.push(tag);
     this.tagInput = '';
   }
@@ -792,7 +798,7 @@ export class ContentModalComponent implements OnInit {
           }
         },
         error: (err) => {
-          console.error('Error creando tipo de contenido:', err);
+          // console.error('Error creando tipo de contenido:', err);
           reject(err);
         }
       });
