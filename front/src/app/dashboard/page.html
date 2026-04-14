@@ -16,7 +16,7 @@
                     <button (click)="handleUpdateButtonClick()" class="button button-primary update-btn"
                         [disabled]="isUpdating || !updateInfo" [class.button-disabled]="isUpdating">
                         <span *ngIf="!isUpdating && !updateInfo">⚙️ Verificando...</span>
-                        <span *ngIf="!isUpdating && updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error">🔄Actualizar Ahora</span>
+                        <span *ngIf="!isUpdating && updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error && !(updateInfo?.currentStatus?.status === 'success')">🔄Actualizar Ahora</span>
                         <span *ngIf="!isUpdating && !updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error && updateInfo">🔍Verificar Actualización </span>
                         <span *ngIf="!isUpdating && updateInfo?.currentStatus?.error">🔁 Reintentar</span>
                         <span *ngIf="isUpdating && updateInfo?.currentStatus?.status === 'updating' && updateInfo?.currentStatus?.message">⚙️ {{ updateInfo?.currentStatus?.message }}</span>
