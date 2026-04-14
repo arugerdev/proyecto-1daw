@@ -175,8 +175,8 @@ export class DashboardPage implements OnInit, OnDestroy {
             data: {
                 message: `¿Estás seguro de que quieres actualizar la aplicación?\n\n` +
                     `Esto reiniciará los servicios y puede causar una breve interrupción.\n\n` +
-                    `Versión actual: ${this.updateInfo?.currentCommit || this.appVersion || 'desconocida'}\n` +
-                    `Nueva versión: ${this.updateInfo?.remoteCommit || 'desconocida'}`,
+                    `Versión actual: ${this.updateInfo?.version || this.appVersion || 'desconocida'}\n` +
+                    `Nueva versión: ${this.updateInfo?.remoteVersion || 'desconocida'}`,
                 confirmText: 'Sí, actualizar',
                 cancelText: 'Cancelar',
                 onConfirm: () => {

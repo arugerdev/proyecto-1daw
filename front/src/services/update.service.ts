@@ -30,6 +30,7 @@ export interface UpdateInfo {
         timestamp: string;
         lastUpdate: string | null;
     };
+    remoteVersion: string;
     version: string;
 }
 
@@ -87,7 +88,8 @@ export class UpdateService {
                             remoteCommit: '',
                             changes: [],
                             currentStatus: response.data,
-                            version: ''
+                            version: '',
+                            remoteVersion: ''
                         };
 
                     this.updateStatusSubject.next(merged);
@@ -155,6 +157,13 @@ export class UpdateService {
         });
     }
     
+    getVersion(): Observable<{ success: boolean; version: string }> {
+        return this.http.get<{ success: boolean; version: string }>(
+            `${this.API}/version`,
+            { headers: this.getHeaders() }
+        );
+    }
+
     getVersion(): Observable<{ success: boolean; version: string }> {
         return this.http.get<{ success: boolean; version: string }>(
             `${this.API}/version`,
