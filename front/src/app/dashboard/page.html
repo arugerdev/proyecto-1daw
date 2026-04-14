@@ -15,11 +15,19 @@
 
                     <button (click)="handleUpdateButtonClick()" class="button button-primary update-btn"
                         [disabled]="isUpdating || !updateInfo" [class.button-disabled]="isUpdating">
-                        <span *ngIf="!isUpdating && !updateInfo">⚙️ Verificando...</span>
-                        <span *ngIf="!isUpdating && updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error && !(updateInfo?.currentStatus?.status === 'success')">🔄Actualizar Ahora</span>
-                        <span *ngIf="!isUpdating && !updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error && updateInfo">🔍Verificar Actualización </span>
-                        <span *ngIf="!isUpdating && updateInfo?.currentStatus?.error">🔁 Reintentar</span>
-                        <span *ngIf="isUpdating && updateInfo?.currentStatus?.status === 'updating' && updateInfo?.currentStatus?.message">⚙️ {{ updateInfo?.currentStatus?.message }}</span>
+                        <span *ngIf="!isUpdating && !updateInfo">Verificando</span>
+                        <span *ngIf="!isUpdating && !updateInfo" class="loader"></span>
+                        <!-- Actualiza ahora solo debe salir cuando no esta actualizando, cuando no hay errores, cuando se ha actualizado y cuando no hay actualizaciones pendientes -->
+                        <span
+                            *ngIf="!isUpdating && updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error">Actualizar
+                            Ahora</span>
+                        <span
+                            *ngIf="!isUpdating && !updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error && updateInfo">🔍Verificar
+                            Actualización </span>
+                        <span *ngIf="!isUpdating && updateInfo?.currentStatus?.error">Reintentar</span>
+                        <span
+                            *ngIf="isUpdating && updateInfo?.currentStatus?.status === 'updating' && updateInfo?.currentStatus?.message">{{
+                            updateInfo?.currentStatus?.message }} <span class="loader"></span></span>
                     </button>
                 </div>
 

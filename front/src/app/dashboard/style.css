@@ -493,6 +493,8 @@ main .main {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
+    flex-wrap: nowrap;
+    width: auto;
 }
 
 .update-btn:disabled,
@@ -680,6 +682,35 @@ main .main {
     color: var(--text-secondary);
 }
 
+.loader {
+  box-sizing: border-box;
+  position: relative;
+  width: 1.5ch;
+  height: 1.5ch;
+  animation: spin 1s linear infinite;
+  font-size: 25px;
+}
+.loader:after, .loader:before {
+  content: "";
+  width: 0.75ch;
+  height: 0.75ch;
+  position: absolute;
+  border-radius: 50%;
+  background: #FF3D00;
+  animation: spin 1s linear infinite;
+  transform-origin: 0px 100%;
+}
+.loader:before {
+  transform-origin: 0 50%;
+  background: #fff;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+    
+
 @media (max-width: 768px) {
     .update-section {
         padding: 24px 12px 24px 12px;
@@ -753,5 +784,9 @@ main .main {
     .users-table-td:nth-child(2) {
         display: none;
         /* Ocultar columna de email en móviles */
+    }
+
+    .loader {
+        font-size: 15px;
     }
 }
