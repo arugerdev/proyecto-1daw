@@ -130,16 +130,24 @@
                         </thead>
                         <tbody class="users-table-body">
                             <!-- Mostrar los usuarios en la tabla -->
-                            <!-- El usuario admin (id = 1) NO deberia poder modificarse ni eliminarse -->
-                            <tr class="users-table-row" *ngFor="let user of users">
-                                <td class="users-table-td users-table-td-bold" *ngIf="user.id !== 1">{{ user.name }}
+                            <tr class="users-table-row" *ngFor="let user of users"
+                                [class.users-table-row-highlight]="user.id === currentUserId">
+                                <td class="users-table-td users-table-td-bold"
+                                    *ngIf="user.id !== 1 || currentUserId === 1">
+                                    {{ user.name }}
+                                    <span *ngIf="user.id === currentUserId"
+                                        class="badge badge-actual-user">(Usted)</span>
+                                    <span *ngIf="user.id === 1" class="badge badge-owner">(Solo visible
+                                        para usted <strong>DUEÑO</strong>)</span>
                                 </td>
-                                <td class="users-table-td" *ngIf="user.id !== 1">
+                                <td class="users-table-td" *ngIf="user.id !== 1 || currentUserId === 1">
+
                                     <span class="badge badge-admin">
                                         {{ user.rol }}
                                     </span>
                                 </td>
-                                <td class="users-table-td text-right" *ngIf="user.id !== 1">
+                                <td class="users-table-td text-right" *ngIf="user.id !== 1 || currentUserId === 1">
+
                                     <div class="users-actions">
                                         <button class="users-action-btn" title="Editar" (click)="onEdit(user.id)">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -152,7 +160,8 @@
                                             </svg>
                                         </button>
 
-                                        <button class="users-action-btn users-action-delete" *ngIf="user.id !== 2"
+                                        <button class="users-action-btn users-action-delete"
+                                            *ngIf="user.id !== 2 && user.id !== 1 && user.id !== currentUserId"
                                             title="Eliminar" (click)="deleteUser(user.id)">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                                 stroke="currentColor" stroke-width="2" stroke-linecap="round"

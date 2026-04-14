@@ -33,6 +33,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     showUpdateSection = false; // Solo para owner
     appVersion: string = 'desconocida';
     versionLoaded = false;
+    currentUserId: number | null = null;
 
     constructor(
         private modalService: ModalService,
@@ -56,6 +57,8 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.loadLocations();
 
         const currentUser = this.auth.getCurrentUser();
+        this.currentUserId = currentUser?.id_user || null;
+
         if (currentUser && currentUser.id_user === 1) {
             this.showUpdateSection = true;
             
@@ -85,12 +88,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
     }
 
-    // ===========================
-    // NUEVO: CARGAR VERSIÓN LO ANTES POSIBLE
-    // ===========================
-    
     loadVersion() {
-        // Intento 1: Obtener versión directamente del endpoint
         this.updateService.getVersion().subscribe({
             next: (response) => {
                 this.appVersion = response.version;
@@ -100,7 +98,6 @@ export class DashboardPage implements OnInit, OnDestroy {
             },
             error: (error) => {
                 console.warn('Error loading version from API, using fallback:', error);
-                // Si falla, intentar obtener de updateInfo si existe
                 if (this.updateInfo?.version) {
                     this.appVersion = this.updateInfo.version;
                 }
@@ -109,7 +106,6 @@ export class DashboardPage implements OnInit, OnDestroy {
             }
         });
 
-        // Intento 2: También intentar cada 2 segundos por si el endpoint no está listo
         timer(2000, 5000).pipe(
             takeWhile(() => !this.versionLoaded && this.showUpdateSection),
             switchMap(() => this.updateService.getVersion().pipe(catchError(() => of(null))))
@@ -135,10 +131,6 @@ export class DashboardPage implements OnInit, OnDestroy {
             }
         }, 100);
     }
-
-    // ===========================
-    // MÉTODOS DE ACTUALIZACIÓN
-    // ===========================
 
     checkForUpdates() {
         this.updateService.checkForUpdates().subscribe({
@@ -214,7 +206,6 @@ export class DashboardPage implements OnInit, OnDestroy {
         });
     }
 
-    // Getters para el template
     get hasChangesToShow(): boolean {
         return !!(this.updateInfo?.hasUpdates &&
             this.updateInfo?.changes &&
@@ -257,10 +248,6 @@ export class DashboardPage implements OnInit, OnDestroy {
             default: return 'status-idle';
         }
     }
-
-    // ===========================
-    // MÉTODOS EXISTENTES (sin cambios)
-    // ===========================
 
     loadLocations() {
         this.file.getMediaLocations().subscribe(data => {
