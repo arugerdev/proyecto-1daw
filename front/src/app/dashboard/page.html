@@ -45,11 +45,12 @@
                 <div class="update-version-info" *ngIf="updateInfo">
                     <div class="version-row">
                         <span class="version-label">Versión actual:</span>
-                        <span class="version-value">{{ updateInfo.currentCommit || 'desconocida' }}</span>
+                        <span class="version-value">{{ appVersion || updateInfo?.version || 'desconocida' }}</span>
                     </div>
                     <div class="version-row" *ngIf="updateInfo.hasUpdates">
                         <span class="version-label">Nueva versión:</span>
-                        <span class="version-value version-new">{{ updateInfo.remoteCommit }}</span>
+                        <!-- Recuperar la versión remota -->
+                        <span class="version-value version-new">{{ updateInfo.remoteVersion }}</span>
                     </div>
                     <div class="version-row"
                         *ngIf="!updateInfo.hasUpdates && updateInfo?.currentStatus && updateInfo?.currentStatus?.lastUpdate">
@@ -241,7 +242,7 @@
         <div class="footer-content">
             <div class="version-info">
                 <span class="version-badge">📦 App Version</span>
-                <span class="version-number">{{ updateInfo?.currentCommit || 'desconocida' }}</span>
+                <span class="version-number">{{ appVersion || updateInfo?.version || 'desconocida' }}</span>
             </div>
             <div class="update-info-footer" *ngIf="updateInfo?.currentStatus?.lastUpdate">
                 <span>Última verificación: {{ updateInfo?.currentStatus?.lastUpdate | date:'dd/MM/yyyy HH:mm' }}</span>

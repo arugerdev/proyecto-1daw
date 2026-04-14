@@ -9,7 +9,8 @@ import { RouteModalComponent } from '../modals/new-route.modal';
 import { UserModalComponent } from '../modals/new-user.modal';
 import { Router } from '@angular/router';
 import { UpdateInfo, UpdateService } from '../../services/update.service';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin, of, timer } from 'rxjs';
+import { catchError, timeout, retry, switchMap, takeWhile } from 'rxjs/operators';
 
 @Component({
     selector: 'dashboard-page',
@@ -30,6 +31,8 @@ export class DashboardPage implements OnInit, OnDestroy {
     isUpdating = false;
     updateSubscription: Subscription | null = null;
     showUpdateSection = false; // Solo para owner
+    appVersion: string = 'desconocida';
+    versionLoaded = false;
 
     constructor(
         private modalService: ModalService,
@@ -41,6 +44,9 @@ export class DashboardPage implements OnInit, OnDestroy {
     ) { }
 
     ngOnInit() {
+        // Cargar versión inmediatamente (antes que cualquier otra cosa)
+        this.loadVersion();
+
         this.auth.getAllUsers().subscribe(users => {
             this.users = users;
             this.cdr.detectChanges();
@@ -52,7 +58,11 @@ export class DashboardPage implements OnInit, OnDestroy {
         const currentUser = this.auth.getCurrentUser();
         if (currentUser && currentUser.id_user === 1) {
             this.showUpdateSection = true;
-            this.checkForUpdates();
+            
+            // Esperar a que la versión se cargue antes de verificar actualizaciones
+            // pero no bloquear la UI
+            this.waitForVersionAndCheckUpdates();
+            
             this.cdr.detectChanges();
             this.cdr.markForCheck();
 
@@ -76,6 +86,57 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
 
     // ===========================
+    // NUEVO: CARGAR VERSIÓN LO ANTES POSIBLE
+    // ===========================
+    
+    loadVersion() {
+        // Intento 1: Obtener versión directamente del endpoint
+        this.updateService.getVersion().subscribe({
+            next: (response) => {
+                this.appVersion = response.version;
+                this.versionLoaded = true;
+                this.cdr.detectChanges();
+                this.cdr.markForCheck();
+            },
+            error: (error) => {
+                console.warn('Error loading version from API, using fallback:', error);
+                // Si falla, intentar obtener de updateInfo si existe
+                if (this.updateInfo?.version) {
+                    this.appVersion = this.updateInfo.version;
+                }
+                this.versionLoaded = true;
+                this.cdr.detectChanges();
+            }
+        });
+
+        // Intento 2: También intentar cada 2 segundos por si el endpoint no está listo
+        timer(2000, 5000).pipe(
+            takeWhile(() => !this.versionLoaded && this.showUpdateSection),
+            switchMap(() => this.updateService.getVersion().pipe(catchError(() => of(null))))
+        ).subscribe(response => {
+            if (response && !this.versionLoaded) {
+                this.appVersion = response.version;
+                this.versionLoaded = true;
+                this.cdr.detectChanges();
+            }
+        });
+    }
+
+    waitForVersionAndCheckUpdates() {
+        // Esperar máximo 3 segundos a que la versión se cargue
+        const maxWaitTime = 3000;
+        const startTime = Date.now();
+
+        const checkInterval = setInterval(() => {
+            if (this.versionLoaded || (Date.now() - startTime) >= maxWaitTime) {
+                clearInterval(checkInterval);
+                // Ya sea que tengamos versión o no, procedemos a verificar actualizaciones
+                this.checkForUpdates();
+            }
+        }, 100);
+    }
+
+    // ===========================
     // MÉTODOS DE ACTUALIZACIÓN
     // ===========================
 
@@ -83,11 +144,16 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.updateService.checkForUpdates().subscribe({
             next: (info) => {
                 this.updateInfo = info;
+                // Si no tenemos versión aún, usar la del updateInfo
+                if (!this.versionLoaded && info?.version) {
+                    this.appVersion = info.version;
+                    this.versionLoaded = true;
+                }
                 this.cdr.detectChanges();
                 this.cdr.markForCheck();
             },
             error: (error) => {
-                // console.error('Error checking updates:', error);
+                console.error('Error checking updates:', error);
                 this.modalService.open(ConfirmationModalComponent, {
                     title: 'Error al verificar actualizaciones',
                     data: {
@@ -109,7 +175,7 @@ export class DashboardPage implements OnInit, OnDestroy {
             data: {
                 message: `¿Estás seguro de que quieres actualizar la aplicación?\n\n` +
                     `Esto reiniciará los servicios y puede causar una breve interrupción.\n\n` +
-                    `Versión actual: ${this.updateInfo?.currentCommit || 'desconocida'}\n` +
+                    `Versión actual: ${this.updateInfo?.currentCommit || this.appVersion || 'desconocida'}\n` +
                     `Nueva versión: ${this.updateInfo?.remoteCommit || 'desconocida'}`,
                 confirmText: 'Sí, actualizar',
                 cancelText: 'Cancelar',
@@ -130,7 +196,7 @@ export class DashboardPage implements OnInit, OnDestroy {
                             });
                         },
                         error: (error) => {
-                            // console.error('Error starting update:', error);
+                            console.error('Error starting update:', error);
                             this.modalService.open(ConfirmationModalComponent, {
                                 title: 'Error al Iniciar Actualización',
                                 data: {
@@ -193,7 +259,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
 
     // ===========================
-    // MÉTODOS EXISTENTES
+    // MÉTODOS EXISTENTES (sin cambios)
     // ===========================
 
     loadLocations() {
@@ -378,8 +444,6 @@ export class DashboardPage implements OnInit, OnDestroy {
                 }
             },
             error: (error) => {
-                // console.error('Error en la suscripción de eliminación:', error);
-
                 let errorMessage = 'Error al eliminar el usuario';
                 if (error.error && error.error.error) {
                     errorMessage = error.error.error;
