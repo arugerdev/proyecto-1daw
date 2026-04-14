@@ -15,7 +15,7 @@ const os = require('os')
 const util = require('util');
 const execPromise = util.promisify(exec);
 
-
+const { version } = require('../version.json');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../');
 const LOG_FILE = path.join(PROJECT_ROOT, 'update.log');
@@ -255,10 +255,35 @@ async function checkForUpdates() {
             changes = stdout.split('\n').filter(line => line.trim());
         }
 
+        // Recuperar la versión remota desde el archivo version.json en la rama remota
+        let newVersion = '';
+        if (hasUpdates) {
+            try {
+                const { stdout } = await execPromise(`git show origin/main:version.json`, {
+                    cwd: PROJECT_ROOT,
+                    shell: 'powershell.exe'
+                });
+                const remoteVersionData = JSON.parse(stdout);
+                newVersion = remoteVersionData.version || '';
+            } catch {
+                try {
+                    const { stdout } = await execPromise(`git show origin/master:version.json`, {
+                        cwd: PROJECT_ROOT,
+                        shell: 'powershell.exe'
+                    });
+                    const remoteVersionData = JSON.parse(stdout);
+                    newVersion = remoteVersionData.version || '';
+                } catch {
+                    newVersion = '';
+                }
+            }
+        }
+
         return {
             hasUpdates,
             currentCommit: currentCommit.trim().substring(0, 7),
             remoteCommit: remoteCommit.trim().substring(0, 7),
+            remoteVersion: newVersion,
             changes: changes.slice(0, 10)
         };
     } catch (error) {
@@ -596,7 +621,7 @@ exit /b 0
                 throw error2;
             }
         }
-        
+
         // 10. Marcar como completado
         await updateStatus('success', 'completed', 'Actualización completada. La aplicación se reiniciará en unos segundos...');
         await writeLog(`=== Update completed successfully ${updateId} ===`);
@@ -1000,13 +1025,6 @@ app.get('/api/files/paginated', verifyToken, async (req, res) => {
     });
 });
 
-// ─── MEJORA 4 ────────────────────────────────────────────────────────────────
-// Endpoint de descarga con soporte de Range requests (HTTP 206).
-// Esto permite:
-//  - Reanudar descargas interrumpidas sin empezar desde cero.
-//  - Hacer seek en reproductores de vídeo/audio sin descargar todo el fichero.
-//  - Reducir fallos en archivos grandes, ya que cada segmento es más pequeño.
-// ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/files/:id/download', async (req, res) => {
     const { embedded } = req.query;
     const [rows] = await connection.promise().query(
@@ -1782,6 +1800,7 @@ app.get('/api/update/check', verifyToken, async (req, res) => {
             success: true,
             data: {
                 ...updateInfo,
+                version: version,
                 currentStatus: status
             }
         });
@@ -1847,6 +1866,10 @@ app.post('/api/update/execute', verifyToken, async (req, res) => {
             error: err.message
         });
     }
+});
+
+app.get('/api/version', (req, res) => {
+    res.json({ version });
 });
 
 app.listen(port, () => {

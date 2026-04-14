@@ -30,6 +30,7 @@ export interface UpdateInfo {
         timestamp: string;
         lastUpdate: string | null;
     };
+    version: string;
 }
 
 @Injectable({
@@ -85,7 +86,8 @@ export class UpdateService {
                             currentCommit: '',
                             remoteCommit: '',
                             changes: [],
-                            currentStatus: response.data
+                            currentStatus: response.data,
+                            version: ''
                         };
 
                     this.updateStatusSubject.next(merged);
@@ -151,6 +153,13 @@ export class UpdateService {
         ).subscribe({
             error: err => {/*console.error('[UpdateService] Polling error:', err)*/ }
         });
+    }
+    
+    getVersion(): Observable<{ success: boolean; version: string }> {
+        return this.http.get<{ success: boolean; version: string }>(
+            `${this.API}/version`,
+            { headers: this.getHeaders() }
+        );
     }
 
     getUpdateStatusObservable(): BehaviorSubject<UpdateInfo | null> {
