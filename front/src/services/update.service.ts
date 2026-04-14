@@ -164,13 +164,6 @@ export class UpdateService {
         );
     }
 
-    getVersion(): Observable<{ success: boolean; version: string }> {
-        return this.http.get<{ success: boolean; version: string }>(
-            `${this.API}/version`,
-            { headers: this.getHeaders() }
-        );
-    }
-
     getUpdateStatusObservable(): BehaviorSubject<UpdateInfo | null> {
         return this.updateStatusSubject;
     }
