@@ -408,6 +408,32 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.cdr.markForCheck();
     }
 
+    handleUpdateButtonClick() {
+        // Si está actualizando, no hacer nada
+        if (this.isUpdating) {
+            return;
+        }
+
+        // Si hay error en la última verificación
+        if (this.updateInfo?.currentStatus?.error) {
+            this.checkForUpdates(); // Reintentar
+            return;
+        }
+
+        // Si hay actualizaciones disponibles
+        if (this.updateInfo?.hasUpdates) {
+            this.executeUpdate(); // Actualizar ahora
+            return;
+        }
+
+        // Si está actualizado o no hay información
+        this.checkForUpdates();
+        this.updateInfo = null; // Limpiar info para mostrar el spinner
+        this.updateService.clearStatus(); // Limpiar estado en el servicio para reiniciar el proceso
+        this.cdr.detectChanges();
+        this.cdr.markForCheck();
+    }
+
     openModal() {
         const modalRef = this.modalService.open(UserModalComponent, {
             title: 'Crear Nuevo Usuario',

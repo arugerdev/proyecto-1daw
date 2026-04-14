@@ -13,11 +13,13 @@
                         </p>
                     </div>
 
-                    <button (click)="executeUpdate()" class="button button-primary update-btn"
-                        [disabled]="isUpdating || (updateInfo && !updateInfo.hasUpdates)"
-                        [class.button-disabled]="isUpdating || (updateInfo && !updateInfo.hasUpdates)">
-                        <span *ngIf="!isUpdating">🔄 Actualizar Ahora</span>
-                        <span *ngIf="isUpdating">⚙️ Actualizando...</span>
+                    <button (click)="handleUpdateButtonClick()" class="button button-primary update-btn"
+                        [disabled]="isUpdating || !updateInfo" [class.button-disabled]="isUpdating">
+                        <span *ngIf="!isUpdating && !updateInfo">⚙️ Verificando...</span>
+                        <span *ngIf="!isUpdating && updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error">🔄Actualizar Ahora</span>
+                        <span *ngIf="!isUpdating && !updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error && updateInfo">🔍Verificar Actualización </span>
+                        <span *ngIf="!isUpdating && updateInfo?.currentStatus?.error">🔁 Reintentar</span>
+                        <span *ngIf="isUpdating && updateInfo?.currentStatus?.status === 'updating' && updateInfo?.currentStatus?.message">⚙️ {{ updateInfo?.currentStatus?.message }}</span>
                     </button>
                 </div>
 
@@ -49,7 +51,8 @@
                         <span class="version-label">Nueva versión:</span>
                         <span class="version-value version-new">{{ updateInfo.remoteCommit }}</span>
                     </div>
-                    <div class="version-row" *ngIf="!updateInfo.hasUpdates && updateInfo?.currentStatus && updateInfo?.currentStatus?.lastUpdate">
+                    <div class="version-row"
+                        *ngIf="!updateInfo.hasUpdates && updateInfo?.currentStatus && updateInfo?.currentStatus?.lastUpdate">
                         <span class="version-label">Última actualización:</span>
                         <span class="version-value">{{ updateInfo?.currentStatus?.lastUpdate | date:'medium' }}</span>
                     </div>
@@ -68,6 +71,7 @@
         </div>
     </div>
 
+    <!-- Resto del template existente... -->
     <!-- SECCIÓN DE USUARIOS -->
     <div class="users-section">
         <div class="users-container">
