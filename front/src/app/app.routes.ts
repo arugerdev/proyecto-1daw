@@ -16,7 +16,7 @@ export const routes: Routes = [
     {
         path: 'dashboard',
         component: DashboardPage,
-        canActivate: [authGuard, roleGuard(['admin'])]
+        canActivate: [authGuard, roleGuard()]
     },
     {
         path: 'login',

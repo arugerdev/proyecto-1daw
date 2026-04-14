@@ -30,10 +30,17 @@ export class DashboardPage implements OnInit, OnDestroy {
     updateInfo: UpdateInfo | null = null;
     isUpdating = false;
     updateSubscription: Subscription | null = null;
-    showUpdateSection = false; // Solo para owner
     appVersion: string = 'desconocida';
     versionLoaded = false;
-    currentUserId: number | null = null;
+
+
+    // A partir de ahora se utilizara authService para verificar permisos en lugar de currentUserId y showUpdateSection
+
+    canManageUsers = false;
+    canPerformUpdates = false;
+    canViewAllUsers = false;
+
+    currentUserId: number | null = null; // Para saber cual es el usuario actual y evitar que se elimine a sí mismo
 
     constructor(
         private modalService: ModalService,
@@ -48,6 +55,39 @@ export class DashboardPage implements OnInit, OnDestroy {
         // Cargar versión inmediatamente (antes que cualquier otra cosa)
         this.loadVersion();
 
+        this.auth.refreshUserRole().subscribe(() => {
+            const currentUser = this.auth.getCurrentUser();
+            this.currentUserId = currentUser?.id_user || null;
+
+            this.canManageUsers = this.auth.hasPermission('canManageUsers');
+            this.canPerformUpdates = this.auth.hasPermission('canPerformUpdates');
+            this.canViewAllUsers = this.auth.hasPermission('canViewAllUsers');
+
+            if (this.canPerformUpdates) {
+
+                // Esperar a que la versión se cargue antes de verificar actualizaciones
+                // pero no bloquear la UI
+                this.waitForVersionAndCheckUpdates();
+
+                this.cdr.detectChanges();
+                this.cdr.markForCheck();
+
+                // Suscribirse a cambios de estado
+                this.updateSubscription = this.updateService.getUpdateStatusObservable()
+                    .subscribe(updateInfo => {
+                        if (updateInfo) {
+                            this.updateInfo = updateInfo;
+                            this.isUpdating = updateInfo.currentStatus.status === 'updating';
+                            this.cdr.detectChanges();
+                            this.cdr.markForCheck();
+                        }
+                    });
+            }
+        });
+
+        this.cdr.detectChanges();
+        this.cdr.markForCheck();
+
         this.auth.getAllUsers().subscribe(users => {
             this.users = users;
             this.cdr.detectChanges();
@@ -56,30 +96,6 @@ export class DashboardPage implements OnInit, OnDestroy {
 
         this.loadLocations();
 
-        const currentUser = this.auth.getCurrentUser();
-        this.currentUserId = currentUser?.id_user || null;
-
-        if (currentUser && currentUser.id_user === 1) {
-            this.showUpdateSection = true;
-            
-            // Esperar a que la versión se cargue antes de verificar actualizaciones
-            // pero no bloquear la UI
-            this.waitForVersionAndCheckUpdates();
-            
-            this.cdr.detectChanges();
-            this.cdr.markForCheck();
-
-            // Suscribirse a cambios de estado
-            this.updateSubscription = this.updateService.getUpdateStatusObservable()
-                .subscribe(updateInfo => {
-                    if (updateInfo) {
-                        this.updateInfo = updateInfo;
-                        this.isUpdating = updateInfo.currentStatus.status === 'updating';
-                        this.cdr.detectChanges();
-                        this.cdr.markForCheck();
-                    }
-                });
-        }
     }
 
     ngOnDestroy() {
@@ -107,7 +123,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         });
 
         timer(2000, 5000).pipe(
-            takeWhile(() => !this.versionLoaded && this.showUpdateSection),
+            takeWhile(() => !this.versionLoaded && this.canPerformUpdates),
             switchMap(() => this.updateService.getVersion().pipe(catchError(() => of(null))))
         ).subscribe(response => {
             if (response && !this.versionLoaded) {

@@ -2,7 +2,7 @@
     <app-header style="width: 100%;"></app-header>
 
     <!-- SECCIÓN DE ACTUALIZACIÓN (SOLO OWNER) -->
-    <div class="update-section" *ngIf="showUpdateSection">
+    <div class="update-section" *ngIf="canPerformUpdates">
         <div class="update-container">
             <div class="card update-card">
                 <div class="update-header">
@@ -255,7 +255,7 @@
         </div>
     </div>
 
-    <footer class="app-footer" *ngIf="showUpdateSection">
+    <footer class="app-footer" *ngIf="canPerformUpdates">
         <div class="footer-content">
             <div class="version-info">
                 <span class="version-badge">📦 App Version</span>
