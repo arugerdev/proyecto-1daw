@@ -201,74 +201,96 @@ async function getCurrentStatus() {
 }
 
 // Función para verificar si hay actualizaciones disponibles en la rama específica
+// Función mejorada para verificar actualizaciones
 async function checkForUpdates() {
     try {
         await writeLog(`Checking for updates on branch: ${TARGET_BRANCH}`);
 
+        // Verificar si estamos en un repositorio Git
+        try {
+            await execPromise('git rev-parse --git-dir', { cwd: PROJECT_ROOT });
+        } catch (error) {
+            throw new Error('Not a git repository. Cannot perform updates.');
+        }
+
         // Obtener el commit actual
         const { stdout: currentCommit } = await execPromise('git rev-parse HEAD', {
-            cwd: PROJECT_ROOT,
-            shell: 'powershell.exe'
+            cwd: PROJECT_ROOT
         });
 
-        // Fetch los últimos cambios
-        await execPromise('git fetch origin', {
-            cwd: PROJECT_ROOT,
-            shell: 'powershell.exe'
+        // Fetch los últimos cambios (sin shell específico)
+        await execPromise('git fetch origin --prune', {
+            cwd: PROJECT_ROOT
         });
 
-        // Obtener el commit de la rama remota específica
-        let remoteCommit;
-        let remoteBranch = TARGET_BRANCH;
-        
+        // Verificar si la rama existe localmente
+        let localBranchExists = false;
         try {
-            const { stdout } = await execPromise(`git rev-parse origin/${remoteBranch}`, {
-                cwd: PROJECT_ROOT,
-                shell: 'powershell.exe'
+            await execPromise(`git rev-parse --verify ${TARGET_BRANCH}`, {
+                cwd: PROJECT_ROOT
             });
-            remoteCommit = stdout;
+            localBranchExists = true;
         } catch (error) {
-            // Si la rama no existe, intentar con nombres alternativos
-            if (remoteBranch === 'main') {
-                try {
-                    const { stdout } = await execPromise('git rev-parse origin/master', {
-                        cwd: PROJECT_ROOT,
-                        shell: 'powershell.exe'
-                    });
-                    remoteCommit = stdout;
-                    remoteBranch = 'master';
-                } catch {
-                    throw new Error(`Branch ${remoteBranch} not found in remote`);
-                }
-            } else {
-                throw error;
+            await writeLog(`Local branch ${TARGET_BRANCH} does not exist`, 'WARN');
+        }
+
+        // Verificar si la rama existe en remoto
+        let remoteBranchExists = false;
+        let remoteCommit = '';
+        let actualRemoteBranch = TARGET_BRANCH;
+        
+        // Lista de posibles nombres de rama para probar
+        const possibleBranches = [TARGET_BRANCH];
+        if (TARGET_BRANCH === 'main') {
+            possibleBranches.push('master');
+        } else if (TARGET_BRANCH === 'develop') {
+            possibleBranches.push('dev', 'development');
+        }
+        
+        for (const branch of possibleBranches) {
+            try {
+                const { stdout } = await execPromise(`git rev-parse origin/${branch}`, {
+                    cwd: PROJECT_ROOT
+                });
+                remoteCommit = stdout;
+                remoteBranchExists = true;
+                actualRemoteBranch = branch;
+                break;
+            } catch (error) {
+                // Continuar con la siguiente rama
             }
+        }
+        
+        if (!remoteBranchExists) {
+            throw new Error(`No remote branch found. Tried: ${possibleBranches.join(', ')}`);
         }
 
         const hasUpdates = currentCommit.trim() !== remoteCommit.trim();
 
         // Obtener información de los cambios
         let changes = [];
-        if (hasUpdates) {
-            const { stdout } = await execPromise(`git log ${currentCommit.trim()}..${remoteCommit.trim()} --oneline`, {
-                cwd: PROJECT_ROOT,
-                shell: 'powershell.exe'
-            });
-            changes = stdout.split('\n').filter(line => line.trim());
+        if (hasUpdates && localBranchExists) {
+            try {
+                const { stdout } = await execPromise(`git log ${currentCommit.trim()}..origin/${actualRemoteBranch} --oneline`, {
+                    cwd: PROJECT_ROOT
+                });
+                changes = stdout.split('\n').filter(line => line.trim());
+            } catch (error) {
+                await writeLog(`Could not get change log: ${error.message}`, 'WARN');
+            }
         }
 
-        // Recuperar la versión remota desde el archivo version.json en la rama específica
+        // Recuperar la versión remota
         let newVersion = '';
         if (hasUpdates) {
             try {
-                const { stdout } = await execPromise(`git show origin/${remoteBranch}:version.json`, {
-                    cwd: PROJECT_ROOT,
-                    shell: 'powershell.exe'
+                const { stdout } = await execPromise(`git show origin/${actualRemoteBranch}:version.json`, {
+                    cwd: PROJECT_ROOT
                 });
                 const remoteVersionData = JSON.parse(stdout);
                 newVersion = remoteVersionData.version || '';
-            } catch {
-                newVersion = '';
+            } catch (error) {
+                await writeLog(`Could not read remote version.json: ${error.message}`, 'WARN');
             }
         }
 
@@ -278,7 +300,7 @@ async function checkForUpdates() {
             remoteCommit: remoteCommit.trim().substring(0, 7),
             remoteVersion: newVersion,
             changes: changes.slice(0, 10),
-            branch: remoteBranch,
+            branch: actualRemoteBranch,
             environment: NODE_ENV
         };
     } catch (error) {
@@ -286,6 +308,7 @@ async function checkForUpdates() {
         throw error;
     }
 }
+
 
 // Función para reiniciar la aplicación usando scripts batch específicos por entorno
 async function restartApp() {
@@ -344,7 +367,7 @@ async function restartApp() {
     }
 }
 
-// Función principal de actualización - adaptada para trabajar con la rama específica
+// Función principal de actualización mejorada
 async function performUpdate() {
     const updateId = Date.now();
     await writeLog(`=== Starting update process ${updateId} for ${NODE_ENV} (branch: ${TARGET_BRANCH}) ===`);
@@ -361,63 +384,61 @@ async function performUpdate() {
         }
 
         await updateStatus('updating', 'fetching', 'Descargando cambios desde GitHub...');
-        await writeLog('Step 2: Fetching changes from GitHub');
-        await execPromise('git fetch origin', {
-            cwd: PROJECT_ROOT,
-            shell: 'powershell.exe'
-        });
-
-        await updateStatus('updating', 'stashing', 'Guardando cambios locales temporales...');
-        await writeLog('Step 3: Stashing local changes');
+        await writeLog('Step 2: Fetching latest changes');
+        
+        // Hacer fetch y reset hard para asegurar que estamos actualizados
+        await execPromise('git fetch origin', { cwd: PROJECT_ROOT });
+        
+        // Guardar cambios locales si existen
+        let hasStashed = false;
         try {
-            await execPromise('git stash push -m "Auto-stash before update"', {
-                cwd: PROJECT_ROOT,
-                shell: 'powershell.exe'
-            });
+            const { stdout: statusOutput } = await execPromise('git status --porcelain', { cwd: PROJECT_ROOT });
+            if (statusOutput.trim()) {
+                await writeLog('Local changes detected, stashing...');
+                await execPromise('git stash push -u -m "Auto-stash before update"', { cwd: PROJECT_ROOT });
+                hasStashed = true;
+            }
         } catch (error) {
-            await writeLog('No changes to stash or stash failed', 'WARN');
+            await writeLog(`No changes to stash or stash failed: ${error.message}`, 'WARN');
         }
 
         await updateStatus('updating', 'updating', `Actualizando código desde GitHub (${updateInfo.branch})...`);
-        await writeLog(`Step 4: Pulling changes from ${updateInfo.branch}`);
+        await writeLog(`Step 3: Resetting to origin/${updateInfo.branch}`);
 
-        let pullSuccess = false;
+        // Hacer reset hard en lugar de pull para evitar problemas de merge
         try {
-            await execPromise(`git pull origin ${updateInfo.branch}`, {
-                cwd: PROJECT_ROOT,
-                shell: 'powershell.exe'
+            await execPromise(`git reset --hard origin/${updateInfo.branch}`, {
+                cwd: PROJECT_ROOT
             });
-            pullSuccess = true;
+            await writeLog(`Successfully reset to origin/${updateInfo.branch}`);
         } catch (pullError) {
-            await writeLog(`Pull failed: ${pullError.message}`, 'ERROR');
-        }
-
-        if (!pullSuccess) {
-            throw new Error(`Failed to pull changes from ${updateInfo.branch}`);
+            await writeLog(`Reset failed: ${pullError.message}`, 'ERROR');
+            throw new Error(`Failed to update to ${updateInfo.branch}: ${pullError.message}`);
         }
 
         await updateStatus('updating', 'installing', 'Instalando dependencias...');
-        await writeLog('Step 5: Installing dependencies');
+        await writeLog('Step 4: Installing dependencies');
 
         const apiDir = path.join(PROJECT_ROOT, 'api');
         const frontDir = path.join(PROJECT_ROOT, 'front');
 
+        // Instalar dependencias solo si los directorios existen
         if (fs.existsSync(apiDir)) {
-            await execPromise('npm install', {
-                cwd: apiDir,
-                shell: 'powershell.exe'
+            await writeLog('Installing API dependencies...');
+            await execPromise('npm install --production=false', {
+                cwd: apiDir
             });
         }
 
         if (fs.existsSync(frontDir)) {
-            await execPromise('npm install', {
-                cwd: frontDir,
-                shell: 'powershell.exe'
+            await writeLog('Installing Frontend dependencies...');
+            await execPromise('npm install --production=false', {
+                cwd: frontDir
             });
         }
 
         await updateStatus('updating', 'migrations', 'Ejecutando migraciones de base de datos...');
-        await writeLog('Step 6: Running migrations');
+        await writeLog('Step 5: Running migrations');
         
         const migrationsPath = path.join(PROJECT_ROOT, 'db', `migrations-${NODE_ENV}.sql`);
         const defaultMigrationsPath = path.join(PROJECT_ROOT, 'db', 'migrations.sql');
@@ -425,142 +446,45 @@ async function performUpdate() {
         try {
             const migrationsFile = fs.existsSync(migrationsPath) ? migrationsPath : defaultMigrationsPath;
             if (fs.existsSync(migrationsFile)) {
-                const migrationsContent = fs.readFileSync(migrationsFile, 'utf8');
-                await connection.promise().query(migrationsContent);
+                const migrationsContent = await fs.promises.readFile(migrationsFile, 'utf8');
+                // Dividir las migraciones por punto y coma, ejecutando cada una individualmente
+                const statements = migrationsContent.split(';').filter(stmt => stmt.trim());
+                for (const statement of statements) {
+                    if (statement.trim()) {
+                        await connection.promise().query(statement);
+                    }
+                }
                 await writeLog('Database migrations executed successfully');
             } else {
                 await writeLog('No migrations file found', 'WARN');
             }
         } catch (error) {
             await writeLog(`Migration error: ${error.message}`, 'ERROR');
+            // No detenemos la actualización por errores de migración
         }
 
-        await updateStatus('updating', 'restoring', 'Restaurando cambios locales...');
-        await writeLog('Step 7: Restoring stashed changes');
-        try {
-            await execPromise('git stash pop', {
-                cwd: PROJECT_ROOT,
-                shell: 'powershell.exe'
-            });
-        } catch (error) {
-            await writeLog('No stashed changes to restore', 'WARN');
-        }
-
-        await updateStatus('updating', 'preparing-restart', 'Preparando reinicio...');
-        await writeLog('Step 8: Creating restart script');
-
-        const restartScriptPath = path.join(logsDir, `restart-after-update-${NODE_ENV}.bat`);
-        const restartLogPath = path.join(logsDir, `restart-${NODE_ENV}.log`);
-
-        const escapedProjectRoot = PROJECT_ROOT.replace(/\\/g, '\\\\');
-        const escapedRestartLogPath = restartLogPath.replace(/\\/g, '\\\\');
-        const taskPrefix = NODE_ENV === 'production' ? 't_' : 't_dev_';
-
-        const restartScriptContent = `@echo off
-setlocal enabledelayedexpansion
-
-echo [%date% %time%] ========================================== >> "${restartLogPath}"
-echo [%date% %time%] Iniciando script de reinicio post-actualizacion >> "${restartLogPath}"
-echo [%date% %time%] Entorno: ${NODE_ENV} >> "${restartLogPath}"
-echo [%date% %time%] Rama: ${TARGET_BRANCH} >> "${restartLogPath}"
-echo [%date% %time%] ========================================== >> "${restartLogPath}"
-
-set "PROJECT_ROOT=${escapedProjectRoot}"
-echo [%date% %time%] Project Root: !PROJECT_ROOT! >> "${restartLogPath}"
-
-echo [%date% %time%] Esperando 5 segundos... >> "${restartLogPath}"
-timeout /t 5 /nobreak > nul
-
-set "API_TASK=${taskPrefix}api"
-set "FRONT_TASK=${taskPrefix}front"
-
-echo [%date% %time%] API Task: !API_TASK! >> "${restartLogPath}"
-echo [%date% %time%] Front Task: !FRONT_TASK! >> "${restartLogPath}"
-
-schtasks /query /tn "!API_TASK!" > nul 2>&1
-if errorlevel 1 (
-    echo [%date% %time%] ERROR: Tarea !API_TASK! no encontrada >> "${restartLogPath}"
-) else (
-    echo [%date% %time%] Tarea !API_TASK! encontrada >> "${restartLogPath}"
-)
-
-schtasks /query /tn "!FRONT_TASK!" > nul 2>&1
-if errorlevel 1 (
-    echo [%date% %time%] ERROR: Tarea !FRONT_TASK! no encontrada >> "${restartLogPath}"
-) else (
-    echo [%date% %time%] Tarea !FRONT_TASK! encontrada >> "${restartLogPath}"
-)
-
-echo [%date% %time%] Deteniendo tareas programadas... >> "${restartLogPath}"
-schtasks /end /tn "!API_TASK!" >> "${restartLogPath}" 2>&1
-schtasks /end /tn "!FRONT_TASK!" >> "${restartLogPath}" 2>&1
-
-echo [%date% %time%] Esperando 3 segundos... >> "${restartLogPath}"
-timeout /t 3 /nobreak > nul
-
-echo [%date% %time%] Limpiando procesos Node.js remanentes... >> "${restartLogPath}"
-taskkill /F /IM node.exe >> "${restartLogPath}" 2>&1
-
-timeout /t 2 /nobreak > nul
-
-echo [%date% %time%] Iniciando tareas programadas... >> "${restartLogPath}"
-schtasks /run /tn "!API_TASK!" >> "${restartLogPath}" 2>&1
-if errorlevel 1 (
-    echo [%date% %time%] ERROR: No se pudo iniciar !API_TASK! >> "${restartLogPath}"
-) else (
-    echo [%date% %time%] !API_TASK! iniciada correctamente >> "${restartLogPath}"
-)
-
-schtasks /run /tn "!FRONT_TASK!" >> "${restartLogPath}" 2>&1
-if errorlevel 1 (
-    echo [%date% %time%] ERROR: No se pudo iniciar !FRONT_TASK! >> "${restartLogPath}"
-) else (
-    echo [%date% %time%] !FRONT_TASK! iniciada correctamente >> "${restartLogPath}"
-)
-
-echo [%date% %time%] Verificando procesos... >> "${restartLogPath}"
-timeout /t 3 /nobreak > nul
-tasklist /FI "IMAGENAME eq node.exe" >> "${restartLogPath}" 2>&1
-
-echo [%date% %time%] ========================================== >> "${restartLogPath}"
-echo [%date% %time%] Reinicio completado >> "${restartLogPath}"
-echo [%date% %time%] ========================================== >> "${restartLogPath}"
-
-exit /b 0
-`;
-
-        try {
-            await fs.promises.writeFile(restartScriptPath, restartScriptContent, 'utf8');
-            await writeLog(`Restart script created successfully at: ${restartScriptPath}`);
-        } catch (error) {
-            await writeLog(`Failed to create restart script: ${error.message}`, 'ERROR');
-            throw error;
-        }
-
-        await updateStatus('updating', 'scheduling-restart', 'Programando reinicio...');
-        await writeLog('Step 9: Scheduling restart');
-
-        if (!fs.existsSync(restartScriptPath)) {
-            throw new Error(`Restart script not found at: ${restartScriptPath}`);
-        }
-
-        const { spawn } = require('child_process');
-
-        try {
-            const restartProcess = spawn('cmd.exe', ['/c', 'start', '/min', 'cmd.exe', '/c', restartScriptPath], {
-                detached: true,
-                stdio: 'ignore',
-                shell: true
-            });
-            restartProcess.unref();
-            await writeLog(`Restart script executed (PID: ${restartProcess.pid})`);
-        } catch (error) {
-            await writeLog(`Failed to execute restart script: ${error.message}`, 'ERROR');
-            throw error;
+        // Restaurar cambios guardados si existían
+        if (hasStashed) {
+            await updateStatus('updating', 'restoring', 'Restaurando cambios locales...');
+            await writeLog('Step 6: Restoring stashed changes');
+            try {
+                await execPromise('git stash pop', {
+                    cwd: PROJECT_ROOT
+                });
+                await writeLog('Stashed changes restored successfully');
+            } catch (error) {
+                await writeLog(`Could not restore stashed changes: ${error.message}`, 'WARN');
+            }
         }
 
         await updateStatus('success', 'completed', 'Actualización completada. La aplicación se reiniciará en unos segundos...');
         await writeLog(`=== Update completed successfully ${updateId} ===`);
+
+        // Programar reinicio después de la actualización
+        setTimeout(async () => {
+            await writeLog('Initiating application restart...');
+            await restartApp();
+        }, 3000);
 
         return {
             success: true,
@@ -573,15 +497,6 @@ exit /b 0
     } catch (error) {
         await writeLog(`=== Update failed ${updateId}: ${error.message} ===`, 'ERROR');
         await updateStatus('error', 'failed', 'Error durante la actualización', error.message);
-
-        try {
-            await execPromise('git stash pop', {
-                cwd: PROJECT_ROOT,
-                shell: 'powershell.exe'
-            }).catch(() => { });
-        } catch (restoreError) {
-            await writeLog(`Error restoring state: ${restoreError.message}`, 'ERROR');
-        }
 
         return {
             success: false,
