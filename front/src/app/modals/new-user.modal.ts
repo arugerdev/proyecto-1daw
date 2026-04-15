@@ -75,7 +75,7 @@ import { AuthService } from '../../services/auth.service';
                 </small>
             </div>
 
-            <div class="form-group" *ngIf="userData.id !== 1">
+            <div class="form-group" *ngIf="userData.id !== 1 && userData.id !== 2">
                 <label class="form-label" for="role">Rol de Usuario</label>
                 <select 
                     id="role" 

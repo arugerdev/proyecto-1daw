@@ -12,6 +12,10 @@ export interface UserPermissions {
     canDownload: boolean;
     canManageUsers: boolean;
     canViewAllContent: boolean;
+    canAccessAdminPanel: boolean;
+    canPerformUpdates: boolean;
+    canViewLogs: boolean;
+    canViewAllUsers: boolean;
     role: string;
     level: number;
 }
@@ -121,6 +125,9 @@ export class AuthService {
     }
 
     getCurrentUser(): UserData | null {
+        // En vez de confiar solo en el almacenamiento local, primero verificamos con el token de sesion si es el usuario actual (localStorage.id === basededatos.id_user) y refrescamos su rol y permisos para evitar inconsistencias. Si no hay sesión válida, devolvemos null.
+        this.loadUserFromStorage();
+
         if (this.currentUser) {
             return this.currentUser;
         }
@@ -167,6 +174,10 @@ export class AuthService {
 
     isAdmin(): boolean {
         return this.hasRole('admin');
+    }
+
+    isOwner(): boolean {
+        return this.hasRole('owner');
     }
 
     isModerator(): boolean {

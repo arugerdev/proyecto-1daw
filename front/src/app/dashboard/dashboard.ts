@@ -30,9 +30,17 @@ export class DashboardPage implements OnInit, OnDestroy {
     updateInfo: UpdateInfo | null = null;
     isUpdating = false;
     updateSubscription: Subscription | null = null;
-    showUpdateSection = false; // Solo para owner
     appVersion: string = 'desconocida';
     versionLoaded = false;
+
+
+    // A partir de ahora se utilizara authService para verificar permisos en lugar de currentUserId y showUpdateSection
+
+    canManageUsers = false;
+    canPerformUpdates = false;
+    canViewAllUsers = false;
+
+    currentUserId: number | null = null; // Para saber cual es el usuario actual y evitar que se elimine a sí mismo
 
     constructor(
         private modalService: ModalService,
@@ -47,6 +55,39 @@ export class DashboardPage implements OnInit, OnDestroy {
         // Cargar versión inmediatamente (antes que cualquier otra cosa)
         this.loadVersion();
 
+        this.auth.refreshUserRole().subscribe(() => {
+            const currentUser = this.auth.getCurrentUser();
+            this.currentUserId = currentUser?.id_user || null;
+
+            this.canManageUsers = this.auth.hasPermission('canManageUsers');
+            this.canPerformUpdates = this.auth.hasPermission('canPerformUpdates');
+            this.canViewAllUsers = this.auth.hasPermission('canViewAllUsers');
+
+            if (this.canPerformUpdates) {
+
+                // Esperar a que la versión se cargue antes de verificar actualizaciones
+                // pero no bloquear la UI
+                this.waitForVersionAndCheckUpdates();
+
+                this.cdr.detectChanges();
+                this.cdr.markForCheck();
+
+                // Suscribirse a cambios de estado
+                this.updateSubscription = this.updateService.getUpdateStatusObservable()
+                    .subscribe(updateInfo => {
+                        if (updateInfo) {
+                            this.updateInfo = updateInfo;
+                            this.isUpdating = updateInfo.currentStatus.status === 'updating';
+                            this.cdr.detectChanges();
+                            this.cdr.markForCheck();
+                        }
+                    });
+            }
+        });
+
+        this.cdr.detectChanges();
+        this.cdr.markForCheck();
+
         this.auth.getAllUsers().subscribe(users => {
             this.users = users;
             this.cdr.detectChanges();
@@ -55,28 +96,6 @@ export class DashboardPage implements OnInit, OnDestroy {
 
         this.loadLocations();
 
-        const currentUser = this.auth.getCurrentUser();
-        if (currentUser && currentUser.id_user === 1) {
-            this.showUpdateSection = true;
-            
-            // Esperar a que la versión se cargue antes de verificar actualizaciones
-            // pero no bloquear la UI
-            this.waitForVersionAndCheckUpdates();
-            
-            this.cdr.detectChanges();
-            this.cdr.markForCheck();
-
-            // Suscribirse a cambios de estado
-            this.updateSubscription = this.updateService.getUpdateStatusObservable()
-                .subscribe(updateInfo => {
-                    if (updateInfo) {
-                        this.updateInfo = updateInfo;
-                        this.isUpdating = updateInfo.currentStatus.status === 'updating';
-                        this.cdr.detectChanges();
-                        this.cdr.markForCheck();
-                    }
-                });
-        }
     }
 
     ngOnDestroy() {
@@ -85,12 +104,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         }
     }
 
-    // ===========================
-    // NUEVO: CARGAR VERSIÓN LO ANTES POSIBLE
-    // ===========================
-    
     loadVersion() {
-        // Intento 1: Obtener versión directamente del endpoint
         this.updateService.getVersion().subscribe({
             next: (response) => {
                 this.appVersion = response.version;
@@ -100,7 +114,6 @@ export class DashboardPage implements OnInit, OnDestroy {
             },
             error: (error) => {
                 console.warn('Error loading version from API, using fallback:', error);
-                // Si falla, intentar obtener de updateInfo si existe
                 if (this.updateInfo?.version) {
                     this.appVersion = this.updateInfo.version;
                 }
@@ -109,9 +122,8 @@ export class DashboardPage implements OnInit, OnDestroy {
             }
         });
 
-        // Intento 2: También intentar cada 2 segundos por si el endpoint no está listo
         timer(2000, 5000).pipe(
-            takeWhile(() => !this.versionLoaded && this.showUpdateSection),
+            takeWhile(() => !this.versionLoaded && this.canPerformUpdates),
             switchMap(() => this.updateService.getVersion().pipe(catchError(() => of(null))))
         ).subscribe(response => {
             if (response && !this.versionLoaded) {
@@ -135,10 +147,6 @@ export class DashboardPage implements OnInit, OnDestroy {
             }
         }, 100);
     }
-
-    // ===========================
-    // MÉTODOS DE ACTUALIZACIÓN
-    // ===========================
 
     checkForUpdates() {
         this.updateService.checkForUpdates().subscribe({
@@ -214,7 +222,6 @@ export class DashboardPage implements OnInit, OnDestroy {
         });
     }
 
-    // Getters para el template
     get hasChangesToShow(): boolean {
         return !!(this.updateInfo?.hasUpdates &&
             this.updateInfo?.changes &&
@@ -257,10 +264,6 @@ export class DashboardPage implements OnInit, OnDestroy {
             default: return 'status-idle';
         }
     }
-
-    // ===========================
-    // MÉTODOS EXISTENTES (sin cambios)
-    // ===========================
 
     loadLocations() {
         this.file.getMediaLocations().subscribe(data => {
