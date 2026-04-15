@@ -20,13 +20,13 @@ export class Header {
     // Si no tenemos el rol suficiente hay que quitar el boton
 
     // Vamos a hacerlo obteniendo el rol de la base de datos para evitar dependencia del cliente.
-    canManageUsers = false;
+    canAccessAdminPanel = false;
     subRoute = false;
 
     ngOnInit() {
         this.subRoute = this.router.url != '/'
 
-        this.canManageUsers = this.auth.hasPermission('canManageUsers')
+        this.canAccessAdminPanel = this.auth.hasPermission('canAccessAdminPanel')
         this.cdr.markForCheck();
     }
 

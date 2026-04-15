@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     contrasena VARCHAR(255),
     CHECK (CHAR_LENGTH(contrasena) >= 4),
     rol VARCHAR(30) DEFAULT "viewer",
-    CHECK (rol IN ("admin", "moderator", "viewer"))
+    CHECK (rol IN ("owner", "admin", "moderator", "viewer"))
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -59,7 +59,7 @@ VALUES (
     1,
     "owner", 
     "$2a$12$fuMNGmEML8OKjv4/S2Fg9O9WwztFRFrQoZncVjFtb7LgE.XK031Cu", 
-    "admin"
+    "owner"
 );
 INSERT INTO users (id_user, nombre, contrasena, rol) 
 VALUES (

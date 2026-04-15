@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { map, catchError, of } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 
-export const roleGuard = (allowedRoles: string[]): CanActivateFn => {
+export const roleGuard = (): CanActivateFn => {
     return (route: ActivatedRouteSnapshot, state: RouterStateSnapshot) => {
 
         const authService = inject(AuthService);
@@ -18,18 +18,18 @@ export const roleGuard = (allowedRoles: string[]): CanActivateFn => {
             return false;
         }
 
-        // Obtener el rol del usuario
-        const userRole = authService.getRole();
+        // Obtener el permiso requerido del route data
+        const canAccessAdminPanel = authService.hasPermission('canAccessAdminPanel');
 
         // Verificar si el rol está en los permitidos
-        if (userRole && allowedRoles.includes(userRole)) {
+        if (canAccessAdminPanel) {
             return true;
         }
 
         // Si no tiene el rol, refrescar desde el backend por si cambió
         return authService.refreshUserRole().pipe(
             map(user => {
-                if (user && allowedRoles.includes(user.rol)) {
+                if (user && canAccessAdminPanel) {
                     return true;
                 }
 

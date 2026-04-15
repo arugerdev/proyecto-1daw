@@ -683,33 +683,65 @@ main .main {
 }
 
 .loader {
-  box-sizing: border-box;
-  position: relative;
-  width: 1.5ch;
-  height: 1.5ch;
-  animation: spin 1s linear infinite;
-  font-size: 25px;
+    box-sizing: border-box;
+    position: relative;
+    width: 1.5ch;
+    height: 1.5ch;
+    animation: spin 1s linear infinite;
+    font-size: 25px;
 }
-.loader:after, .loader:before {
-  content: "";
-  width: 0.75ch;
-  height: 0.75ch;
-  position: absolute;
-  border-radius: 50%;
-  background: #FF3D00;
-  animation: spin 1s linear infinite;
-  transform-origin: 0px 100%;
-}
+
+.loader:after,
 .loader:before {
-  transform-origin: 0 50%;
-  background: #fff;
+    content: "";
+    width: 0.75ch;
+    height: 0.75ch;
+    position: absolute;
+    border-radius: 50%;
+    background: #FF3D00;
+    animation: spin 1s linear infinite;
+    transform-origin: 0px 100%;
 }
+
+.loader:before {
+    transform-origin: 0 50%;
+    background: #fff;
+}
+
+.users-table-row-highlight {
+    background: rgba(116, 255, 151, 0.2);
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    text-align: center;
+    white-space: nowrap;
+    margin-left: 8px;
+    margin-right: 8px;
+    font-weight: extra-bold;
+    font-family: monospace;
+}
+
+.badge-actual-user {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.badge-owner {
+    background: #10b981;
+    color: #ffffff;
+
+}
+
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+    to {
+        transform: rotate(360deg);
+    }
 }
-    
+
 
 @media (max-width: 768px) {
     .update-section {
