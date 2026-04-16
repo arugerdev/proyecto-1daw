@@ -30,19 +30,8 @@ const app = express()
 
 app.use(express.json());
 
-// ─── CORS FIX ────────────────────────────────────────────────────────────────
-// `origin: '*'` con `credentials: true` viola la spec CORS.
-// Cuando Angular envía el header Authorization (credencial), el browser exige
-// que el servidor responda con el origin exacto del cliente, no con '*'.
-// Si responde '*', el browser bloquea la respuesta → status 0 / ERR_FAILED.
-// Solución: reflejar el origin de la petición de vuelta al cliente.
-// ─────────────────────────────────────────────────────────────────────────────
 app.use(cors({
-    origin: function (origin, callback) {
-        // Permite peticiones sin origin (curl, Postman, server-to-server)
-        // y refleja el origin exacto del cliente en el resto de casos.
-        callback(null, origin || '*');
-    },
+    origin:'*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
     credentials: true,
