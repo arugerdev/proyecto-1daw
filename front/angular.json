@@ -71,7 +71,9 @@
             }
           },
           "defaultConfiguration": "development",
-          "allowedHosts": ["all", "localhost", "127.0.0.1", "ecijacomarca.rud1.es", "apiecijacomarca.rud1.es"]
+          "options": {
+            "allowedHosts": ["all", "localhost", "127.0.0.1", "ecijacomarca.rud1.es", "apiecijacomarca.rud1.es"]
+          }
         },
         "test": {
           "builder": "@angular/build:unit-test"
