@@ -1,25 +1,24 @@
 {
-  "name": "api",
-  "version": "1.0.0",
-  "description": "",
+  "name": "ecijacomarca-api",
+  "version": "2.0.0",
+  "description": "EcijaComarca Media Manager API",
   "license": "ISC",
-  "author": "",
   "type": "commonjs",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node main.js",
+    "dev": "node --watch main.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "csv-parse": "^5.6.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "ffmpeg-static": "^5.3.0",
-    "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.3",
     "mime-types": "^3.0.2",
     "multer": "^2.0.2",
-    "mysql2": "^3.17.1",
-    "path": "^0.12.7"
+    "mysql2": "^3.17.1"
   }
 }

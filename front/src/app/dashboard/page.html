@@ -1,270 +1,528 @@
-<main class="main" style="display: flex; flex-direction: column; padding: 0; margin: 0; height: 100%; padding: 1rem;">
-    <app-header style="width: 100%;"></app-header>
+<div class="min-h-screen bg-surface-900 flex">
 
-    <!-- SECCIÓN DE ACTUALIZACIÓN (SOLO OWNER) -->
-    <div class="update-section" *ngIf="canPerformUpdates">
-        <div class="update-container">
-            <div class="card update-card">
-                <div class="update-header">
-                    <div class="update-header-info">
-                        <h2 class="update-title">Actualización del Sistema</h2>
-                        <p class="update-description">
-                            Mantén tu aplicación actualizada con los últimos cambios del repositorio.
-                        </p>
-                    </div>
-
-                    <button (click)="handleUpdateButtonClick()" class="button button-primary update-btn"
-                        [disabled]="isUpdating || !updateInfo" [class.button-disabled]="isUpdating">
-                        <span *ngIf="!isUpdating && !updateInfo">Verificando</span>
-                        <span *ngIf="!isUpdating && !updateInfo" class="loader"></span>
-                        <!-- Actualiza ahora solo debe salir cuando no esta actualizando, cuando no hay errores, cuando se ha actualizado y cuando no hay actualizaciones pendientes -->
-                        <span
-                            *ngIf="!isUpdating && updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error">Actualizar
-                            Ahora</span>
-                        <span
-                            *ngIf="!isUpdating && !updateInfo?.hasUpdates && !updateInfo?.currentStatus?.error && updateInfo">🔍Verificar
-                            Actualización </span>
-                        <span *ngIf="!isUpdating && updateInfo?.currentStatus?.error">Reintentar</span>
-                        <span
-                            *ngIf="isUpdating && updateInfo?.currentStatus?.status === 'updating' && updateInfo?.currentStatus?.message">{{
-                            updateInfo?.currentStatus?.message }} <span class="loader"></span></span>
-                    </button>
-                </div>
-
-                <!-- Estado actual -->
-                <div class="update-status" [class]="getStatusClass()">
-                    <div class="status-icon">{{ getStatusIcon() }}</div>
-                    <div class="status-content">
-                        <div class="status-message">{{ currentStatus.message }}</div>
-                        <div class="status-step"
-                            *ngIf="currentStatus.step !== 'completed' && currentStatus.step !== 'none'">
-                            Paso: {{ currentStatus.step }}
-                        </div>
-                        <div class="status-error" *ngIf="currentStatus.error">
-                            Error: {{ currentStatus.error }}
-                        </div>
-                        <div class="status-timestamp">
-                            Última verificación: {{ currentStatus.timestamp | date:'medium' }}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Información de versión -->
-                <div class="update-version-info" *ngIf="updateInfo">
-                    <div class="version-row">
-                        <span class="version-label">Versión actual:</span>
-                        <span class="version-value">{{ appVersion || updateInfo?.version || 'desconocida' }}</span>
-                    </div>
-                    <div class="version-row" *ngIf="updateInfo.hasUpdates">
-                        <span class="version-label">Nueva versión:</span>
-                        <!-- Recuperar la versión remota -->
-                        <span class="version-value version-new">{{ updateInfo.remoteVersion }}</span>
-                    </div>
-                    <div class="version-row"
-                        *ngIf="!updateInfo.hasUpdates && updateInfo?.currentStatus && updateInfo?.currentStatus?.lastUpdate">
-                        <span class="version-label">Última actualización:</span>
-                        <span class="version-value">{{ updateInfo?.currentStatus?.lastUpdate | date:'medium' }}</span>
-                    </div>
-                </div>
-
-                <!-- Lista de cambios -->
-                <div class="update-changes" *ngIf="hasChangesToShow">
-                    <h3 class="changes-title">📝 Cambios disponibles:</h3>
-                    <ul class="changes-list">
-                        <li *ngFor="let change of changesList" class="change-item">
-                            {{ change }}
-                        </li>
-                    </ul>
-                </div>
-            </div>
+  <!-- Sidebar -->
+  <aside class="w-56 shrink-0 bg-surface-800 border-r border-surface-700 flex flex-col">
+    <div class="p-4 border-b border-surface-700">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 bg-primary-600 rounded-lg flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+          </svg>
         </div>
+        <span class="font-semibold text-surface-100 text-sm">EcijaComarca</span>
+      </div>
+      <p class="text-xs text-surface-500 mt-2">Panel de administración</p>
     </div>
 
-    <!-- Resto del template existente... -->
-    <!-- SECCIÓN DE USUARIOS -->
-    <div class="users-section">
-        <div class="users-container">
+    <nav class="flex-1 p-2 space-y-1">
+      <button *ngFor="let tab of visibleTabs"
+        (click)="activeTab = tab.id"
+        class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-left transition-colors"
+        [class.bg-primary-600]="activeTab === tab.id"
+        [class.text-white]="activeTab === tab.id"
+        [class.text-surface-400]="activeTab !== tab.id"
+        [class.hover:bg-surface-700]="activeTab !== tab.id"
+        [class.hover:text-surface-100]="activeTab !== tab.id">
+        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" [attr.d]="tab.icon"/>
+        </svg>
+        {{ tab.label }}
+      </button>
+    </nav>
 
-            <!-- Card de Usuarios -->
-            <div class="card users-card">
+    <div class="p-3 border-t border-surface-700 space-y-1">
+      <a routerLink="/" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-surface-400 hover:text-surface-100 hover:bg-surface-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        Volver al inicio
+      </a>
+      <button (click)="auth.logout()" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-surface-400 hover:text-red-400 hover:bg-surface-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Cerrar sesión
+      </button>
+    </div>
+  </aside>
 
-                <!-- Card Header -->
-                <div class="users-header">
-                    <div class="users-header-info">
-                        <h2 class="users-title">Usuarios del Sistema</h2>
-                        <p class="users-description">
-                            Gestiona el acceso y los roles de los usuarios registrados.
-                        </p>
-                    </div>
+  <!-- Main content -->
+  <main class="flex-1 overflow-auto p-6 min-w-0">
 
-                    <button (click)="openModal()" class="button button-primary users-create-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M5 12h14"></path>
-                            <path d="M12 5v14"></path>
-                        </svg>
-                        Crear Usuario
-                    </button>
-                </div>
-
-                <!-- Search -->
-                <div class="users-search">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="users-search-icon">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.3-4.3"></path>
-                    </svg>
-
-                    <input type="text" placeholder="Buscar por nombre o correo..." class="users-search-input">
-                </div>
-
-                <!-- Table -->
-                <div class="users-table-container">
-                    <table class="users-table">
-                        <thead class="users-table-header">
-                            <tr>
-                                <th class="users-table-th">Usuario</th>
-                                <th class="users-table-th">Rol</th>
-                                <th class="users-table-th text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="users-table-body">
-                            <!-- Mostrar los usuarios en la tabla -->
-                            <tr class="users-table-row" *ngFor="let user of users"
-                                [class.users-table-row-highlight]="user.id === currentUserId">
-                                <td class="users-table-td users-table-td-bold"
-                                    *ngIf="user.id !== 1 || currentUserId === 1">
-                                    {{ user.name }}
-                                    <span *ngIf="user.id === currentUserId"
-                                        class="badge badge-actual-user">(Usted)</span>
-                                    <span *ngIf="user.id === 1" class="badge badge-owner">(Solo visible
-                                        para usted <strong>DUEÑO</strong>)</span>
-                                </td>
-                                <td class="users-table-td" *ngIf="user.id !== 1 || currentUserId === 1">
-
-                                    <span class="badge badge-admin">
-                                        {{ user.rol }}
-                                    </span>
-                                </td>
-                                <td class="users-table-td text-right" *ngIf="user.id !== 1 || currentUserId === 1">
-
-                                    <div class="users-actions">
-                                        <button class="users-action-btn" title="Editar" (click)="onEdit(user.id)">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path
-                                                    d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z">
-                                                </path>
-                                                <path d="m15 5 4 4"></path>
-                                            </svg>
-                                        </button>
-
-                                        <button class="users-action-btn users-action-delete"
-                                            *ngIf="user.id !== 2 && user.id !== 1 && user.id !== currentUserId"
-                                            title="Eliminar" (click)="deleteUser(user.id)">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M3 6h18"></path>
-                                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                                <line x1="10" x2="10" y1="11" y2="17"></line>
-                                                <line x1="14" x2="14" y1="11" y2="17"></line>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-            </div>
-        </div>
+    <!-- Notifications -->
+    <div *ngIf="success" class="flex items-center gap-2 p-3 mb-4 rounded-lg bg-emerald-600/10 border border-emerald-600/30 text-emerald-400 text-sm">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      {{ success }}
+    </div>
+    <div *ngIf="error" class="flex items-center gap-2 p-3 mb-4 rounded-lg bg-red-600/10 border border-red-600/30 text-red-400 text-sm">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01"/></svg>
+      {{ error }}
+      <button (click)="error=''" class="ml-auto">✕</button>
     </div>
 
+    <!-- ── OVERVIEW ──────────────────────────────────────────────────── -->
+    <ng-container *ngIf="activeTab === 'overview'">
+      <h1 class="text-2xl font-bold text-surface-100 mb-6">Resumen</h1>
 
-    <div class="locations-section">
-        <div class="locations-container">
+      <div *ngIf="loading" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div *ngFor="let i of [1,2,3,4]" class="h-24 skeleton rounded-xl"></div>
+      </div>
 
-            <div class="card locations-card">
-
-                <div class="locations-header">
-                    <div>
-                        <h2 class="locations-title">Ubicaciones de Media</h2>
-                        <p class="locations-description">
-                            Gestiona las carpetas donde se almacenan los archivos multimedia.
-                        </p>
-                    </div>
-
-                    <button (click)="createFolder()" class="button button-primary users-create-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M5 12h14"></path>
-                            <path d="M12 5v14"></path>
-                        </svg>
-                        Añadir Ruta
-                    </button>
-                </div>
-
-                <!-- TABLA -->
-                <div class="locations-table-container">
-                    <table class="users-table">
-                        <thead>
-                            <tr class="location-container">
-                                <th>Path</th>
-                                <th class="text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let loc of locations" class="location-container">
-                                <td class="location-path">📁 {{ loc.path }}</td>
-                                <td class="text-right">
-                                    <button class="users-action-btn" title="Editar" (click)="renameFolder(loc)">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round">
-                                            <path
-                                                d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z">
-                                            </path>
-                                            <path d="m15 5 4 4"></path>
-                                        </svg>
-                                    </button>
-
-                                    <button class="users-action-btn users-action-delete" title="Eliminar"
-                                        (click)="deleteFolder(loc)">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round">
-                                            <path d="M3 6h18"></path>
-                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                            <line x1="10" x2="10" y1="11" y2="17"></line>
-                                            <line x1="14" x2="14" y1="11" y2="17"></line>
-                                        </svg>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                </div>
-
-            </div>
+      <div *ngIf="stats && !loading" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-surface-800 border border-surface-700 rounded-xl p-4">
+          <p class="text-xs text-surface-500 mb-1">Total archivos</p>
+          <p class="text-3xl font-bold text-surface-100">{{ stats.total | number }}</p>
         </div>
+        <div class="bg-surface-800 border border-surface-700 rounded-xl p-4">
+          <p class="text-xs text-surface-500 mb-1">Almacenamiento</p>
+          <p class="text-3xl font-bold text-surface-100">{{ stats.totalSizeFormatted }}</p>
+        </div>
+        <div class="bg-surface-800 border border-surface-700 rounded-xl p-4">
+          <p class="text-xs text-surface-500 mb-1">Usuarios</p>
+          <p class="text-3xl font-bold text-surface-100">{{ stats.userCount }}</p>
+        </div>
+        <div class="bg-surface-800 border border-surface-700 rounded-xl p-4">
+          <p class="text-xs text-surface-500 mb-1">Ubicaciones</p>
+          <p class="text-3xl font-bold text-surface-100">{{ stats.locationCount }}</p>
+        </div>
+      </div>
+
+      <!-- By kind -->
+      <div *ngIf="stats && !loading" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-surface-800 border border-surface-700 rounded-xl p-4">
+          <h3 class="text-sm font-semibold text-surface-300 mb-3">Por tipo de archivo</h3>
+          <div class="space-y-2">
+            <div *ngFor="let k of stats.byKind" class="flex items-center gap-3">
+              <span class="text-sm text-surface-400 w-20">{{ {video:'Vídeo',audio:'Audio',image:'Imagen',document:'Documento',text:'Texto',other:'Otro'}[k.media_kind] }}</span>
+              <div class="flex-1 h-2 bg-surface-700 rounded-full overflow-hidden">
+                <div class="h-full rounded-full" [style.width.%]="stats!.total > 0 ? (k.count / stats!.total * 100) : 0" [style.background-color]="'#7c3aed'"></div>
+              </div>
+              <span class="text-sm text-surface-300 w-10 text-right">{{ k.count }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top categories -->
+        <div class="bg-surface-800 border border-surface-700 rounded-xl p-4">
+          <h3 class="text-sm font-semibold text-surface-300 mb-3">Top categorías</h3>
+          <div class="space-y-2">
+            <div *ngFor="let c of stats!.topCategories.slice(0,6)" class="flex items-center gap-3">
+              <span class="w-2 h-2 rounded-full shrink-0" [style.background-color]="c.color"></span>
+              <span class="text-sm text-surface-400 flex-1 truncate">{{ c.name }}</span>
+              <span class="text-sm text-surface-300">{{ c.count }}</span>
+            </div>
+            <p *ngIf="!stats!.topCategories.length" class="text-sm text-surface-600">Sin categorías todavía</p>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- ── USERS ─────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="activeTab === 'users'">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-surface-100">Usuarios</h1>
+        <button (click)="showAddUser = !showAddUser" class="btn-primary btn-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nuevo usuario
+        </button>
+      </div>
+
+      <!-- Add user form -->
+      <div *ngIf="showAddUser" class="bg-surface-800 border border-surface-700 rounded-xl p-4 mb-4 space-y-3">
+        <h3 class="text-sm font-semibold text-surface-300">Crear usuario</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="input-label">Usuario</label>
+            <input [(ngModel)]="newUser.username" type="text" class="input"/>
+          </div>
+          <div>
+            <label class="input-label">Contraseña</label>
+            <input [(ngModel)]="newUser.password" type="password" class="input"/>
+          </div>
+          <div>
+            <label class="input-label">Rol</label>
+            <select [(ngModel)]="newUser.role" class="select">
+              <option value="viewer">Visualizador</option>
+              <option value="moderator">Moderador</option>
+              <option value="admin">Administrador</option>
+              <option *ngIf="auth.hasRole('owner')" value="owner">Propietario</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button (click)="createUser()" class="btn-primary btn-sm" [disabled]="saving">Crear</button>
+          <button (click)="showAddUser = false" class="btn-secondary btn-sm">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Users table -->
+      <div class="overflow-x-auto rounded-xl border border-surface-700">
+        <table class="w-full text-sm">
+          <thead class="bg-surface-900/60">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider">Usuario</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider">Rol</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider hidden sm:table-cell">Estado</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider hidden md:table-cell">Creado</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-surface-400 uppercase tracking-wider">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of users" class="border-t border-surface-700/50 hover:bg-surface-700/20 transition-colors">
+              <td class="px-4 py-3 font-medium text-surface-100">{{ user.username }}</td>
+              <td class="px-4 py-3">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border" [class]="ROLE_COLORS[user.role]">
+                  {{ ROLE_LABELS[user.role] }}
+                </span>
+              </td>
+              <td class="px-4 py-3 hidden sm:table-cell">
+                <span class="inline-flex items-center gap-1 text-xs" [class]="user.is_active ? 'text-emerald-400' : 'text-red-400'">
+                  <span class="w-1.5 h-1.5 rounded-full" [class]="user.is_active ? 'bg-emerald-400' : 'bg-red-400'"></span>
+                  {{ user.is_active ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-surface-500 text-xs hidden md:table-cell">{{ user.created_at | date:'dd/MM/yyyy' }}</td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-1 justify-end flex-wrap">
+                  <ng-container *ngIf="editingUser?.id !== user.id">
+                    <button (click)="startEditUser(user)" class="btn-ghost btn-sm p-1.5 text-surface-400 hover:text-primary-400" title="Editar">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button (click)="deleteUser(user)" class="btn-ghost btn-sm p-1.5 text-surface-400 hover:text-red-400" title="Eliminar">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </ng-container>
+                  <ng-container *ngIf="editingUser?.id === user.id">
+                    <select [(ngModel)]="editUserPatch.role" class="select text-xs py-1 h-8 w-32">
+                      <option value="viewer">Visualizador</option>
+                      <option value="moderator">Moderador</option>
+                      <option value="admin">Admin</option>
+                      <option *ngIf="auth.hasRole('owner')" value="owner">Owner</option>
+                    </select>
+                    <input [(ngModel)]="editUserPatch.password" type="password" placeholder="Nueva contraseña"
+                      class="input text-xs py-1 h-8 w-36"/>
+                    <button (click)="saveEditUser()" class="btn-primary btn-sm px-2 h-8 text-xs">Guardar</button>
+                    <button (click)="editingUser = null" class="btn-secondary btn-sm px-2 h-8 text-xs">✕</button>
+                  </ng-container>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="!users.length">
+              <td colspan="5" class="px-4 py-12 text-center text-surface-500">Sin usuarios registrados</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+
+    <!-- ── LOCATIONS ──────────────────────────────────────────────────── -->
+    <ng-container *ngIf="activeTab === 'locations'">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-surface-100">Ubicaciones de almacenamiento</h1>
+          <p class="text-sm text-surface-500 mt-1">Rutas locales, UNC, URL, SMB, FTP...</p>
+        </div>
+        <button (click)="showAddLocation = !showAddLocation" class="btn-primary btn-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nueva ubicación
+        </button>
+      </div>
+
+      <!-- Add form -->
+      <div *ngIf="showAddLocation" class="bg-surface-800 border border-surface-700 rounded-xl p-4 mb-4 space-y-3">
+        <h3 class="text-sm font-semibold text-surface-300">Nueva ubicación</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="input-label">Nombre</label>
+            <input [(ngModel)]="newLocation.name" type="text" class="input" placeholder="Disco externo 1"/>
+          </div>
+          <div>
+            <label class="input-label">Tipo</label>
+            <select [(ngModel)]="newLocation.storage_type" class="select">
+              <option value="local">Local</option>
+              <option value="url">URL</option>
+              <option value="smb">SMB / Red</option>
+              <option value="ftp">FTP</option>
+              <option value="nfs">NFS</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="input-label">Ruta / URL</label>
+            <div class="flex gap-2">
+              <input [(ngModel)]="newLocation.base_path" type="text" class="input flex-1 font-mono text-sm"
+                placeholder="C:\Archivos  /  \\servidor\recurso  /  https://..."/>
+              <button *ngIf="newLocation.storage_type === 'local'"
+                type="button" (click)="openFsBrowser()"
+                class="btn-secondary btn-sm shrink-0 flex items-center gap-1.5" title="Explorar carpetas del servidor">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                </svg>
+                Explorar
+              </button>
+            </div>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="input-label">Descripción</label>
+            <input [(ngModel)]="newLocation.description" type="text" class="input" placeholder="Opcional"/>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button (click)="createLocation()" class="btn-primary btn-sm" [disabled]="saving">Crear</button>
+          <button (click)="showAddLocation = false" class="btn-secondary btn-sm">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Locations list -->
+      <div class="space-y-3">
+        <div *ngFor="let loc of locations" class="bg-surface-800 border border-surface-700 rounded-xl p-4 flex items-center gap-4">
+          <div class="w-10 h-10 bg-surface-700 rounded-lg flex items-center justify-center shrink-0 text-lg">
+            {{ {local:'💾',url:'🌐',smb:'🗄️',ftp:'📡',nfs:'🔗'}[loc.storage_type] || '📁' }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-surface-100">{{ loc.name }}</p>
+            <p class="text-xs text-surface-500 truncate">{{ loc.base_path }}</p>
+            <span class="text-xs badge-neutral mt-1">{{ loc.storage_type.toUpperCase() }}</span>
+          </div>
+          <button (click)="deleteLocation(loc)" class="btn-ghost btn-sm p-1.5 text-surface-400 hover:text-red-400 shrink-0">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+        <p *ngIf="!locations.length" class="text-center text-surface-500 py-12">Sin ubicaciones configuradas</p>
+      </div>
+    </ng-container>
+
+    <!-- ── CATEGORIES ─────────────────────────────────────────────────── -->
+    <ng-container *ngIf="activeTab === 'categories'">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-surface-100">Categorías</h1>
+        <button (click)="showAddCategory = !showAddCategory" class="btn-primary btn-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nueva categoría
+        </button>
+      </div>
+
+      <!-- Add form -->
+      <div *ngIf="showAddCategory" class="bg-surface-800 border border-surface-700 rounded-xl p-4 mb-4 space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="input-label">Nombre</label>
+            <input [(ngModel)]="newCategory.name" type="text" class="input"/>
+          </div>
+          <div>
+            <label class="input-label">Color</label>
+            <input [(ngModel)]="newCategory.color" type="color" class="input h-9 px-1 py-1 cursor-pointer"/>
+          </div>
+          <div>
+            <label class="input-label">Descripción</label>
+            <input [(ngModel)]="newCategory.description" type="text" class="input" placeholder="Opcional"/>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button (click)="createCategory()" class="btn-primary btn-sm" [disabled]="saving">Crear</button>
+          <button (click)="showAddCategory = false" class="btn-secondary btn-sm">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Categories grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div *ngFor="let cat of categories" class="bg-surface-800 border border-surface-700 rounded-xl p-4 relative group">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-3 h-3 rounded-full" [style.background-color]="cat.color"></span>
+            <h3 class="font-medium text-surface-100 truncate">{{ cat.name }}</h3>
+          </div>
+          <p *ngIf="cat.description" class="text-xs text-surface-500 line-clamp-2">{{ cat.description }}</p>
+          <p class="text-xs text-surface-600 mt-1">{{ cat.media_count || 0 }} archivos</p>
+          <button (click)="deleteCategory(cat)"
+            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 btn-ghost btn-sm p-1 text-surface-500 hover:text-red-400 transition-all">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <p *ngIf="!categories.length" class="col-span-full text-center text-surface-500 py-12">Sin categorías creadas</p>
+      </div>
+
+      <!-- Tags section -->
+      <div class="mt-8">
+        <h2 class="text-lg font-semibold text-surface-300 mb-3">Etiquetas</h2>
+        <div class="flex flex-wrap gap-2">
+          <div *ngFor="let tag of tags" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-sm"
+            [style.border-color]="tag.color + '50'"
+            [style.color]="tag.color"
+            [style.background-color]="tag.color + '15'">
+            {{ tag.name }}
+            <span class="text-xs opacity-60">{{ tag.media_count || 0 }}</span>
+            <button (click)="deleteTag(tag)"
+              class="opacity-50 hover:opacity-100 ml-0.5 text-xs">✕</button>
+          </div>
+          <p *ngIf="!tags.length" class="text-surface-500 text-sm">Sin etiquetas todavía (se crean automáticamente al subir archivos)</p>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- ── SYSTEM ──────────────────────────────────────────────────────── -->
+<ng-container *ngIf="activeTab === 'system' && auth.hasPermission('canPerformUpdates')">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-surface-100">Sistema</h1>
+    <div class="flex gap-2">
+      <button (click)="checkUpdates()" class="btn-secondary btn-sm" [disabled]="checkingUpdates">
+        <svg *ngIf="checkingUpdates" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <svg *ngIf="!checkingUpdates" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        {{ checkingUpdates ? 'Comprobando...' : 'Comprobar' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <!-- Current version -->
+    <div class="bg-surface-800 border border-surface-700 rounded-xl p-5">
+      <p class="text-xs text-surface-500 uppercase tracking-wider mb-2">Versión actual</p>
+      <p class="text-3xl font-bold text-primary-400 mb-1">{{ version || '—' }}</p>
+      <p class="text-xs text-surface-500">EcijaComarca Media Manager</p>
     </div>
 
-    <footer class="app-footer" *ngIf="canPerformUpdates">
-        <div class="footer-content">
-            <div class="version-info">
-                <span class="version-badge">📦 App Version</span>
-                <span class="version-number">{{ appVersion || updateInfo?.version || 'desconocida' }}</span>
-            </div>
-            <div class="update-info-footer" *ngIf="updateInfo?.currentStatus?.lastUpdate">
-                <span>Última verificación: {{ updateInfo?.currentStatus?.lastUpdate | date:'dd/MM/yyyy HH:mm' }}</span>
-            </div>
+    <!-- Update status -->
+    <div class="bg-surface-800 border border-surface-700 rounded-xl p-5">
+      <p class="text-xs text-surface-500 uppercase tracking-wider mb-2">Estado</p>
+      <div *ngIf="!updateStatus" class="flex items-center gap-2 text-surface-500">
+        <span class="w-2 h-2 rounded-full bg-surface-600"></span>
+        <span class="text-sm">Sin cambios recientes</span>
+      </div>
+      <div *ngIf="updateStatus" class="space-y-1">
+        <div class="flex items-center gap-2"
+          [class.text-emerald-400]="updateStatus.status === 'success'"
+          [class.text-amber-400]="updateStatus.status === 'updating'"
+          [class.text-red-400]="updateStatus.status === 'error'"
+          [class.text-surface-400]="updateStatus.status === 'idle'">
+          <span class="w-2 h-2 rounded-full"
+            [class.bg-emerald-400]="updateStatus.status === 'success'"
+            [class.bg-amber-400]="updateStatus.status === 'updating'"
+            [class.bg-red-400]="updateStatus.status === 'error'"
+            [class.bg-surface-500]="updateStatus.status === 'idle'"
+            [class.animate-pulse]="updateStatus.status === 'updating'"></span>
+          <span class="text-sm font-medium capitalize">{{ updateStatus.status }}</span>
         </div>
-    </footer>
+        <p class="text-xs text-surface-500">{{ updateStatus.message }}</p>
+        <p *ngIf="updateStatus.timestamp" class="text-xs text-surface-600">
+          {{ updateStatus.timestamp | date:'dd/MM/yyyy HH:mm' }}
+        </p>
+      </div>
+    </div>
 
-</main>
+    <!-- Remote update -->
+    <div class="bg-surface-800 border border-surface-700 rounded-xl p-5">
+      <p class="text-xs text-surface-500 uppercase tracking-wider mb-2">Actualización remota</p>
+      <div *ngIf="!updateCheckResult" class="text-sm text-surface-500">
+        Pulsa "Comprobar" para verificar
+      </div>
+      <div *ngIf="updateCheckResult && !updateCheckResult.hasRemoteUpdate" class="flex items-center gap-2 text-emerald-400 text-sm">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        Versión actualizada
+      </div>
+      <div *ngIf="updateCheckResult?.remote?.isNewer" class="space-y-2">
+        <div class="flex items-center gap-2 text-amber-400 text-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Nueva versión: {{ updateCheckResult.remote.version }}
+        </div>
+        <ul *ngIf="updateCheckResult.remote.changes?.length" class="text-xs text-surface-500 space-y-0.5">
+          <li *ngFor="let c of updateCheckResult.remote.changes.slice(0,4)" class="truncate">• {{ c }}</li>
+        </ul>
+        <button *ngIf="updateCheckResult.remote.downloadUrl"
+          (click)="downloadRemotePackage(updateCheckResult.remote.downloadUrl, updateCheckResult.remote.filename)"
+          class="btn-secondary btn-sm w-full">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Descargar a la lista
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Package manager -->
+  <div class="bg-surface-800 border border-surface-700 rounded-xl p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="font-semibold text-surface-100">Paquetes de actualización</h3>
+        <p class="text-xs text-surface-500 mt-0.5">Archivos .zip en la carpeta <code class="text-primary-400 bg-surface-700 px-1 rounded">updates/</code> del servidor</p>
+      </div>
+      <label class="btn-primary btn-sm cursor-pointer" [class.opacity-50]="uploadingPkg">
+        <svg *ngIf="!uploadingPkg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <svg *ngIf="uploadingPkg" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        {{ uploadingPkg ? 'Subiendo...' : 'Subir .zip' }}
+        <input type="file" accept=".zip" class="hidden" (change)="onPkgFileSelected($event)" [disabled]="uploadingPkg"/>
+      </label>
+    </div>
+
+    <!-- Package list -->
+    <div *ngIf="updatePackages.length === 0" class="text-center py-10 text-surface-500">
+      <p class="text-sm">No hay paquetes disponibles.</p>
+      <p class="text-xs mt-1">Sube un archivo <code class="text-primary-400">.zip</code> o colócalo en la carpeta <code class="text-primary-400">updates/</code> del servidor.</p>
+    </div>
+
+    <div class="space-y-2">
+      <div *ngFor="let pkg of updatePackages"
+        class="flex items-center gap-3 px-4 py-3 rounded-xl border"
+        [class.border-emerald-600/40]="pkg.isNewer === true"
+        [class.bg-emerald-600/5]="pkg.isNewer === true"
+        [class.border-surface-700]="pkg.isNewer !== true">
+
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+          [class.bg-emerald-600/20]="pkg.isNewer === true"
+          [class.bg-surface-700]="pkg.isNewer !== true">
+          <svg class="w-5 h-5" [class.text-emerald-400]="pkg.isNewer === true" [class.text-surface-400]="pkg.isNewer !== true"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <p class="text-sm font-medium text-surface-100 truncate">{{ pkg.filename }}</p>
+            <span *ngIf="pkg.isNewer === true" class="badge-success text-xs">Nuevo</span>
+            <span *ngIf="pkg.isNewer === false" class="badge-neutral text-xs">Instalado</span>
+          </div>
+          <p class="text-xs text-surface-500">
+            v{{ pkg.version }} · {{ pkg.sizeFormatted }} · {{ pkg.date | date:'dd/MM/yyyy HH:mm' }}
+          </p>
+        </div>
+
+        <button
+          (click)="applyPackage(pkg.filename)"
+          [disabled]="applyingPkg === pkg.filename"
+          class="btn-primary btn-sm shrink-0">
+          <svg *ngIf="applyingPkg === pkg.filename" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <svg *ngIf="applyingPkg !== pkg.filename" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          {{ applyingPkg === pkg.filename ? 'Aplicando...' : 'Instalar' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- How to create a package -->
+    <div class="mt-4 p-3 rounded-lg bg-surface-900/50 border border-surface-700">
+      <p class="text-xs font-medium text-surface-400 mb-1">¿Cómo crear un paquete de actualización?</p>
+      <p class="text-xs text-surface-500">Comprime los archivos modificados (ej: <code class="text-primary-400">api/</code>, <code class="text-primary-400">front/dist/</code>) en un .zip con el nombre <code class="text-primary-400">release-X.Y.Z.zip</code> y súbelo aquí o colócalo en la carpeta <code class="text-primary-400">updates/</code> del servidor.</p>
+    </div>
+  </div>
+</ng-container>
+
+  </main>
+
+  <!-- Filesystem browser modal -->
+  <app-fs-browser
+    *ngIf="showFsBrowser"
+    [initialPath]="newLocation.base_path"
+    (selected)="onFsBrowserSelected($event)"
+    (cancelled)="showFsBrowser = false">
+  </app-fs-browser>
+
+</div>

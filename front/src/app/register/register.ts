@@ -3,146 +3,71 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
-import { LocalStorageService } from '../../services/localStorage.service';
 
 @Component({
   selector: 'app-register',
   templateUrl: './page.html',
-  styleUrls: ['./style.css'],
   standalone: true,
   imports: [FormsModule, CommonModule, RouterModule]
 })
 export class RegisterComponent {
-  // Variables para tooltips
-  showTooltipUsername = false;
-  showTooltipPassword = false;
-  showTooltipConfirm = false;
-
-  showPassword = false;
+  username = '';
   password = '';
   confirmPassword = '';
+  showPassword = false;
+  loading = false;
+  error = '';
 
-  // Fuerza de contraseña
-  passwordStrength = 0;
-  passwordColor = '#e5e7eb';
-  passwordText = '';
-
-  constructor(private auth: AuthService, private router: Router, private storage: LocalStorageService) { }
-
-  togglePassword() {
-    this.showPassword = !this.showPassword;
+  get strength(): number {
+    if (!this.password) return 0;
+    let s = 0;
+    if (this.password.length >= 8) s++;
+    if (/[A-Z]/.test(this.password)) s++;
+    if (/[a-z]/.test(this.password)) s++;
+    if (/[0-9!@#$%^&*]/.test(this.password)) s++;
+    return s;
   }
 
-  onPasswordInput(event: any) {
-    this.password = event.target.value;
-    this.passwordStrength = this.checkPasswordStrength(this.password);
+  get strengthLabel(): string {
+    return ['', 'Muy débil', 'Débil', 'Media', 'Fuerte'][this.strength] || '';
   }
 
-  onConfirmInput(event: any) {
-    this.confirmPassword = event.target.value;
+  get strengthColor(): string {
+    return ['bg-surface-700', 'bg-red-500', 'bg-amber-500', 'bg-yellow-400', 'bg-emerald-500'][this.strength];
   }
 
-  checkPasswordStrength(password: string): number {
-    if (!password) {
-      this.passwordColor = '#e5e7eb';
-      this.passwordText = '';
-      return 0;
-    }
-    let strength = 0;
-    if (password.length >= 8) strength += 25;
-    if (/[A-Z]/.test(password)) strength += 25;
-    if (/[a-z]/.test(password)) strength += 25;
-    if (/[0-9!@#$%^&*()_\-+=]/.test(password)) strength += 25;
+  constructor(private auth: AuthService, private router: Router) {}
 
-    if (strength <= 50) {
-      this.passwordColor = '#ef4444';
-      this.passwordText = 'Débil';
-    } else if (strength < 100) {
-      this.passwordColor = '#f59e0b';
-      this.passwordText = 'Media';
-    } else {
-      this.passwordColor = '#22c55e';
-      this.passwordText = 'Fuerte';
-    }
-    return strength;
+  ngOnInit() {
+    if (this.auth.isAuthenticated()) this.router.navigate(['/']);
   }
 
-  highlightInputError(input: HTMLInputElement, show: boolean) {
-    if (show) input.classList.add('invalid');
-    else input.classList.remove('invalid');
-  }
-
-  showError(message: string) {
-    const error = document.getElementById('errorDisplay');
-    const text = document.getElementById('errorText');
-    if (error && text) {
-      error.style.display = 'flex';
-      text.innerText = message;
+  onRegister() {
+    this.error = '';
+    if (!this.username || !this.password || !this.confirmPassword) {
+      this.error = 'Completa todos los campos'; return;
     }
-  }
-
-  async onRegister(event: any) {
-    event.preventDefault();
-    const form = event.target.closest('form');
-    const usernameInput = form.username as HTMLInputElement;
-    const passwordInput = form.password as HTMLInputElement;
-    const confirmInput = form.confirmPassword as HTMLInputElement;
-
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
-    const confirm = confirmInput.value;
-
-    this.highlightInputError(usernameInput, false);
-    this.highlightInputError(passwordInput, false);
-    this.highlightInputError(confirmInput, false);
-
-    // Validaciones
-    if (!/^[a-zA-Z0-9-]+$/.test(username)) {
-      this.highlightInputError(usernameInput, true);
-      return this.showError('Usuario inválido (solo letras, números y guiones)');
+    if (!/^[a-zA-Z0-9_-]+$/.test(this.username)) {
+      this.error = 'Usuario inválido (letras, números, guiones y guiones bajos)'; return;
+    }
+    if (this.password.length < 6) {
+      this.error = 'La contraseña debe tener al menos 6 caracteres'; return;
+    }
+    if (this.password !== this.confirmPassword) {
+      this.error = 'Las contraseñas no coinciden'; return;
     }
 
-    if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-      this.highlightInputError(passwordInput, true);
-      return this.showError('La contraseña no cumple los requisitos mínimos');
-    }
-
-    if (password !== confirm) {
-      this.highlightInputError(confirmInput, true);
-      return this.showError('Las contraseñas no coinciden');
-    }
-
-    // this.http.post('http://localhost:3000/api/register', { username, password }).subscribe({
-    //   next: () => {
-    //     alert('Cuenta creada con éxito');
-    //     this.router.navigate(['/login']);
-    //   },
-    //   error: () => this.showError('Error al registrar: el usuario ya existe o el servidor no responde')
-    // });
-
-    this.auth.register(username, password).subscribe({
-      next: (data) => {
-
-        if (!data.success) {
-          this.showError('Error al registrar: el usuario ya existe o el servidor no responde')
-          return;
-        }
-
-        this.storage.setAuthSession(
-          data.token,
-          data,
-          60 * 60 * 24 * 7
-        );
-
-        this.storage.setUserData(data);
-
-        this.router.navigate(['/']);
+    this.loading = true;
+    this.auth.register(this.username, this.password).subscribe({
+      next: res => {
+        this.loading = false;
+        if (res.success) this.router.navigate(['/']);
+        else this.error = res.error || 'Error al registrar';
       },
-
-      error: () => {
-        this.showError('Error al registrar: el usuario ya existe o el servidor no responde')
+      error: err => {
+        this.loading = false;
+        this.error = err.error?.error || 'El usuario ya existe o el servidor no responde';
       }
-
     });
   }
 }

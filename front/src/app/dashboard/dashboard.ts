@@ -1,560 +1,342 @@
-import { ChangeDetectorRef, Component, OnInit, OnDestroy, signal } from '@angular/core';
-import { Header } from '../../components/header/header.component';
-import { ModalService } from '../../components/modal/modal.component';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
-import { CommonModule, NgForOf } from '@angular/common';
 import { FileService } from '../../services/file.service';
-import { ConfirmationModalComponent } from '../modals/confirmation.modal';
-import { RouteModalComponent } from '../modals/new-route.modal';
-import { UserModalComponent } from '../modals/new-user.modal';
-import { Router } from '@angular/router';
-import { UpdateInfo, UpdateService } from '../../services/update.service';
-import { Subscription, forkJoin, of, timer } from 'rxjs';
-import { catchError, timeout, retry, switchMap, takeWhile } from 'rxjs/operators';
+import { User, StorageLocation, Category, Tag, Stats, ROLE_LABELS, ROLE_COLORS, UserRole } from '../models/file.model';
+import { FsBrowserComponent } from '../../components/fs-browser/fs-browser.component';
+
+type Tab = 'overview' | 'users' | 'locations' | 'categories' | 'system';
 
 @Component({
-    selector: 'dashboard-page',
-    imports: [Header, NgForOf, CommonModule],
-    templateUrl: './page.html',
-    styleUrl: './style.css'
+  selector: 'dashboard-page',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule, FsBrowserComponent],
+  templateUrl: './page.html'
 })
 export class DashboardPage implements OnInit, OnDestroy {
-    protected readonly title = signal('Administración del sistema');
+  activeTab: Tab = 'overview';
 
-    // Propiedades existentes
-    users: { id: number; name: string; rol: string; password?: string }[] = [];
-    locations: { id: number, path: string }[] = [];
-    tree: any[] = [];
+  // Data
+  users: User[] = [];
+  locations: StorageLocation[] = [];
+  categories: Category[] = [];
+  tags: Tag[] = [];
+  stats: Stats | null = null;
 
-    // Propiedades para actualización
-    updateInfo: UpdateInfo | null = null;
-    isUpdating = false;
-    updateSubscription: Subscription | null = null;
-    appVersion: string = 'desconocida';
-    versionLoaded = false;
+  // Inline forms
+  newUser = { username: '', password: '', role: 'viewer' as UserRole };
+  newLocation = { name: '', base_path: '', storage_type: 'local' as any, description: '' };
+  newCategory = { name: '', description: '', color: '#6366f1', icon: 'folder' };
 
+  // Edit state
+  editingUser: User | null = null;
+  editUserPatch = { username: '', role: 'viewer' as UserRole, password: '' };
 
-    // A partir de ahora se utilizara authService para verificar permisos en lugar de currentUserId y showUpdateSection
+  // UI
+  loading = false;
+  saving = false;
+  error = '';
+  success = '';
+  showAddUser = false;
+  showAddLocation = false;
+  showAddCategory = false;
+  showFsBrowser = false;
 
-    canManageUsers = false;
-    canPerformUpdates = false;
-    canViewAllUsers = false;
+  // Update
+  updateInfo: any = null;
+  updateStatus: any = null;
+  updating = false;
+  version = '';
 
-    currentUserId: number | null = null; // Para saber cual es el usuario actual y evitar que se elimine a sí mismo
+  // Update packages
+  updatePackages: any[] = [];
+  updateCheckResult: any = null;
+  uploadingPkg = false;
+  applyingPkg = '';
+  checkingUpdates = false;
 
-    constructor(
-        private modalService: ModalService,
-        private auth: AuthService,
-        private file: FileService,
-        private cdr: ChangeDetectorRef,
-        private router: Router,
-        private updateService: UpdateService
-    ) { }
+  readonly ROLE_LABELS = ROLE_LABELS;
+  readonly ROLE_COLORS = ROLE_COLORS;
+  readonly TABS: { id: Tab; label: string; icon: string }[] = [
+    { id: 'overview',   label: 'Resumen',      icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+    { id: 'users',      label: 'Usuarios',     icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+    { id: 'locations',  label: 'Ubicaciones',  icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z' },
+    { id: 'categories', label: 'Categorías',   icon: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z' },
+    { id: 'system',     label: 'Sistema',      icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' }
+  ];
 
-    ngOnInit() {
-        // Cargar versión inmediatamente (antes que cualquier otra cosa)
-        this.loadVersion();
+  private destroy$ = new Subject<void>();
 
-        this.auth.refreshUserRole().subscribe(() => {
-            const currentUser = this.auth.getCurrentUser();
-            this.currentUserId = currentUser?.id_user || null;
+  constructor(public auth: AuthService, public fs: FileService, private cdr: ChangeDetectorRef) {}
 
-            this.canManageUsers = this.auth.hasPermission('canManageUsers');
-            this.canPerformUpdates = this.auth.hasPermission('canPerformUpdates');
-            this.canViewAllUsers = this.auth.hasPermission('canViewAllUsers');
+  ngOnInit() {
+    this.loadData();
+    if (this.auth.hasPermission('canPerformUpdates')) {
+      this.loadUpdatePackages();
+    }
+  }
 
-            if (this.canPerformUpdates) {
+  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
-                // Esperar a que la versión se cargue antes de verificar actualizaciones
-                // pero no bloquear la UI
-                this.waitForVersionAndCheckUpdates();
-
-                this.cdr.detectChanges();
-                this.cdr.markForCheck();
-
-                // Suscribirse a cambios de estado
-                this.updateSubscription = this.updateService.getUpdateStatusObservable()
-                    .subscribe(updateInfo => {
-                        if (updateInfo) {
-                            this.updateInfo = updateInfo;
-                            this.isUpdating = updateInfo.currentStatus.status === 'updating';
-                            this.cdr.detectChanges();
-                            this.cdr.markForCheck();
-                        }
-                    });
-            }
-        });
-
+  private loadData() {
+    this.loading = true;
+    forkJoin({
+      stats: this.fs.getStats(),
+      users: this.auth.getUsers(),
+      locations: this.fs.getLocations(),
+      categories: this.fs.getCategories(),
+      tags: this.fs.getTags()
+    }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: ({ stats, users, locations, categories, tags }) => {
+        if (stats.success) this.stats = stats.data;
+        if (users.success) this.users = users.data;
+        if (locations.success) this.locations = locations.data;
+        if (categories.success) this.categories = categories.data;
+        if (tags.success) this.tags = tags.data;
+        this.loading = false;
         this.cdr.detectChanges();
-        this.cdr.markForCheck();
+      },
+      error: () => { this.loading = false; }
+    });
+  }
 
-        this.auth.getAllUsers().subscribe(users => {
-            this.users = users;
-            this.cdr.detectChanges();
-            this.cdr.markForCheck();
-        });
+  // ── Users ─────────────────────────────────────────────────────────────────
 
-        this.loadLocations();
+  createUser() {
+    if (!this.newUser.username || !this.newUser.password) { this.error = 'Usuario y contraseña requeridos'; return; }
+    this.saving = true;
+    this.auth.createUser(this.newUser).subscribe({
+      next: res => {
+        this.saving = false;
+        if (res.success) {
+          this.showSuccess('Usuario creado');
+          this.newUser = { username: '', password: '', role: 'viewer' };
+          this.showAddUser = false;
+          this.auth.getUsers().subscribe(r => { if (r.success) this.users = r.data; });
+        } else { this.error = res.error; }
+      },
+      error: err => { this.saving = false; this.error = err.error?.error || 'Error al crear usuario'; }
+    });
+  }
 
-    }
+  startEditUser(user: User) {
+    this.editingUser = user;
+    this.editUserPatch = { username: user.username, role: user.role, password: '' };
+  }
 
-    ngOnDestroy() {
-        if (this.updateSubscription) {
-            this.updateSubscription.unsubscribe();
+  saveEditUser() {
+    if (!this.editingUser) return;
+    this.saving = true;
+    const patch: any = { role: this.editUserPatch.role };
+    if (this.editUserPatch.username !== this.editingUser.username) patch.username = this.editUserPatch.username;
+    if (this.editUserPatch.password) patch.password = this.editUserPatch.password;
+
+    this.auth.updateUser(this.editingUser.id, patch).subscribe({
+      next: res => {
+        this.saving = false;
+        if (res.success) {
+          this.showSuccess('Usuario actualizado');
+          this.editingUser = null;
+          this.auth.getUsers().subscribe(r => { if (r.success) this.users = r.data; });
+        } else { this.error = res.error; }
+      },
+      error: err => { this.saving = false; this.error = err.error?.error || 'Error al actualizar'; }
+    });
+  }
+
+  deleteUser(user: User) {
+    if (!confirm(`¿Eliminar el usuario "${user.username}"?`)) return;
+    this.auth.deleteUser(user.id).subscribe({
+      next: res => {
+        if (res.success) { this.users = this.users.filter(u => u.id !== user.id); this.showSuccess('Usuario eliminado'); }
+        else this.error = res.error;
+      }
+    });
+  }
+
+  // ── Locations ─────────────────────────────────────────────────────────────
+
+  createLocation() {
+    if (!this.newLocation.name || !this.newLocation.base_path) { this.error = 'Nombre y ruta requeridos'; return; }
+    this.saving = true;
+    this.fs.createLocation(this.newLocation).subscribe({
+      next: res => {
+        this.saving = false;
+        if (res.success) {
+          this.showSuccess('Ubicación creada');
+          this.newLocation = { name: '', base_path: '', storage_type: 'local', description: '' };
+          this.showAddLocation = false;
+          this.fs.getLocations().subscribe(r => { if (r.success) this.locations = r.data; });
+        } else { this.error = res.error; }
+      },
+      error: err => { this.saving = false; this.error = err.error?.error || 'Error al crear ubicación'; }
+    });
+  }
+
+  deleteLocation(loc: StorageLocation) {
+    if (!confirm(`¿Eliminar la ubicación "${loc.name}"?`)) return;
+    this.fs.deleteLocation(loc.id).subscribe({
+      next: res => {
+        if (res.success) { this.locations = this.locations.filter(l => l.id !== loc.id); this.showSuccess('Ubicación eliminada'); }
+        else this.error = res.error;
+      }
+    });
+  }
+
+  // ── Categories ────────────────────────────────────────────────────────────
+
+  createCategory() {
+    if (!this.newCategory.name) { this.error = 'Nombre requerido'; return; }
+    this.saving = true;
+    this.fs.createCategory(this.newCategory).subscribe({
+      next: res => {
+        this.saving = false;
+        if (res.success) {
+          this.showSuccess('Categoría creada');
+          this.newCategory = { name: '', description: '', color: '#6366f1', icon: 'folder' };
+          this.showAddCategory = false;
+          this.fs.getCategories().subscribe(r => { if (r.success) this.categories = r.data; });
+        } else { this.error = res.error; }
+      },
+      error: err => { this.saving = false; this.error = err.error?.error || 'Error'; }
+    });
+  }
+
+  deleteCategory(cat: Category) {
+    if (!confirm(`¿Eliminar "${cat.name}"?`)) return;
+    this.fs.deleteCategory(cat.id).subscribe({
+      next: res => {
+        if (res.success) { this.categories = this.categories.filter(c => c.id !== cat.id); this.showSuccess('Categoría eliminada'); }
+      }
+    });
+  }
+
+  deleteTag(tag: Tag) {
+    if (!confirm(`¿Eliminar la etiqueta "${tag.name}"?`)) return;
+    this.fs.deleteTag(tag.id).subscribe({
+      next: res => {
+        if (res.success) { this.tags = this.tags.filter(t => t.id !== tag.id); this.showSuccess('Etiqueta eliminada'); }
+        else this.error = res.error;
+      }
+    });
+  }
+
+  // ── Updates ───────────────────────────────────────────────────────────────
+
+  loadUpdatePackages() {
+    this.fs.getUpdatePackages().subscribe({
+      next: res => {
+        if (res.success) {
+          this.updatePackages = res.packages;
+          this.version = res.currentVersion;
         }
-    }
-
-    loadVersion() {
-        this.updateService.getVersion().subscribe({
-            next: (response) => {
-                this.appVersion = response.version;
-                this.versionLoaded = true;
-                this.cdr.detectChanges();
-                this.cdr.markForCheck();
-            },
-            error: (error) => {
-                console.warn('Error loading version from API, using fallback:', error);
-                if (this.updateInfo?.version) {
-                    this.appVersion = this.updateInfo.version;
-                }
-                this.versionLoaded = true;
-                this.cdr.detectChanges();
-            }
-        });
-
-        timer(2000, 5000).pipe(
-            takeWhile(() => !this.versionLoaded && this.canPerformUpdates),
-            switchMap(() => this.updateService.getVersion().pipe(catchError(() => of(null))))
-        ).subscribe(response => {
-            if (response && !this.versionLoaded) {
-                this.appVersion = response.version;
-                this.versionLoaded = true;
-                this.cdr.detectChanges();
-            }
-        });
-    }
-
-    waitForVersionAndCheckUpdates() {
-        // Esperar máximo 3 segundos a que la versión se cargue
-        const maxWaitTime = 3000;
-        const startTime = Date.now();
-
-        const checkInterval = setInterval(() => {
-            if (this.versionLoaded || (Date.now() - startTime) >= maxWaitTime) {
-                clearInterval(checkInterval);
-                // Ya sea que tengamos versión o no, procedemos a verificar actualizaciones
-                this.checkForUpdates();
-            }
-        }, 100);
-    }
-
-    checkForUpdates() {
-        this.updateService.checkForUpdates().subscribe({
-            next: (info) => {
-                this.updateInfo = info;
-                // Si no tenemos versión aún, usar la del updateInfo
-                if (!this.versionLoaded && info?.version) {
-                    this.appVersion = info.version;
-                    this.versionLoaded = true;
-                }
-                this.cdr.detectChanges();
-                this.cdr.markForCheck();
-            },
-            error: (error) => {
-                console.error('Error checking updates:', error);
-                this.modalService.open(ConfirmationModalComponent, {
-                    title: 'Error al verificar actualizaciones',
-                    data: {
-                        message: `No se pudieron verificar las actualizaciones: ${error.error?.error || error.message}`,
-                        confirmText: 'Entendido',
-                        cancelText: '',
-                        hideCancelButton: true,
-                        onConfirm: () => { }
-                    }
-                });
-            }
-        });
-    }
-
-    executeUpdate() {
-        // Usar modal de confirmación en lugar de confirm()
-        this.modalService.open(ConfirmationModalComponent, {
-            title: 'Actualizar Sistema',
-            data: {
-                message: `¿Estás seguro de que quieres actualizar la aplicación?\n\n` +
-                    `Esto reiniciará los servicios y puede causar una breve interrupción.\n\n` +
-                    `Versión actual: ${this.updateInfo?.version || this.appVersion || 'desconocida'}\n` +
-                    `Nueva versión: ${this.updateInfo?.remoteVersion || 'desconocida'}`,
-                confirmText: 'Sí, actualizar',
-                cancelText: 'Cancelar',
-                onConfirm: () => {
-                    this.updateService.executeUpdate().subscribe({
-                        next: (response) => {
-                            this.modalService.open(ConfirmationModalComponent, {
-                                title: 'Actualización Iniciada',
-                                data: {
-                                    message: `La actualización ha comenzado en segundo plano.\n\n` +
-                                        `Puedes monitorear el progreso en esta misma pantalla.\n\n` +
-                                        `Los servicios se reiniciarán automáticamente al finalizar.`,
-                                    confirmText: 'Entendido',
-                                    cancelText: '',
-                                    hideCancelButton: true,
-                                    onConfirm: () => { }
-                                }
-                            });
-                        },
-                        error: (error) => {
-                            console.error('Error starting update:', error);
-                            this.modalService.open(ConfirmationModalComponent, {
-                                title: 'Error al Iniciar Actualización',
-                                data: {
-                                    message: `No se pudo iniciar la actualización: ${error.error?.error || error.message}`,
-                                    confirmText: 'Entendido',
-                                    cancelText: '',
-                                    hideCancelButton: true,
-                                    onConfirm: () => { }
-                                }
-                            });
-                        }
-                    });
-                }
-            }
-        });
-    }
-
-    get hasChangesToShow(): boolean {
-        return !!(this.updateInfo?.hasUpdates &&
-            this.updateInfo?.changes &&
-            this.updateInfo.changes.length > 0);
-    }
-
-    get changesList(): string[] {
-        return this.updateInfo?.changes || [];
-    }
-
-    get currentStatus() {
-        return this.updateInfo?.currentStatus || {
-            status: 'idle',
-            step: 'none',
-            message: 'No hay actualizaciones',
-            error: null,
-            timestamp: new Date().toISOString(),
-            lastUpdate: null
-        };
-    }
-
-    getStatusIcon(): string {
-        if (!this.updateInfo) return '⏳';
-
-        switch (this.updateInfo.currentStatus.status) {
-            case 'updating': return '🔄';
-            case 'success': return '✅';
-            case 'error': return '❌';
-            default: return '⏹️';
-        }
-    }
-
-    getStatusClass(): string {
-        if (!this.updateInfo) return '';
-
-        switch (this.updateInfo.currentStatus.status) {
-            case 'updating': return 'status-updating';
-            case 'success': return 'status-success';
-            case 'error': return 'status-error';
-            default: return 'status-idle';
-        }
-    }
-
-    loadLocations() {
-        this.file.getMediaLocations().subscribe(data => {
-            this.locations = data.locations;
-            this.tree = this.buildTree(data.locations);
-            this.cdr.detectChanges();
-            this.cdr.markForCheck();
-        });
-    }
-
-    buildTree(locations: any[]) {
-        const root: any = {};
-
-        locations.forEach(loc => {
-            const parts = loc.path.split('/').filter(Boolean);
-            let current = root;
-
-            parts.forEach((part: string | number) => {
-                if (!current[part]) {
-                    current[part] = {
-                        name: part,
-                        children: {},
-                        path: loc.path
-                    };
-                }
-                current = current[part].children;
-            });
-        });
-
-        function convert(node: any): any {
-            return Object.values(node).map((n: any) => ({
-                name: n.name,
-                path: n.path,
-                children: convert(n.children)
-            }));
-        }
-
-        return convert(root);
-    }
-
-    createFolder() {
-        this.modalService.open(RouteModalComponent, {
-            title: "Crear Ruta",
-            data: {
-                path: "",
-                onResult: (res: string) => {
-                    this.file.createMediaLocation(res.trim()).subscribe(() => {
-                        this.loadLocations();
-                    });
-                },
-            },
-            size: 'full',
-        });
-    }
-
-    renameFolder(loc: any) {
-        this.modalService.open(RouteModalComponent, {
-            title: "Editar Ruta",
-            data: {
-                path: loc.path,
-                onResult: (res: string) => {
-                    this.file.renameMediaLocation(loc.id, res.trim()).subscribe(() => {
-                        this.loadLocations();
-                    });
-                },
-                size: 'xl',
-            }
-        });
-    }
-
-    deleteFolder(loc: any) {
-        this.modalService.open(ConfirmationModalComponent, {
-            title: `¿Eliminar "${loc.path}"? Esta acción no se puede deshacer.`,
-            data: {
-                message: `⚠ ATENCION: ESTO ELIMINARA TODO EL CONTENIDO DENTRO DE LA CARPETA, INCLUYENDO ARCHIVOS Y SUBCARPETAS`,
-                confirmText: 'Sí, eliminar',
-                cancelText: 'Cancelar',
-                onConfirm: () => {
-                    this.file.deleteMediaLocation(loc.id).subscribe(() => {
-                        this.loadLocations();
-                    });
-                }
-            }
-        });
-    }
-
-    deleteUser(userId: number) {
-        if (userId === 1) {
-            this.modalService.open(ConfirmationModalComponent, {
-                title: 'No se puede eliminar',
-                data: {
-                    message: 'No se puede eliminar el usuario administrador principal.',
-                    confirmText: 'Entendido',
-                    cancelText: '',
-                    hideCancelButton: true,
-                    onConfirm: () => { }
-                }
-            });
-            return;
-        }
-
-        const userToDelete = this.users.find(user => user.id === userId);
-        if (!userToDelete) {
-            this.modalService.open(ConfirmationModalComponent, {
-                title: 'Usuario no encontrado',
-                data: {
-                    message: 'El usuario que intentas eliminar no existe.',
-                    confirmText: 'Entendido',
-                    cancelText: '',
-                    hideCancelButton: true,
-                    onConfirm: () => { }
-                }
-            });
-            return;
-        }
-
-        const currentUser = this.auth.getCurrentUser();
-        if (currentUser && currentUser.id_user === userId) {
-            this.modalService.open(ConfirmationModalComponent, {
-                title: `No puedes eliminarte a ti mismo`,
-                data: {
-                    message: `⚠ ATENCIÓN: No puedes eliminar tu propia cuenta.\n\n` +
-                        `Debe ser el otro administrador quien elimine tu cuenta.`,
-                    confirmText: 'Entendido',
-                    cancelText: 'Cancelar',
-                    onConfirm: () => { }
-                }
-            });
-            return;
-        }
-
-        this.modalService.open(ConfirmationModalComponent, {
-            title: `¿Eliminar el usuario "${userToDelete.name}"?`,
-            data: {
-                message: `Esta acción no se puede deshacer. El usuario perderá todo acceso al sistema.`,
-                confirmText: 'Sí, eliminar',
-                cancelText: 'Cancelar',
-                onConfirm: () => {
-                    this.executeUserDeletion(userId, userToDelete, false);
-                }
-            }
-        });
-    }
-
-    private executeUserDeletion(userId: number, userToDelete: any, isSelfDelete: boolean) {
-        this.auth.deleteUser(userId).subscribe({
-            next: (res: any) => {
-                if (res.success) {
-                    this.users = this.users.filter(user => user.id !== userId);
-
-                    if (isSelfDelete) {
-                        this.modalService.open(ConfirmationModalComponent, {
-                            title: 'Cuenta Eliminada',
-                            data: {
-                                message: 'Tu cuenta ha sido eliminada. Serás redirigido al login.',
-                                confirmText: 'Aceptar',
-                                cancelText: '',
-                                hideCancelButton: true,
-                                onConfirm: () => {
-                                    this.auth.logout();
-                                }
-                            }
-                        });
-                    } else {
-                        this.modalService.open(ConfirmationModalComponent, {
-                            title: 'Usuario Eliminado',
-                            data: {
-                                message: `El usuario "${userToDelete.name}" ha sido eliminado exitosamente.`,
-                                confirmText: 'Aceptar',
-                                cancelText: '',
-                                hideCancelButton: true,
-                                onConfirm: () => { }
-                            }
-                        });
-                    }
-
-                    this.cdr.detectChanges();
-                    this.cdr.markForCheck();
-                } else {
-                    this.handleDeletionError(res.error, userToDelete);
-                }
-            },
-            error: (error) => {
-                let errorMessage = 'Error al eliminar el usuario';
-                if (error.error && error.error.error) {
-                    errorMessage = error.error.error;
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-
-                this.handleDeletionError(errorMessage, userToDelete);
-            }
-        });
-    }
-
-    private handleDeletionError(errorMessage: string, userToDelete: any) {
-        this.modalService.open(ConfirmationModalComponent, {
-            title: 'Error al eliminar usuario',
-            data: {
-                message: `No se pudo eliminar al usuario "${userToDelete.name}".\n\nMotivo: ${errorMessage}`,
-                confirmText: 'Entendido',
-                cancelText: '',
-                hideCancelButton: true,
-                onConfirm: () => { }
-            }
-        });
-
         this.cdr.detectChanges();
-        this.cdr.markForCheck();
-    }
+      }
+    });
+  }
 
-    handleUpdateButtonClick() {
-        // Si está actualizando, no hacer nada
-        if (this.isUpdating) {
-            return;
+  checkUpdates() {
+    this.checkingUpdates = true;
+    this.fs.checkUpdates().subscribe({
+      next: res => {
+        this.checkingUpdates = false;
+        if (res.success) {
+          this.updateCheckResult = res;
+          this.updatePackages = res.packages || [];
+          this.version = res.currentVersion;
         }
-
-        // Si hay error en la última verificación
-        if (this.updateInfo?.currentStatus?.error) {
-            this.checkForUpdates(); // Reintentar
-            return;
-        }
-
-        // Si hay actualizaciones disponibles
-        if (this.updateInfo?.hasUpdates) {
-            this.executeUpdate(); // Actualizar ahora
-            return;
-        }
-
-        // Si está actualizado o no hay información
-        this.checkForUpdates();
-        this.updateInfo = null; // Limpiar info para mostrar el spinner
-        this.updateService.clearStatus(); // Limpiar estado en el servicio para reiniciar el proceso
         this.cdr.detectChanges();
-        this.cdr.markForCheck();
-    }
+      },
+      error: () => { this.checkingUpdates = false; this.error = 'No se pudo verificar actualizaciones'; this.cdr.detectChanges(); }
+    });
+  }
 
-    openModal() {
-        const modalRef = this.modalService.open(UserModalComponent, {
-            title: 'Crear Nuevo Usuario',
-            description: 'Completa la información del usuario que deseas agregar al sistema.',
-            size: 'xl',
-            showCloseButton: true,
-            closeOnOverlayClick: true,
-            buttons: [],
-            data: {}
-        });
-
-        modalRef.afterClosed$.subscribe(result => {
-            if (result?.success) {
-                this.ngOnInit();
-            }
-        });
-    }
-
-    onEdit(userId: number) {
-        const user = this.users.find(u => u.id === userId);
-
-        if (!user) {
-            this.modalService.open(ConfirmationModalComponent, {
-                title: 'Usuario no encontrado',
-                data: {
-                    message: 'El usuario que intentas editar no existe.',
-                    confirmText: 'Entendido',
-                    cancelText: '',
-                    hideCancelButton: true,
-                    onConfirm: () => { }
-                }
-            });
-            return;
+  onPkgFileSelected(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.zip')) { this.error = 'Solo se permiten archivos .zip'; return; }
+    this.uploadingPkg = true;
+    this.fs.uploadUpdatePackage(file).subscribe({
+      next: res => {
+        this.uploadingPkg = false;
+        if (res.success) {
+          this.showSuccess(`Paquete "${res.filename}" subido`);
+          this.updatePackages = res.packages || [];
+        } else {
+          this.error = res.error || 'Error al subir paquete';
         }
+        this.cdr.detectChanges();
+      },
+      error: err => { this.uploadingPkg = false; this.error = err.error?.error || 'Error al subir'; this.cdr.detectChanges(); }
+    });
+  }
 
-        const modalRef = this.modalService.open(UserModalComponent, {
-            title: 'Editar Usuario',
-            description: `Editando el usuario ${user.name}. Modifica la información que deseas actualizar.`,
-            size: 'xl',
-            showCloseButton: true,
-            closeOnOverlayClick: true,
-            buttons: [],
-            data: {
-                id: user.id,
-                name: user.name,
-                password: user.password,
-                rol: user.rol
-            }
-        });
+  applyPackage(filename: string) {
+    if (!confirm(`¿Aplicar el paquete "${filename}"? La aplicación se reiniciará.`)) return;
+    this.applyingPkg = filename;
+    this.fs.applyUpdatePackage(filename).subscribe({
+      next: res => {
+        if (res.success) {
+          this.showSuccess('Actualización iniciada. El servidor se reiniciará en ~3 segundos.');
+          this.updateStatus = { status: 'updating', message: 'Aplicando actualización...' };
+        } else {
+          this.error = res.error;
+        }
+        this.applyingPkg = '';
+        this.cdr.detectChanges();
+      },
+      error: err => { this.applyingPkg = ''; this.error = err.error?.error || 'Error al aplicar'; this.cdr.detectChanges(); }
+    });
+  }
 
-        modalRef.afterClosed$.subscribe(result => {
-            if (result?.success) {
-                this.ngOnInit();
-            }
-        });
-    }
+  downloadRemotePackage(url: string, filename: string) {
+    this.fs.downloadRemotePackage(url, filename).subscribe({
+      next: res => {
+        if (res.success) this.showSuccess('Descarga iniciada. Aparecerá en la lista en unos momentos.');
+        else this.error = res.error;
+        this.cdr.detectChanges();
+      },
+      error: () => { this.error = 'Error al iniciar descarga'; this.cdr.detectChanges(); }
+    });
+  }
+
+  performUpdate() {
+    this.updating = true;
+    this.fs.executeUpdate().subscribe({
+      next: () => {
+        this.showSuccess('Actualización iniciada. La app se reiniciará en breve.');
+        this.updating = false;
+      },
+      error: () => { this.updating = false; this.error = 'Error al iniciar actualización'; }
+    });
+  }
+
+  // ── Filesystem browser ────────────────────────────────────────────────────
+
+  openFsBrowser() { this.showFsBrowser = true; }
+  onFsBrowserSelected(path: string) { this.newLocation.base_path = path; this.showFsBrowser = false; }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  private showSuccess(msg: string) {
+    this.success = msg; this.error = '';
+    setTimeout(() => { this.success = ''; this.cdr.detectChanges(); }, 3000);
+  }
+
+  formatBytes(bytes: number): string {
+    if (!bytes) return '0 B';
+    const k = 1024, sizes = ['B','KB','MB','GB','TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+  }
+
+  get visibleTabs() {
+    return this.TABS.filter(t => {
+      if (t.id === 'system') return this.auth.hasPermission('canPerformUpdates');
+      return true;
+    });
+  }
 }

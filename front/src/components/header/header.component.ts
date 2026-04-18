@@ -1,41 +1,12 @@
-import { ChangeDetectorRef, Component, signal } from '@angular/core';
-import { LocalStorageService } from '../../services/localStorage.service';
-import { Router } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
-import { CommonModule, Location } from '@angular/common';
+// This component is superseded by the inline headers inside each page component.
+// Kept as an empty stub to avoid build errors if referenced elsewhere.
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
 @Component({
-    selector: 'app-header',
-    templateUrl: './header.component.html',
-    styleUrl: './header.component.css',
-    imports: [CommonModule]
+  selector: 'app-header',
+  standalone: true,
+  imports: [CommonModule],
+  template: ''
 })
-export class Header {
-    constructor(
-        private storage: LocalStorageService,
-        private router: Router,
-        public auth: AuthService,
-        private cdr: ChangeDetectorRef,
-        private location: Location
-    ) { }
-    // Si no tenemos el rol suficiente hay que quitar el boton
-
-    // Vamos a hacerlo obteniendo el rol de la base de datos para evitar dependencia del cliente.
-    canAccessAdminPanel = false;
-    subRoute = false;
-
-    ngOnInit() {
-        this.subRoute = this.router.url != '/'
-
-        this.canAccessAdminPanel = this.auth.hasPermission('canAccessAdminPanel')
-        this.cdr.markForCheck();
-    }
-
-    back() {
-        this.location.back();
-    }
-
-    logout() {
-        this.storage.clearAuthSession();
-        this.router.navigate(["/login"])
-    }
-}
+export class Header {}

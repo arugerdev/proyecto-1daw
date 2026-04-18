@@ -1,204 +1,169 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectorRef, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FileService } from '../../services/file.service';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { MediaItem } from '../../app/models/file.model';
+import { MediaItem, MediaKind, MEDIA_KIND_COLORS } from '../../app/models/file.model';
 import { AuthService } from '../../services/auth.service';
-import { takeUntil } from 'rxjs';
+import { FileService } from '../../services/file.service';
 
 @Component({
   selector: 'app-file-card',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="file-card group" (click)="onCardClick()">
-      <!-- Imagen/Thumbnail -->
-      <div class="card-image-container">
-        <img 
-          [src]="getThumbnailUrl()"
-          [alt]="getTitle()"
-          class="card-image group-hover:scale-105"
-        >
+    <div
+      class="group relative bg-surface-800 border border-surface-700 rounded-xl overflow-hidden
+             hover:border-primary-600/50 hover:shadow-lg hover:shadow-primary-900/20
+             transition-all duration-200 cursor-pointer flex flex-col"
+      (click)="viewDetails.emit(file)">
 
-        <!-- Icono de tipo de archivo (SVG) -->
-        <div class="type-icon" [ngClass]="getTipoColor()">
-          <div class="type-icon-svg" [innerHTML]="getTipoIcon()"></div>
+      <!-- Thumbnail / Preview area -->
+      <div class="relative h-44 bg-surface-900 overflow-hidden shrink-0">
+        <!-- Thumbnail image (if video/image) -->
+        <img *ngIf="['video','image'].includes(file.media_kind)"
+          [src]="thumbUrl" [alt]="file.title"
+          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          (error)="showThumb = false"
+          [style.display]="showThumb ? 'block' : 'none'"/>
+
+        <!-- Fallback icon -->
+        <div class="absolute inset-0 flex items-center justify-center"
+          [class.opacity-0]="showThumb && ['video','image'].includes(file.media_kind)"
+          [class.group-hover:opacity-0]="showThumb && ['video','image'].includes(file.media_kind)">
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+              [style.background-color]="kindColor + '20'">
+              <span>{{ kindEmoji }}</span>
+            </div>
+            <span class="text-xs text-surface-500 uppercase tracking-wider font-medium">
+              {{ file.file_extension || file.media_kind }}
+            </span>
+          </div>
         </div>
 
-        <!-- Duración (para videos/audio) -->
-        <div *ngIf="file.duration" class="duration-badge">
-          {{ getDuration() }}
+        <!-- Kind badge -->
+        <div class="absolute top-2 left-2">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+            [style.background-color]="kindColor + '30'"
+            [style.color]="kindColor"
+            [style.border]="'1px solid ' + kindColor + '50'">
+            {{ kindEmoji }} {{ kindLabel }}
+          </span>
         </div>
 
-        <!-- Overlay con botón de vista previa -->
-        <div class="card-overlay">
-          <button class="preview-button" (click)="onViewDetails($event)">
-            <svg class="preview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            Ver Detalles
-          </button>
+        <!-- Duration badge (video/audio) -->
+        <div *ngIf="file.duration"
+          class="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded font-mono">
+          {{ formatDuration(file.duration) }}
+        </div>
+
+        <!-- Hover overlay -->
+        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <span class="bg-primary-600 text-white text-sm font-medium px-4 py-2 rounded-lg">
+            Ver detalles
+          </span>
         </div>
       </div>
 
-      <!-- Contenido de la tarjeta -->
-      <div class="card-content">
-        <!-- Título y estado -->
-        <div class="title-section">
-          <h3 class="card-title" [title]="getTitle()">{{ getTitle() }}</h3>
-        </div>
+      <!-- Card body -->
+      <div class="p-3 flex flex-col gap-2 flex-1">
+        <h3 class="text-sm font-semibold text-surface-100 line-clamp-2 leading-tight" [title]="file.title">
+          {{ file.title }}
+        </h3>
 
-        <p class="card-description">{{ getDescription() }}</p>
+        <p *ngIf="file.description" class="text-xs text-surface-400 line-clamp-2 leading-relaxed">
+          {{ file.description }}
+        </p>
 
-        <!-- Autores -->
-        <div *ngIf="file.authors?.length" class="metadata-item">
-          <strong>Autores:</strong> {{ file.authors?.join(', ') }}
-        </div>
-
-        <!-- Fechas -->
-        <section class="metadata-container">
-        <div class="metadata-item">
-          <strong>Fecha de creación:</strong> {{ formatDate(file.date_added) }}
-        </div>
-        <div class="metadata-item">
-          <strong>Última actualización:</strong> {{ formatDate(file.date_updated) }}
-        </div>
-
-        <!-- Año de publicación -->
-        <div class="metadata-item">
-          <strong>Año:</strong> {{ file.publication_year || 'N/A' }}
+        <!-- Meta row -->
+        <div class="flex items-center gap-3 text-xs text-surface-500 mt-auto">
+          <span *ngIf="file.publication_year">{{ file.publication_year }}</span>
+          <span *ngIf="file.category_name"
+            class="truncate max-w-[80px] px-1.5 py-0.5 rounded text-xs"
+            [style.background-color]="file.category_color + '20'"
+            [style.color]="file.category_color">
+            {{ file.category_name }}
+          </span>
+          <span *ngIf="file.file_size_formatted" class="ml-auto shrink-0">{{ file.file_size_formatted }}</span>
         </div>
 
         <!-- Tags -->
-        <div class="metadata-item" *ngIf="file.tags">
-          <strong>Tags:</strong> {{ file.tags }}
+        <div *ngIf="file.tags.length > 0" class="flex flex-wrap gap-1">
+          <span *ngFor="let tag of file.tags.slice(0, 3)"
+            class="px-1.5 py-0.5 text-xs rounded bg-surface-700 text-surface-400">
+            {{ tag }}
+          </span>
+          <span *ngIf="file.tags.length > 3"
+            class="px-1.5 py-0.5 text-xs rounded bg-surface-700 text-surface-500">
+            +{{ file.tags.length - 3 }}
+          </span>
         </div>
-        </section>
 
-        <!-- Ubicación (solo admins) -->
-        <div *ngIf="canViewPath" class="location" [title]="file.media_path">
-          <div class="location-svg" [innerHTML]="locationIcon"></div>
-          <span class="location-text">{{ file.media_path }}</span>
-        </div>
+        <!-- Actions (owner/admin only visible) -->
+        <div *ngIf="canEdit || canDelete || canDownload"
+          class="flex items-center gap-1 pt-1 border-t border-surface-700 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
 
-        <!-- Acciones -->
-        <div class="card-actions">
-          <button *ngIf="canDownloadContent" class="action-btn" (click)="onDownload($event)" title="Descargar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" x2="12" y1="15" y2="3"></line>
+          <button *ngIf="canDownload" (click)="$event.stopPropagation(); download.emit(file)"
+            class="p-1.5 rounded-lg text-surface-400 hover:text-surface-100 hover:bg-surface-700 transition-colors" title="Descargar">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
             </svg>
           </button>
-          <button class="action-btn" *ngIf="canEditContent" (click)="onEdit($event)" title="Editar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"></path>
+
+          <button *ngIf="canEdit" (click)="$event.stopPropagation(); edit.emit(file)"
+            class="p-1.5 rounded-lg text-surface-400 hover:text-primary-400 hover:bg-surface-700 transition-colors" title="Editar">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
             </svg>
           </button>
-          <button class="action-btn delete" *ngIf="canDeleteContent" (click)="onDelete($event)" title="Eliminar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 6h18"></path>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-              <path d="M8 4V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1"></path>
+
+          <button *ngIf="canDelete" (click)="$event.stopPropagation(); delete.emit(file)"
+            class="p-1.5 rounded-lg text-surface-400 hover:text-red-400 hover:bg-surface-700 transition-colors ml-auto" title="Eliminar">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
             </svg>
           </button>
         </div>
       </div>
     </div>
-  `,
-  styleUrls: ['./file-card.component.css']
+  `
 })
-export class FileCardComponent {
-
+export class FileCardComponent implements OnInit {
   @Input() file!: MediaItem;
   @Output() viewDetails = new EventEmitter<MediaItem>();
   @Output() download = new EventEmitter<MediaItem>();
   @Output() edit = new EventEmitter<MediaItem>();
   @Output() delete = new EventEmitter<MediaItem>();
 
-  canDownloadContent = false
-  canEditContent = false
-  canDeleteContent = false
-  locationIcon = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-      <circle cx="12" cy="10" r="3"></circle>
-    </svg>
-  `;
+  canDownload = false;
+  canEdit = false;
+  canDelete = false;
+  showThumb = true;
 
-  canViewPath = false;
+  readonly kindEmojis: Record<string, string> = {
+    video: '🎬', audio: '🎵', image: '🖼️', document: '📄', text: '📝', other: '📦'
+  };
+  readonly kindLabels: Record<string, string> = {
+    video: 'Video', audio: 'Audio', image: 'Imagen', document: 'Documento', text: 'Texto', other: 'Otro'
+  };
 
-  constructor(
-    private fileService: FileService,
-    private sanitizer: DomSanitizer,
-    public auth: AuthService,
-    private cdr: ChangeDetectorRef
-  ) {
-    this.canViewPath = this.auth.hasPermission('canViewAllContent');
-    this.canDownloadContent = this.auth.hasPermission('canDownload')
-    this.canEditContent = this.auth.hasPermission('canEdit')
-    this.canDeleteContent = this.auth.hasPermission('canDelete')
-    this.cdr.markForCheck();
+  get thumbUrl(): string { return this.fs.getThumbnailUrl(this.file.id); }
+  get kindColor(): string { return MEDIA_KIND_COLORS[this.file.media_kind] || '#64748b'; }
+  get kindEmoji(): string { return this.kindEmojis[this.file.media_kind] || '📦'; }
+  get kindLabel(): string { return this.kindLabels[this.file.media_kind] || 'Otro'; }
+
+  constructor(private auth: AuthService, private fs: FileService) {}
+
+  ngOnInit() {
+    this.canDownload = this.auth.hasPermission('canDownload');
+    this.canEdit = this.auth.hasPermission('canEdit');
+    this.canDelete = this.auth.hasPermission('canDelete');
   }
 
-  getTipoIcon(): SafeHtml {
-    const svg = this.fileService.getContentTypeIcon(this.file.filename);
-    return this.sanitizer.bypassSecurityTrustHtml(svg);
-  }
-
-  getTipoColor(): string {
-    return this.fileService.getContentTypeColor(this.file.filename);
-  }
-
-  getTitle(): string {
-    return this.file.title;
-  }
-
-  getDescription(): string {
-    return this.file.description || 'Sin descripción';
-  }
-
-  getYear(): string {
-    return this.file.publication_year?.toString() || 'N/A';
-  }
-
-  getDuration(): string {
-    return this.fileService.formatDuration(this.file.duration);
-  }
-
-  getThumbnailUrl(): string {
-    return this.fileService.getThumbnailUrl(this.file);
-  }
-
-  formatDate(dateStr?: string) {
-    if (!dateStr) return 'N/A';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  }
-
-  onCardClick() {
-    this.viewDetails.emit(this.file);
-  }
-
-  onViewDetails(event: Event) {
-    event.stopPropagation();
-    this.viewDetails.emit(this.file);
-  }
-
-  onDownload(event: Event) {
-    event.stopPropagation();
-    this.download.emit(this.file);
-  }
-
-  onEdit(event: Event) {
-    event.stopPropagation();
-    this.edit.emit(this.file);
-  }
-
-  onDelete(event: Event) {
-    event.stopPropagation();
-    this.delete.emit(this.file);
+  formatDuration(seconds: number | null): string {
+    if (!seconds) return '';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    return `${m}:${s.toString().padStart(2,'0')}`;
   }
 }

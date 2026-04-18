@@ -1,282 +1,173 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpEvent } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Stats, PaginatedResponse, MediaItem } from '../app/models/file.model';
-import { SvgIcons } from '../app/utils/svg-icons';
+import { MediaFilter, MediaItem, PaginatedResponse, Category, Tag, StorageLocation, Stats } from '../app/models/file.model';
 import { environment } from '../environments/environment';
 
-@Injectable({
-    providedIn: 'root'
-})
+const API = (environment as any).API_URL;
+
+@Injectable({ providedIn: 'root' })
 export class FileService {
+  constructor(private http: HttpClient) {}
 
-    private API = (environment as any).API_URL;
+  // ── Media ─────────────────────────────────────────────────────────────────
 
-    constructor(private http: HttpClient) { }
+  getMedia(filter: MediaFilter = {}): Observable<PaginatedResponse<MediaItem>> {
+    let params = new HttpParams();
+    Object.entries(filter).forEach(([k, v]) => {
+      if (v !== undefined && v !== '' && v !== null) params = params.set(k, String(v));
+    });
+    return this.http.get<PaginatedResponse<MediaItem>>(`${API}/media`, { params });
+  }
 
-    private getHeaders(): HttpHeaders {
-        const token = localStorage.getItem('token');
-        return new HttpHeaders({
-            'Authorization': `Bearer ${token}`
-        });
-    }
+  getMediaById(id: number): Observable<{ success: boolean; data: MediaItem }> {
+    return this.http.get<any>(`${API}/media/${id}`);
+  }
 
-    // ===========================
-    // 📊 STATS
-    // ===========================
+  uploadMedia(formData: FormData): Observable<any> {
+    return this.http.post<any>(`${API}/media/upload`, formData);
+  }
 
-    getStats(): Observable<{ success: boolean; stats: Stats }> {
+  registerExternal(data: {
+    title: string;
+    description?: string;
+    file_path: string;
+    publication_year?: number;
+    category_id?: number;
+    storage_location_id?: number;
+    tags?: string[];
+  }): Observable<any> {
+    return this.http.post<any>(`${API}/media/register`, data);
+  }
 
-        return this.http.get<{ success: boolean; stats: Stats }>(
-            `${this.API}/stats`,
-            { headers: this.getHeaders() }
-        );
-    }
+  updateMedia(id: number, data: Partial<MediaItem> & { tags?: string[] }): Observable<any> {
+    return this.http.put<any>(`${API}/media/${id}`, data);
+  }
 
-    // ===========================
-    // 📄 MEDIA PAGINADO
-    // ===========================
+  deleteMedia(id: number): Observable<any> {
+    return this.http.delete<any>(`${API}/media/${id}`);
+  }
 
-    getMediaPaginated(
-        page: number,
-        limit: number,
-        search: string = '',
-        order: string,
-        selectedType: number
-    ): Observable<PaginatedResponse> {
+  getDownloadUrl(id: number): string {
+    return `${API}/media/${id}/download`;
+  }
 
-        let params = new HttpParams()
-            .set('page', page.toString())
-            .set('limit', limit.toString());
+  getThumbnailUrl(id: number): string {
+    return `${API}/media/${id}/thumbnail`;
+  }
 
-        if (search) params = params.set('search', search);
-        if (order) params = params.set('order', order);
-        if (selectedType != 0) params = params.set('type', selectedType);
+  importCSV(file: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<any>(`${API}/media/import-csv`, fd);
+  }
 
-        return this.http.get<PaginatedResponse>(
-            `${this.API}/files/paginated`,
-            {
-                headers: this.getHeaders(),
-                params
-            }
-        );
-    }
+  // ── Stats ──────────────────────────────────────────────────────────────────
 
-    getContentTypes() {
-        return this.http.get<{
-            success: boolean,
-            data: { id: number; name: string }[]
-        }>(`${this.API}/media-type`);
-    }
+  getStats(): Observable<{ success: boolean; data: Stats }> {
+    return this.http.get<any>(`${API}/stats`);
+  }
 
-    // ===========================
-    // 📥 DESCARGAR
-    // ===========================
+  // ── Categories ─────────────────────────────────────────────────────────────
 
-    // ─── FIX ──────────────────────────────────────────────────────────────────
-    // getDownloadUrl devuelve la URL directa al endpoint de descarga.
-    // Usada por file-grid para crear un <a href> nativo en lugar de XHR,
-    // evitando el problema de CORS con credenciales en peticiones blob.
-    // downloadMedia se mantiene por si hay otros consumidores que lo usen,
-    // pero onDownload en file-grid ya no lo llama.
-    // ─────────────────────────────────────────────────────────────────────────
-    getDownloadUrl(id: number): string {
-        return `${this.API}/files/${id}/download`;
-    }
+  getCategories(): Observable<{ success: boolean; data: Category[] }> {
+    return this.http.get<any>(`${API}/categories`);
+  }
 
-    downloadMedia(id: number): Observable<Blob> {
-        return this.http.get(
-            `${this.API}/files/${id}/download`,
-            {
-                headers: this.getHeaders(),
-                responseType: 'blob'
-            }
-        );
-    }
+  createCategory(data: Partial<Category>): Observable<any> {
+    return this.http.post<any>(`${API}/categories`, data);
+  }
 
-    // ===========================
-    // ❌ ELIMINAR
-    // ===========================
+  updateCategory(id: number, data: Partial<Category>): Observable<any> {
+    return this.http.put<any>(`${API}/categories/${id}`, data);
+  }
 
-    deleteMedia(id: number): Observable<{ success: boolean }> {
-        return this.http.delete<{ success: boolean }>(
-            `${this.API}/files/${id}`,
-            { headers: this.getHeaders() }
-        );
-    }
+  deleteCategory(id: number): Observable<any> {
+    return this.http.delete<any>(`${API}/categories/${id}`);
+  }
 
-    // ===========================
-    // ✏ EDITAR METADATA
-    // ===========================
+  // ── Tags ───────────────────────────────────────────────────────────────────
 
-    updateMedia(id: number, formData: FormData) {
-        return this.http.put(
-            `${this.API}/files/${id}`,
-            formData,
-            { headers: this.getHeaders() }
-        );
+  getTags(): Observable<{ success: boolean; data: Tag[] }> {
+    return this.http.get<any>(`${API}/tags`);
+  }
 
-    }
+  createTag(data: { name: string; color?: string }): Observable<any> {
+    return this.http.post<any>(`${API}/tags`, data);
+  }
 
-    // ===========================
-    // 🎨 ICONOS POR CONTENT TYPE
-    // ===========================
+  deleteTag(id: number): Observable<any> {
+    return this.http.delete<any>(`${API}/tags/${id}`);
+  }
 
-    getContentTypeIcon(filename: string): string {
-        switch (this.getType(filename)) {
-            case 'video': return SvgIcons.video;
-            case 'image': return SvgIcons.image;
-            case 'audio': return SvgIcons.audio;
-            default: return SvgIcons.file;
-        }
-    }
+  // ── Storage Locations ──────────────────────────────────────────────────────
 
-    getContentTypeColor(filename: string): string {
-        switch (this.getType(filename)) {
-            case 'video': return 'bg-purple-500';
-            case 'audio': return 'bg-green-500';
-            case 'image': return 'bg-orange-500';
-            case 'other': return 'bg-indigo-500';
-            default: return 'bg-gray-500';
-        }
-    }
+  getLocations(): Observable<{ success: boolean; data: StorageLocation[] }> {
+    return this.http.get<any>(`${API}/locations`);
+  }
 
-    // ===========================
-    // 🖼 THUMBNAIL
-    // ===========================
+  createLocation(data: Partial<StorageLocation>): Observable<any> {
+    return this.http.post<any>(`${API}/locations`, data);
+  }
 
-    getThumbnailUrl(media: MediaItem): string {
-        switch (this.getType(media.filename)) {
-            case "video":
-                return `${this.API}/files/${media.id}/thumbnail`;
+  updateLocation(id: number, data: Partial<StorageLocation>): Observable<any> {
+    return this.http.put<any>(`${API}/locations/${id}`, data);
+  }
 
-            case "image":
-                return `${this.API}/files/${media.id}/download`;
-            default:
-                return `https://placehold.net/shape-600x600.png`
-        }
-    }
+  deleteLocation(id: number): Observable<any> {
+    return this.http.delete<any>(`${API}/locations/${id}`);
+  }
 
-    getFile(media: MediaItem): string {
-        return `${this.API}/files/${media.id}/download`;
-    }
+  browseFilesystem(path?: string): Observable<any> {
+    const params = path ? new HttpParams().set('path', path) : new HttpParams();
+    return this.http.get<any>(`${API}/locations/browse`, { params });
+  }
 
-    getType(filename: string): 'video' | 'image' | 'audio' | 'document' | 'other' {
-        const ext = filename.split('.').pop()?.toLowerCase();
+  // ── System ─────────────────────────────────────────────────────────────────
 
-        if (!ext) return 'other';
+  getVersion(): Observable<any> {
+    return this.http.get<any>(`${API}/version`);
+  }
 
-        const videoExt = new Set(['mp4', 'webm', 'mov', 'avi', 'mkv']);
-        const imageExt = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']);
-        const audioExt = new Set(['mp3', 'wav', 'ogg', 'flac', 'm4a']);
-        const documentExt = new Set([
-            'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
-            'txt', 'csv', 'md', 'rtf'
-        ]);
+  checkUpdates(): Observable<any> {
+    return this.http.get<any>(`${API}/update/check`);
+  }
 
-        if (videoExt.has(ext)) return 'video';
-        if (imageExt.has(ext)) return 'image';
-        if (audioExt.has(ext)) return 'audio';
-        if (documentExt.has(ext)) return 'document';
+  getUpdateStatus(): Observable<any> {
+    return this.http.get<any>(`${API}/update/status`);
+  }
 
-        return 'other';
-    }
+  executeUpdate(): Observable<any> {
+    return this.http.post<any>(`${API}/update/execute`, {});
+  }
 
-    getAuthors(): Observable<{ success: boolean; authors: { id: number; name: string; role: string }[] }> {
-        return this.http.get<{ success: boolean; authors: { id: number; name: string; role: string }[] }>(`${this.API}/authors`);
-    }
+  // Upload a release package
+  uploadUpdatePackage(file: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('package', file);
+    return this.http.post<any>(`${API}/update/upload`, fd);
+  }
 
-    getMediaLocations(): Observable<{ success: boolean; locations: { id: number; path: string }[] }> {
-        return this.http.get<{ success: boolean; locations: { id: number; path: string }[] }>(`${this.API}/locations`);
-    }
+  // List packages in the updates/ folder
+  getUpdatePackages(): Observable<any> {
+    return this.http.get<any>(`${API}/update/packages`);
+  }
 
-    // ===========================
-    // 📁 MEDIA LOCATIONS
-    // ===========================
+  // Apply a specific package
+  applyUpdatePackage(filename: string): Observable<any> {
+    return this.http.post<any>(`${API}/update/apply`, { filename });
+  }
 
-    createMediaLocation(path: string): Observable<{ success: boolean; id?: number; error?: any }> {
+  // Download remote package
+  downloadRemotePackage(url: string, filename: string): Observable<any> {
+    return this.http.post<any>(`${API}/update/download`, { url, filename });
+  }
 
-        return this.http.post<{ success: boolean; id?: number; error?: any }>(
-            `${this.API}/locations`,
-            { path },
-            { headers: this.getHeaders() }
-        );
-
-    }
-
-    renameMediaLocation(id: number, path: string): Observable<{ success: boolean; error?: any }> {
-
-        return this.http.put<{ success: boolean; error?: any }>(
-            `${this.API}/locations/${id}`,
-            { path },
-            { headers: this.getHeaders() }
-        );
-
-    }
-
-    deleteMediaLocation(id: number): Observable<{ success: boolean; error?: any }> {
-
-        return this.http.delete<{ success: boolean; error?: any }>(
-            `${this.API}/locations/${id}`,
-            { headers: this.getHeaders() }
-        );
-
-    }
-
-    createContentType(name: string): Observable<{ success: boolean; id?: number; error?: any }> {
-        return this.http.post<{ success: boolean; id?: number; error?: any }>(
-            `${this.API}/media-type`,
-            { name },
-            { headers: this.getHeaders() }
-        );
-    }
-
-    createMedia(formData: FormData): Observable<{ success: boolean; id?: number; error?: any }> {
-        return this.http.post<{ success: boolean; id?: number; error?: any }>(
-            `${this.API}/upload-content`,
-            formData,
-            { headers: this.getHeaders() }
-        );
-    }
-
-    // ===========================
-    // 📅 FORMATEAR AÑO
-    // ===========================
-
-    formatYear(year: number | null): string {
-        return year ? year.toString() : '—';
-    }
-
-    // ===========================
-    // ⏱ DURACIÓN
-    // ===========================
-
-    formatDuration(duration: string | null): string {
-        return duration ?? '—';
-    }
-
-    // ===========================
-    // 📂 FILESYSTEM
-    // ===========================
-
-    listFolders(path: string): Observable<{ success: boolean; folders: string[] }> {
-
-        const params = new HttpParams().set('path', path);
-
-        return this.http.get<{ success: boolean; folders: string[] }>(
-            `${this.API}/filesystem/list`,
-            {
-                headers: this.getHeaders(),
-                params
-            }
-        );
-    }
-
-    createFolder(path: string, folderName: string): Observable<any> {
-        return this.http.post<{ success: boolean; }>(
-            `${this.API}/filesystem/create`,
-            { path, folderName },
-            { headers: this.getHeaders() }
-        );
-    }
+  // Upload media with progress events
+  uploadMediaWithProgress(formData: FormData): Observable<HttpEvent<any>> {
+    return this.http.post<any>(`${API}/media/upload`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    });
+  }
 }

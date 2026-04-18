@@ -1,47 +1,9 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
-import { LocalStorageService } from '../services/localStorage.service';
-import { FormsModule } from '@angular/forms';
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, FormsModule],
-  templateUrl: './app.html',
-  styleUrl: './app.css'
+  imports: [RouterOutlet],
+  template: '<router-outlet />'
 })
-export class App implements OnInit {
-  protected readonly title = signal('Sistema de Gestión Multimedia');
-
-  private router = inject(Router);
-
-  userData: any;
-  isAuthenticated = false;
-
-  constructor(private storageService: LocalStorageService) { }
-
-  ngOnInit() {
-    // Verificar autenticación
-    this.isAuthenticated = this.storageService.isAuthenticated();
-
-    if (this.isAuthenticated) {
-      this.userData = this.storageService.getUserData();
-      return
-    }
-
-
-    this.router.navigate(['/login'])
-  }
-
-  // Ejemplo de uso genérico
-  savePreferences() {
-    const preferences = {
-      theme: 'dark',
-      language: 'es'
-    };
-    this.storageService.setItem('user_preferences', preferences);
-  }
-
-  loadPreferences() {
-    const preferences = this.storageService.getItem('user_preferences');
-  }
-}
+export class App {}

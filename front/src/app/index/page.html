@@ -1,149 +1,351 @@
-<main class="main" style="display: flex; flex-direction: column; padding: 0; margin: 0; height: 100%; padding: 1rem;">
-    <app-header></app-header>
+<div class="flex flex-col min-h-screen bg-surface-900">
 
-    <!-- Pantalla de carga inicial -->
-    <div *ngIf="isLoading && !hasError" class="loading-container">
-        <span class="loader"></span>
-    </div>
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="bg-surface-800/80 backdrop-blur-md border-b border-surface-700 sticky top-0 z-30">
+    <div class="w-full px-4 sm:px-6 py-2.5 flex items-center gap-3">
 
-    <!-- Pantalla de error -->
-    <div *ngIf="hasError" id="errorDisplay" class="errorDisplay">
-        <section class="error-message">
-            <span class="error-icon">⚠</span>
-            <div class="error-content">
-                <strong>Error de carga de contenido</strong>
-                <p>{{ errorMessage }}</p>
-            </div>
-        </section>
-    </div>
+      <!-- Logo -->
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+          </svg>
+        </div>
+        <span class="font-semibold text-surface-100 text-sm hidden sm:block">EcijaComarca</span>
+      </div>
 
-    <!-- Contenido principal -->
-    <ng-container *ngIf="!isLoading && !hasError">
-
-        <!-- Stats Grid (solo se actualiza cuando cambian) -->
-        <!--
-        <div class="stats-grid" *ngIf="stats">
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="card-title">Total Contenidos</h4>
-                    <div class="card-value">{{ stats.total }}</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="card-title">Videos</h4>
-                    <div class="card-value text-blue">{{ stats.videos }}</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="card-title">Imágenes</h4>
-                    <div class="card-value text-green">{{ stats.imagenes }}</div>
-                </div>
-            </div>
-
-
-    <div class="card">
-        <div class="card-body">
-            <h4 class="card-title width-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" x2="2" y1="12" y2="12"></line>
-                <path
-                d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z">
-            </path>
-            <line x1="6" x2="6.01" y1="16" y2="16"></line>
-            <line x1="10" x2="10.01" y1="16" y2="16"></line>
+      <!-- Search — fills all available space -->
+      <div class="flex-1 relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
-        Almacenamiento
-    </h4>
-    <div class="storage-content">
-        <div class="storage-value">
-            <span class="storage-number">{{ stats.storage.formatted }}</span>
-            <span class="storage-total">de {{ formatBytes(stats.storage.total)}} totales</span>
+        <input [(ngModel)]="search" (input)="onSearchInput()" type="text"
+          placeholder="Buscar vídeos, imágenes, documentos..."
+          class="input pl-9 pr-3 py-2 w-full text-sm bg-surface-900/60"/>
+      </div>
+
+      <!-- Right controls — always flush to right edge -->
+      <div class="flex items-center gap-1.5 shrink-0">
+
+        <!-- View mode toggle -->
+        <div class="hidden sm:flex items-center bg-surface-900/50 border border-surface-700 rounded-lg p-0.5">
+          <button (click)="viewMode='grid'" [class.bg-surface-700]="viewMode==='grid'"
+            class="p-1.5 rounded-md transition-colors text-surface-400 hover:text-surface-200" title="Vista cuadrícula">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+            </svg>
+          </button>
+          <button (click)="viewMode='list'" [class.bg-surface-700]="viewMode==='list'"
+            class="p-1.5 rounded-md transition-colors text-surface-400 hover:text-surface-200" title="Vista lista">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+          </button>
         </div>
-        <div role="progress-bar" aria-valuemin="0" aria-valuemax="100" class="progress-bar">
-            <div class="progress-fill" [style.width.%]="stats.storage.usedPercentage">
-            </div>
-        </div>
+
+        <!-- Filter toggle -->
+        <button (click)="showFilters = !showFilters" title="Filtros"
+          class="btn-ghost btn-sm relative p-2"
+          [class.text-primary-400]="hasActiveFilters || showFilters"
+          [class.bg-primary-600\/10]="hasActiveFilters || showFilters">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+          </svg>
+          <span class="hidden sm:inline ml-1 text-sm">Filtros</span>
+          <span *ngIf="hasActiveFilters" class="absolute top-1 right-1 w-1.5 h-1.5 bg-primary-500 rounded-full"></span>
+        </button>
+
+        <!-- Divider -->
+        <div class="w-px h-5 bg-surface-700 hidden sm:block"></div>
+
+        <!-- CSV import -->
+        <button *ngIf="canImportCSV" (click)="showCsvImport = true"
+          class="btn-ghost btn-sm p-2 hidden md:flex" title="Importar CSV">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </button>
+
+        <!-- Upload -->
+        <button *ngIf="canUpload" (click)="showUpload = true" class="btn-primary btn-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          <span class="hidden sm:inline">Subir</span>
+        </button>
+
+        <!-- Admin panel -->
+        <a *ngIf="canAccessAdmin" href="/dashboard"
+          class="btn-ghost btn-sm p-2" title="Panel de administración">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </a>
+
+        <!-- Logout -->
+        <button (click)="auth.logout()" class="btn-ghost btn-sm p-2 text-surface-500 hover:text-red-400" title="Cerrar sesión">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
+        </button>
+      </div>
     </div>
-</div>
-</div>
+  </header>
 
+  <!-- ── Body ───────────────────────────────────────────────────────────── -->
+  <div class="flex flex-1 w-full relative">
 
-        </div>
--->
+    <!-- Mobile backdrop -->
+    <div *ngIf="showFilters" class="fixed inset-0 bg-black/60 z-30 md:hidden" (click)="showFilters=false"></div>
 
-        <!-- Buscador y Filtros (siempre visibles, no se recargan) -->
-        <div class="card search-card">
-            <div class="card-content">
-                <div class="search-panel">
-                    <div class="search-row">
-                        <div class="search-input-wrapper">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                class="icon search-icon">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <path d="m21 21-4.3-4.3"></path>
-                            </svg>
-                            <input type="text" class="search-input" placeholder="Buscar por nombre de archivo..."
-                                [(ngModel)]="searchTerm" (input)="onSearchChange()" />
-                        </div>
+    <!-- Sidebar: fixed drawer on mobile, inline on md+ -->
+    <aside *ngIf="showFilters"
+      class="fixed left-0 top-0 h-full w-64 bg-surface-800 border-r border-surface-700 z-40 overflow-y-auto
+             md:relative md:top-auto md:left-auto md:h-auto md:w-52 md:shrink-0 md:bg-transparent md:border-0 md:z-auto
+             flex flex-col shadow-2xl md:shadow-none">
 
-                        <select class="select" [(ngModel)]="selectedType" (change)="onTypeChange()">
-                            <option value="0" selected>Todos los tipos</option>
-                            <option *ngFor="let type of types" [value]="type.id">{{type.name}}</option>
-                        </select>
+      <!-- Mobile header -->
+      <div class="flex items-center justify-between p-4 border-b border-surface-700 md:hidden">
+        <span class="font-semibold text-surface-100 text-sm">Filtros</span>
+        <button (click)="showFilters=false" class="btn-ghost btn-sm p-1.5 text-surface-400">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
 
-                        <button *ngIf="canUploadContent" [class]="canUploadContent ? 'a-admin' : 'a-admin disabled'"
-                            (click)="canUploadContent ? openModal() : ''" class="button button-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" x2="12" y1="3" y2="15"></line>
-                            </svg>
-                            Subir Contenido
-                        </button>
-                    </div>
+      <!-- Filters content -->
+      <div class="flex-1 overflow-y-auto p-3 space-y-3 md:pt-4">
 
-                    <div class="sort-row">
-                        <div class="sort-label">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                class="icon">
-                                <line x1="21" x2="14" y1="4" y2="4"></line>
-                                <line x1="10" x2="3" y1="4" y2="4"></line>
-                                <line x1="21" x2="12" y1="12" y2="12"></line>
-                                <line x1="8" x2="3" y1="12" y2="12"></line>
-                                <line x1="21" x2="16" y1="20" y2="20"></line>
-                                <line x1="12" x2="3" y1="20" y2="20"></line>
-                                <line x1="14" x2="14" y1="2" y2="6"></line>
-                                <line x1="8" x2="8" y1="10" y2="14"></line>
-                                <line x1="16" x2="16" y1="18" y2="22"></line>
-                            </svg>
-                            <span>Ordenar por:</span>
-                        </div>
-                        <select class="select" [(ngModel)]="selectedSort" (ngModelChange)="onSortChange()">
-                            <option value="masReciente">Más Reciente</option>
-                            <option value="masAntiguo">Más Antiguo</option>
-                            <option value="nombreAZ">Nombre (A-Z)</option>
-                            <option value="nombreZA">Nombre (Z-A)</option>
-                            <!-- <option value="mayorTamano">Mayor tamaño</option> -->
-                            <!-- <option value="menorTamano">Menor Tamaño</option> -->
-                        </select>
-                    </div>
-                </div>
-            </div>
+        <!-- Sort -->
+        <div class="bg-surface-800 border border-surface-700 rounded-xl p-3">
+          <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Ordenar</h3>
+          <select [(ngModel)]="sort" (change)="applyFilter()" class="select text-sm w-full py-1.5">
+            <option value="newest">Más reciente</option>
+            <option value="oldest">Más antiguo</option>
+            <option value="title_asc">Nombre A-Z</option>
+            <option value="title_desc">Nombre Z-A</option>
+            <option value="year_desc">Año (desc)</option>
+            <option value="year_asc">Año (asc)</option>
+            <option value="views">Más visto</option>
+          </select>
         </div>
 
-        <!-- Grid de archivos (solo este componente se actualiza) -->
-        <app-file-grid [searchTerm]="searchTerm" [selectedType]="selectedType" [selectedSort]="selectedSort"
-            (openModal)="openModal()" (statsChanged)="refreshStats()">
-        </app-file-grid>
+        <!-- Media type -->
+        <div class="bg-surface-800 border border-surface-700 rounded-xl p-3">
+          <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Tipo</h3>
+          <div class="flex flex-col gap-0.5">
+            <button (click)="selectedKind = ''; applyFilter()"
+              class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors text-left"
+              [class.bg-surface-700]="selectedKind === ''"
+              [class.text-surface-100]="selectedKind === ''"
+              [class.text-surface-400]="selectedKind !== ''">
+              <span>📁</span> Todos
+            </button>
+            <button *ngFor="let kind of KINDS" (click)="selectedKind = kind[0]; applyFilter()"
+              class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors text-left"
+              [class.bg-primary-600\/20]="selectedKind === kind[0]"
+              [class.text-primary-300]="selectedKind === kind[0]"
+              [class.text-surface-400]="selectedKind !== kind[0]">
+              <span>{{ {video:'🎬',audio:'🎵',image:'🖼️',document:'📄',text:'📝',other:'📦'}[kind[0]] }}</span>
+              {{ kind[1] }}
+            </button>
+          </div>
+        </div>
 
-    </ng-container>
+        <!-- Category -->
+        <div *ngIf="categories.length" class="bg-surface-800 border border-surface-700 rounded-xl p-3">
+          <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Categoría</h3>
+          <div class="flex flex-col gap-0.5 max-h-44 overflow-y-auto">
+            <button (click)="selectedCategory = ''; applyFilter()"
+              class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-left transition-colors"
+              [class.bg-surface-700]="selectedCategory === ''"
+              [class.text-surface-100]="selectedCategory === ''"
+              [class.text-surface-400]="selectedCategory !== ''">
+              Todas
+            </button>
+            <button *ngFor="let cat of categories"
+              (click)="selectedCategory = cat.id.toString(); applyFilter()"
+              class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-left transition-colors truncate"
+              [class.bg-primary-600\/20]="selectedCategory === cat.id.toString()"
+              [class.text-primary-300]="selectedCategory === cat.id.toString()"
+              [class.text-surface-400]="selectedCategory !== cat.id.toString()">
+              <span class="w-2 h-2 rounded-full shrink-0" [style.background-color]="cat.color"></span>
+              <span class="truncate">{{ cat.name }}</span>
+              <span *ngIf="cat.media_count" class="ml-auto text-xs text-surface-600 shrink-0">{{ cat.media_count }}</span>
+            </button>
+          </div>
+        </div>
 
-</main>
+        <!-- Tags -->
+        <div *ngIf="tags.length" class="bg-surface-800 border border-surface-700 rounded-xl p-3">
+          <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Etiquetas</h3>
+          <div class="flex flex-wrap gap-1">
+            <button *ngFor="let tag of tags" (click)="selectedTag = selectedTag === tag.name ? '' : tag.name; applyFilter()"
+              class="px-2 py-0.5 rounded-full text-xs border transition-all"
+              [class.bg-primary-600\/20]="selectedTag === tag.name"
+              [class.border-primary-500]="selectedTag === tag.name"
+              [class.text-primary-300]="selectedTag === tag.name"
+              [class.border-surface-600]="selectedTag !== tag.name"
+              [class.text-surface-400]="selectedTag !== tag.name">
+              {{ tag.name }}
+              <span *ngIf="tag.media_count" class="opacity-60 ml-0.5">{{ tag.media_count }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Clear -->
+        <button *ngIf="hasActiveFilters" (click)="clearFilters()"
+          class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm text-red-400 hover:bg-red-400/10 transition-colors border border-red-400/20">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Limpiar filtros
+        </button>
+
+      </div>
+    </aside>
+
+    <!-- ── Main ────────────────────────────────────────────────────────────── -->
+    <main class="flex-1 min-w-0 px-4 sm:px-6 py-4">
+
+      <!-- Stats strip — compact inline chips, not a stretched grid -->
+      <div *ngIf="stats" class="flex flex-wrap items-center gap-2 mb-4">
+
+        <!-- Total -->
+        <div class="flex items-center gap-2 bg-surface-800 border border-surface-700 rounded-xl px-3 py-2">
+          <div class="w-6 h-6 bg-primary-600/20 rounded-md flex items-center justify-center shrink-0">
+            <svg class="w-3.5 h-3.5 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+            </svg>
+          </div>
+          <div class="leading-none">
+            <p class="text-xs text-surface-500">Total</p>
+            <p class="text-sm font-bold text-surface-100 mt-0.5">{{ stats.total | number }}</p>
+          </div>
+        </div>
+
+        <!-- Per kind -->
+        <div *ngFor="let k of stats.byKind"
+          class="flex items-center gap-2 bg-surface-800 border border-surface-700 rounded-xl px-3 py-2">
+          <span class="text-base leading-none shrink-0">{{ {video:'🎬',audio:'🎵',image:'🖼️',document:'📄',text:'📝',other:'📦'}[k.media_kind] }}</span>
+          <div class="leading-none">
+            <p class="text-xs text-surface-500">{{ {video:'Vídeos',audio:'Audio',image:'Imágenes',document:'Docs',text:'Textos',other:'Otros'}[k.media_kind] }}</p>
+            <p class="text-sm font-bold mt-0.5" [style.color]="KIND_COLORS[k.media_kind]">{{ k.count | number }}</p>
+          </div>
+        </div>
+
+        <!-- Results count — flush right, same visual line -->
+        <span class="ml-auto text-xs text-surface-600 whitespace-nowrap hidden sm:block">
+          <ng-container *ngIf="!isLoading">
+            {{ total | number }} archivo{{ total !== 1 ? 's' : '' }}<ng-container *ngIf="search"> para "<strong class="text-surface-400">{{ search }}</strong>"</ng-container>
+          </ng-container>
+        </span>
+      </div>
+
+      <!-- Results count (small screens, no stats) -->
+      <div *ngIf="!stats && !isLoading" class="flex items-center justify-between mb-3">
+        <p class="text-sm text-surface-500">
+          {{ total | number }} archivo{{ total !== 1 ? 's' : '' }}
+          <span *ngIf="search"> para "<strong class="text-surface-300">{{ search }}</strong>"</span>
+        </p>
+      </div>
+
+      <!-- Loading skeleton -->
+      <div *ngIf="isLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
+        <div *ngFor="let i of [1,2,3,4,5,6,7,8,9,10,11,12]"
+          class="bg-surface-800 border border-surface-700 rounded-xl overflow-hidden">
+          <div class="h-32 skeleton"></div>
+          <div class="p-2.5 space-y-1.5">
+            <div class="h-3 skeleton rounded w-3/4"></div>
+            <div class="h-2.5 skeleton rounded w-full"></div>
+            <div class="h-2.5 skeleton rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div *ngIf="!isLoading && files.length === 0"
+        class="flex flex-col items-center justify-center py-20 text-center">
+        <div class="w-16 h-16 bg-surface-800 rounded-2xl flex items-center justify-center text-3xl mb-3">
+          {{ search ? '🔍' : '📭' }}
+        </div>
+        <h3 class="text-base font-semibold text-surface-300 mb-1.5">
+          {{ search ? 'Sin resultados' : 'Sin contenido todavía' }}
+        </h3>
+        <p class="text-surface-500 text-sm max-w-xs">
+          {{ search ? 'Prueba con otro término de búsqueda o cambia los filtros.' : 'Sube archivos o importa un CSV para empezar.' }}
+        </p>
+        <button *ngIf="!search && canUpload" (click)="showUpload = true" class="btn-primary btn-sm mt-5">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Subir primer archivo
+        </button>
+      </div>
+
+      <!-- File grid -->
+      <div *ngIf="!isLoading && files.length > 0"
+        [class]="viewMode === 'grid'
+          ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3'
+          : 'flex flex-col gap-2'">
+        <app-file-card
+          *ngFor="let file of files; trackBy: trackByFile"
+          [file]="file"
+          [class]="viewMode === 'list' ? 'flex-row' : ''"
+          (viewDetails)="openViewer($event)"
+          (download)="onDownload($event)"
+          (edit)="openEdit($event)"
+          (delete)="openDelete($event)">
+        </app-file-card>
+      </div>
+
+      <!-- Infinite scroll sentinel -->
+      <div id="scroll-sentinel" class="py-6 flex justify-center">
+        <div *ngIf="isLoadingMore" class="flex items-center gap-2 text-surface-500 text-sm">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          Cargando más...
+        </div>
+        <p *ngIf="!hasMore && files.length > 0 && !isLoading" class="text-xs text-surface-700">
+          — Todos los archivos cargados —
+        </p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ── Modals ────────────────────────────────────────────────────────────── -->
+<app-media-viewer-modal *ngIf="showViewer && viewerFile"
+  [file]="viewerFile"
+  [canDownload]="auth.hasPermission('canDownload')"
+  [canEdit]="auth.hasPermission('canEdit')"
+  (close)="closeViewer()"
+  (download)="onDownload($event)"
+  (edit)="openEdit($event)">
+</app-media-viewer-modal>
+
+<app-upload-modal *ngIf="showUpload"
+  (close)="showUpload = false"
+  (uploaded)="onUploadDone()">
+</app-upload-modal>
+
+<app-csv-import-modal *ngIf="showCsvImport"
+  (close)="showCsvImport = false"
+  (imported)="onCsvDone()">
+</app-csv-import-modal>
+
+<app-edit-media-modal *ngIf="showEdit && editFile"
+  [file]="editFile"
+  (close)="showEdit = false"
+  (saved)="onEditSaved()">
+</app-edit-media-modal>
+
+<app-confirm-modal *ngIf="showConfirm"
+  [message]="confirmMessage"
+  (confirmed)="confirmAction && confirmAction(); showConfirm = false"
+  (cancelled)="showConfirm = false">
+</app-confirm-modal>

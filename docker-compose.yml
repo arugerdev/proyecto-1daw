@@ -3,11 +3,11 @@ services:
     build:
       context: ./db
       dockerfile: Dockerfile
-    container_name: file_manager_mysql
+    container_name: ecijacomarca_mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: administradorMultimedia
+      MYSQL_DATABASE: ecijacomarca
       MYSQL_USER: user
       MYSQL_PASSWORD: root
     ports:
@@ -22,7 +22,7 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: file_manager_api
+    container_name: ecijacomarca_api
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -30,7 +30,7 @@ services:
       HOST: database
       USER: root
       PASSWORD: root
-      DATABASE: administradorMultimedia
+      DATABASE: ecijacomarca
       SECRET_KEY: claveSecretaNoMandarANadie
       MEDIA_PATH: /usr/src/app/uploads
     ports:
@@ -49,7 +49,7 @@ services:
     build:
       context: ./front
       dockerfile: Dockerfile
-    container_name: file_manager_frontend
+    container_name: ecijacomarca_frontend
     restart: unless-stopped
     ports:
       - "80:80"
@@ -61,7 +61,7 @@ services:
   # Servicio opcional para backup automático de la base de datos
   db_backup:
     image: alpine:latest
-    container_name: file_manager_backup
+    container_name: ecijacomarca_backup
     restart: unless-stopped
     volumes:
       - mysql_data:/backup/mysql:ro
@@ -70,7 +70,7 @@ services:
       sh -c "
       apk add --no-cache mysql-client
       while true; do
-        mysqldump -h database -u root -proot administradorMultimedia > /backups/backup_\$(date +%Y%m%d_%H%M%S).sql 2>/backups/error.log || echo 'Error en backup' > /backups/backup_error.log
+        mysqldump -h database -u root -proot ecijacomarca > /backups/backup_\$(date +%Y%m%d_%H%M%S).sql 2>/backups/error.log || echo 'Error en backup' > /backups/backup_error.log
         ls -tp /backups/*.sql 2>/dev/null | tail -n +8 | xargs -I {} rm -- {} 2>/dev/null
         sleep 86400
       done
@@ -82,14 +82,14 @@ services:
 # Definición de volúmenes persistentes
 volumes:
   mysql_data:
-    name: file_manager_mysql_data
+    name: ecijacomarca_mysql_data
   uploads_data:
-    name: file_manager_uploads_data
+    name: ecijacomarca_uploads_data
   api_logs:
-    name: file_manager_api_logs
+    name: ecijacomarca_api_logs
 
 # Red para comunicación entre servicios
 networks:
   file_manager_network:
-    name: file_manager_network
+    name: ecijacomarca_network
     driver: bridge
