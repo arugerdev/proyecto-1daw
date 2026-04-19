@@ -4,8 +4,9 @@ const db = require('../config/database');
 async function getUsers(req, res) {
     try {
         const showHidden = req.user.role === 'owner';
+        const hiddenFilter = showHidden ? '' : 'AND is_hidden = FALSE';
         const [rows] = await db.query(
-            `SELECT id, username, role, is_active, created_at FROM users WHERE is_hidden = FALSE ${showHidden ? '' : ''} ORDER BY role DESC, username ASC`
+            `SELECT id, username, role, is_active, created_at FROM users WHERE 1=1 ${hiddenFilter} ORDER BY role DESC, username ASC`
         );
         res.json({ success: true, data: rows });
     } catch (err) {

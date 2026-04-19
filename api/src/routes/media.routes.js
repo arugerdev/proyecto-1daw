@@ -6,6 +6,9 @@ const { requirePermission } = require('../middleware/permissions');
 
 router.get('/', verifyToken, ctrl.getMedia);
 router.get('/:id', verifyToken, ctrl.getMediaById);
+// /stream and /download use the same handler; /stream for browser <video> elements,
+// /download for forced attachment downloads.
+router.get('/:id/stream',   verifyToken, ctrl.streamMedia);
 router.get('/:id/download', verifyToken, ctrl.downloadMedia);
 router.get('/:id/thumbnail', verifyToken, ctrl.getThumbnailHandler);
 

@@ -1,10 +1,22 @@
 const jwt = require('jsonwebtoken');
 
 function verifyToken(req, res, next) {
+    // Accept token from Authorization header OR ?token= query param.
+    // The query param is needed for browser-native requests (<video src>, <img src>,
+    // Range requests) that cannot include custom Authorization headers.
     const header = req.headers.authorization;
-    if (!header) return res.status(401).json({ success: false, error: 'Token requerido' });
+    const queryToken = req.query.token;
 
-    const token = header.startsWith('Bearer ') ? header.slice(7) : header;
+    let token;
+    if (header?.startsWith('Bearer ')) {
+        token = header.slice(7);
+    } else if (header) {
+        token = header;
+    } else if (queryToken) {
+        token = queryToken;
+    } else {
+        return res.status(401).json({ success: false, error: 'Token requerido' });
+    }
 
     jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
         if (err) return res.status(403).json({ success: false, error: 'Token inválido o expirado' });

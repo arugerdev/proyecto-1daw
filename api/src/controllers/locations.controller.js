@@ -28,9 +28,12 @@ async function createLocation(req, res) {
 async function updateLocation(req, res) {
     const { name, base_path, storage_type, description, is_active } = req.body;
     try {
+        // mysql2 rejects `undefined` as a parameter value — use null so COALESCE
+        // keeps the existing column value when a field is not provided.
+        const isActiveVal = is_active !== undefined ? (is_active ? 1 : 0) : null;
         await db.query(
             'UPDATE storage_locations SET name = COALESCE(?, name), base_path = COALESCE(?, base_path), storage_type = COALESCE(?, storage_type), description = COALESCE(?, description), is_active = COALESCE(?, is_active) WHERE id = ?',
-            [name, base_path, storage_type, description, is_active !== undefined ? (is_active ? 1 : 0) : undefined, req.params.id]
+            [name ?? null, base_path ?? null, storage_type ?? null, description ?? null, isActiveVal, req.params.id]
         );
         res.json({ success: true });
     } catch (err) {

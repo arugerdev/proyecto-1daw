@@ -17,7 +17,11 @@ const app = express();
 app.use(cors({
     origin: (origin, cb) => cb(null, origin || '*'),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // Range must be in allowedHeaders so browsers can send partial-content requests
+    // (needed for <video> / <audio> cross-origin streaming).
+    allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
+    // Expose response headers that browsers need to honour Range / streaming.
+    exposedHeaders: ['Accept-Ranges', 'Content-Range', 'Content-Length', 'Content-Disposition'],
     credentials: true
 }));
 app.options(/.*/, cors());

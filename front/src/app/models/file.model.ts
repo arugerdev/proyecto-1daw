@@ -125,7 +125,7 @@ export interface MediaFilter {
   category?: string;
   tag?: string;
   year?: number | '';
-  sort?: 'newest' | 'oldest' | 'title_asc' | 'title_desc' | 'year_desc' | 'year_asc' | 'views';
+  sort?: 'newest' | 'oldest' | 'title_asc' | 'title_desc' | 'year_desc' | 'year_asc' | 'size_desc' | 'size_asc' | 'views';
   page?: number;
   limit?: number;
 }

@@ -47,14 +47,15 @@ async function getMedia(req, res) {
         }
 
         const orderMap = {
-            newest: 'm.created_at DESC',
-            oldest: 'm.created_at ASC',
-            title_asc: 'm.title ASC',
+            newest:     'm.created_at DESC',
+            oldest:     'm.created_at ASC',
+            title_asc:  'm.title ASC',
             title_desc: 'm.title DESC',
-            year_desc: 'm.publication_year DESC',
-            year_asc: 'm.publication_year ASC',
-            size_desc: 'm.file_size DESC',
-            views: 'm.view_count DESC'
+            year_desc:  'm.publication_year DESC',
+            year_asc:   'm.publication_year ASC',
+            size_desc:  'm.file_size DESC',
+            size_asc:   'm.file_size ASC',
+            views:      'm.view_count DESC'
         };
         const orderBy = orderMap[sort] || 'm.created_at DESC';
 
@@ -216,48 +217,71 @@ async function deleteMedia(req, res) {
     }
 }
 
+// Shared logic for serving a file with Range support
+async function _serveFile(req, res, item, disposition) {
+    if (item.file_path.startsWith('http://') || item.file_path.startsWith('https://')) {
+        return res.redirect(item.file_path);
+    }
+
+    if (!fs.existsSync(item.file_path)) {
+        return res.status(404).json({ success: false, error: 'Archivo físico no encontrado' });
+    }
+
+    const stat = fs.statSync(item.file_path);
+    const mimeType = item.mime_type || mime.lookup(item.file_path) || 'application/octet-stream';
+    const range = req.headers.range;
+    const encodedName = encodeURIComponent(item.filename || path.basename(item.file_path));
+
+    res.setHeader('Content-Disposition', `${disposition}; filename*=UTF-8''${encodedName}`);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'no-store');
+
+    if (range) {
+        const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(startStr, 10);
+        const end   = endStr ? Math.min(parseInt(endStr, 10), stat.size - 1) : stat.size - 1;
+
+        if (isNaN(start) || start >= stat.size || start > end) {
+            res.setHeader('Content-Range', `bytes */${stat.size}`);
+            return res.status(416).end();
+        }
+
+        const chunkSize = end - start + 1;
+        res.writeHead(206, {
+            'Content-Range':  `bytes ${start}-${end}/${stat.size}`,
+            'Content-Length': chunkSize
+        });
+        fs.createReadStream(item.file_path, { start, end }).pipe(res);
+    } else {
+        res.setHeader('Content-Length', stat.size);
+        fs.createReadStream(item.file_path).pipe(res);
+    }
+}
+
+// GET /:id/stream — for browser <video>/<audio> elements (inline, range-supported)
+async function streamMedia(req, res) {
+    try {
+        const [rows] = await db.query('SELECT * FROM media_items WHERE id = ?', [req.params.id]);
+        if (!rows.length) return res.status(404).json({ success: false, error: 'Archivo no encontrado' });
+        await _serveFile(req, res, rows[0], 'inline');
+    } catch (err) {
+        console.error('[media] streamMedia error:', err);
+        if (!res.headersSent) res.status(500).json({ success: false, error: 'Error al reproducir archivo' });
+    }
+}
+
+// GET /:id/download — forces browser download + increments download_count
 async function downloadMedia(req, res) {
     try {
         const [rows] = await db.query('SELECT * FROM media_items WHERE id = ?', [req.params.id]);
         if (!rows.length) return res.status(404).json({ success: false, error: 'Archivo no encontrado' });
 
-        const item = rows[0];
-
-        if (item.file_path.startsWith('http')) {
-            return res.redirect(item.file_path);
-        }
-
-        if (!fs.existsSync(item.file_path)) {
-            return res.status(404).json({ success: false, error: 'Archivo físico no encontrado' });
-        }
-
         await db.query('UPDATE media_items SET download_count = download_count + 1 WHERE id = ?', [req.params.id]);
-
-        const stat = fs.statSync(item.file_path);
-        const mimeType = item.mime_type || mime.lookup(item.filename) || 'application/octet-stream';
-        const range = req.headers.range;
-
-        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(item.filename)}"`);
-        res.setHeader('Content-Type', mimeType);
-        res.setHeader('Accept-Ranges', 'bytes');
-
-        if (range) {
-            const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
-            const start = parseInt(startStr, 10);
-            const end = endStr ? parseInt(endStr, 10) : stat.size - 1;
-            const chunkSize = end - start + 1;
-
-            res.writeHead(206, {
-                'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-                'Content-Length': chunkSize
-            });
-            fs.createReadStream(item.file_path, { start, end }).pipe(res);
-        } else {
-            res.setHeader('Content-Length', stat.size);
-            fs.createReadStream(item.file_path).pipe(res);
-        }
+        await _serveFile(req, res, rows[0], 'attachment');
     } catch (err) {
-        res.status(500).json({ success: false, error: 'Error al descargar archivo' });
+        console.error('[media] downloadMedia error:', err);
+        if (!res.headersSent) res.status(500).json({ success: false, error: 'Error al descargar archivo' });
     }
 }
 
@@ -374,8 +398,10 @@ async function registerExternalMedia(req, res) {
 }
 
 async function syncTags(mediaId, tagNames) {
+    // Sanitize: strip tags that exceed the DB column width (VARCHAR 50)
+    const safe = tagNames.filter(n => n && n.length <= 50);
     await db.query('DELETE FROM media_tags WHERE media_id = ?', [mediaId]);
-    for (const name of tagNames) {
+    for (const name of safe) {
         const [existing] = await db.query('SELECT id FROM tags WHERE name = ?', [name]);
         let tagId;
         if (existing.length > 0) {
@@ -388,4 +414,4 @@ async function syncTags(mediaId, tagNames) {
     }
 }
 
-module.exports = { getMedia, getMediaById, uploadMedia, updateMedia, deleteMedia, downloadMedia, getThumbnailHandler, importCSV, registerExternalMedia };
+module.exports = { getMedia, getMediaById, uploadMedia, updateMedia, deleteMedia, streamMedia, downloadMedia, getThumbnailHandler, importCSV, registerExternalMedia };

@@ -263,11 +263,11 @@ async function restartApp() {
         try { await execAsync('pm2 restart all', { timeout: 15_000 }); return; } catch {}
         // Windows: scheduled tasks
         if (os.platform() === 'win32') {
-            const prefix = NODE_ENV === 'production' ? 't_' : 't_dev_';
+            const taskName = 'EcijaComarca_API';
             try {
-                await execAsync(`schtasks /end /tn "${prefix}api"`, { shell: 'powershell.exe', timeout: 10_000 }).catch(() => {});
+                await execAsync(`schtasks /end /tn "${taskName}"`, { shell: 'powershell.exe', timeout: 10_000 }).catch(() => {});
                 await new Promise(r => setTimeout(r, 2000));
-                await execAsync(`schtasks /run /tn "${prefix}api"`, { shell: 'powershell.exe', timeout: 10_000 });
+                await execAsync(`schtasks /run /tn "${taskName}"`, { shell: 'powershell.exe', timeout: 10_000 });
                 return;
             } catch {}
         }

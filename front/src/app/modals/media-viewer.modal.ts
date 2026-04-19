@@ -157,7 +157,8 @@ export class MediaViewerModalComponent implements OnInit {
   constructor(private fs: FileService, private sanitizer: DomSanitizer) {}
 
   ngOnInit() {
-    this.mediaUrl = this.fs.getDownloadUrl(this.file.id);
+    // Use /stream (inline, Range-enabled) for playback; /download for forced download
+    this.mediaUrl = this.fs.getStreamUrl(this.file.id);
     if (this.file.media_kind === 'document' && this.file.file_extension === 'pdf') {
       this.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.mediaUrl);
     }

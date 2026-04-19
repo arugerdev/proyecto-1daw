@@ -46,9 +46,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   showFsBrowser = false;
 
   // Update
-  updateInfo: any = null;
   updateStatus: any = null;
-  updating = false;
   version = '';
 
   // Update packages
@@ -300,17 +298,6 @@ export class DashboardPage implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
       error: () => { this.error = 'Error al iniciar descarga'; this.cdr.detectChanges(); }
-    });
-  }
-
-  performUpdate() {
-    this.updating = true;
-    this.fs.executeUpdate().subscribe({
-      next: () => {
-        this.showSuccess('Actualización iniciada. La app se reiniciará en breve.');
-        this.updating = false;
-      },
-      error: () => { this.updating = false; this.error = 'Error al iniciar actualización'; }
     });
   }
 

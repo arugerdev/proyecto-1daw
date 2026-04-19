@@ -2,13 +2,28 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpEvent } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { MediaFilter, MediaItem, PaginatedResponse, Category, Tag, StorageLocation, Stats } from '../app/models/file.model';
+import { LocalStorageService } from './localStorage.service';
 import { environment } from '../environments/environment';
 
 const API = (environment as any).API_URL;
+// Key must match the USER_KEY constant in auth.service.ts
+const USER_KEY = 'ec_user';
 
 @Injectable({ providedIn: 'root' })
 export class FileService {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private storage: LocalStorageService) {}
+
+  /** Returns the JWT from local storage, or empty string if not logged in. */
+  private getToken(): string {
+    const user = this.storage.getItem<{ token?: string }>(USER_KEY);
+    return user?.token ?? '';
+  }
+
+  /** Appends ?token= to a URL so browser-native elements (<video>, <img>) can authenticate. */
+  private withToken(url: string): string {
+    const token = this.getToken();
+    return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  }
 
   // ── Media ─────────────────────────────────────────────────────────────────
 
@@ -48,12 +63,19 @@ export class FileService {
     return this.http.delete<any>(`${API}/media/${id}`);
   }
 
+  /** URL for forcing a file download (Content-Disposition: attachment). */
   getDownloadUrl(id: number): string {
-    return `${API}/media/${id}/download`;
+    return this.withToken(`${API}/media/${id}/download`);
   }
 
+  /** URL for inline streaming — use this for <video src> / <audio src>. */
+  getStreamUrl(id: number): string {
+    return this.withToken(`${API}/media/${id}/stream`);
+  }
+
+  /** URL for thumbnail images — use this for <img src>. */
   getThumbnailUrl(id: number): string {
-    return `${API}/media/${id}/thumbnail`;
+    return this.withToken(`${API}/media/${id}/thumbnail`);
   }
 
   importCSV(file: File): Observable<any> {
@@ -135,10 +157,6 @@ export class FileService {
 
   getUpdateStatus(): Observable<any> {
     return this.http.get<any>(`${API}/update/status`);
-  }
-
-  executeUpdate(): Observable<any> {
-    return this.http.post<any>(`${API}/update/execute`, {});
   }
 
   // Upload a release package

@@ -93,7 +93,8 @@ async function register(req, res) {
 async function logout(req, res) {
     const token = req.headers.authorization?.slice(7);
     if (token) {
-        await db.query('DELETE FROM sessions WHERE token = ?', [token]).catch(() => {});
+        await db.query('DELETE FROM sessions WHERE token = ?', [token])
+            .catch(err => console.warn('[auth] logout session delete failed:', err.message));
     }
     res.json({ success: true });
 }
