@@ -15,6 +15,7 @@ router.get('/:id/textpreview', verifyToken, ctrl.getTextPreview);
 
 router.post('/upload', verifyToken, requirePermission('canUpload'), upload.single('file'), ctrl.uploadMedia);
 router.post('/register', verifyToken, requirePermission('canUpload'), ctrl.registerExternalMedia);
+router.post('/analyze-csv', verifyToken, requirePermission('canImportCSV'), upload.single('file'), ctrl.analyzeCSVHandler);
 router.post('/import-csv', verifyToken, requirePermission('canImportCSV'), upload.single('file'), ctrl.importCSV);
 
 router.put('/:id', verifyToken, requirePermission('canEdit'), ctrl.updateMedia);

@@ -4,8 +4,10 @@ import { CommonModule } from '@angular/common';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged, forkJoin, finalize } from 'rxjs';
 import { FileService } from '../../services/file.service';
 import { AuthService } from '../../services/auth.service';
-import { MediaItem, Category, Tag, MediaKind, MediaFilter, Stats, MEDIA_KIND_LABELS, MEDIA_KIND_COLORS } from '../models/file.model';
+import { MediaItem, Category, Tag, MediaKind, MediaFilter, Stats, MEDIA_KIND_LABELS, MEDIA_KIND_COLORS, MEDIA_KIND_ICONS } from '../models/file.model';
 import { FileCardComponent } from '../../components/file-card/file-card.component';
+import { ThemePickerComponent } from '../../components/theme-picker/theme-picker.component';
+import { IconComponent } from '../../components/icon/icon.component';
 import { MediaViewerModalComponent } from '../modals/media-viewer.modal';
 import { UploadModalComponent } from '../modals/upload.modal';
 import { CsvImportModalComponent } from '../modals/csv-import.modal';
@@ -16,7 +18,7 @@ import { ConfirmModalComponent } from '../modals/confirm.modal';
   selector: 'index-page',
   standalone: true,
   imports: [
-    FormsModule, CommonModule, FileCardComponent,
+    FormsModule, CommonModule, FileCardComponent, ThemePickerComponent, IconComponent,
     MediaViewerModalComponent, UploadModalComponent,
     CsvImportModalComponent, EditMediaModalComponent, ConfirmModalComponent
   ],
@@ -68,6 +70,7 @@ export class IndexPage implements OnInit, OnDestroy {
 
   readonly KINDS = Object.entries(MEDIA_KIND_LABELS) as [MediaKind, string][];
   readonly KIND_COLORS = MEDIA_KIND_COLORS;
+  readonly KIND_ICONS = MEDIA_KIND_ICONS;
 
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();

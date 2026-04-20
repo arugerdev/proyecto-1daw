@@ -3,12 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { ThemePickerComponent } from '../../components/theme-picker/theme-picker.component';
 
 @Component({
   selector: 'app-register',
   templateUrl: './page.html',
   standalone: true,
-  imports: [FormsModule, CommonModule, RouterModule]
+  imports: [FormsModule, CommonModule, RouterModule, ThemePickerComponent]
 })
 export class RegisterComponent {
   username = '';

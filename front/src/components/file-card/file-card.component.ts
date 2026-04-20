@@ -1,13 +1,14 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MediaItem, MediaKind, MEDIA_KIND_COLORS } from '../../app/models/file.model';
+import { MediaItem, MediaKind, MEDIA_KIND_COLORS, MEDIA_KIND_ICONS, MEDIA_KIND_LABELS } from '../../app/models/file.model';
 import { AuthService } from '../../services/auth.service';
 import { FileService } from '../../services/file.service';
+import { IconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-file-card',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IconComponent],
   template: `
     <div
       class="group relative bg-surface-800 border border-surface-700 rounded-xl overflow-hidden
@@ -29,9 +30,10 @@ import { FileService } from '../../services/file.service';
           [class.opacity-0]="showThumb && ['video','image'].includes(file.media_kind)"
           [class.group-hover:opacity-0]="showThumb && ['video','image'].includes(file.media_kind)">
           <div class="flex flex-col items-center gap-2">
-            <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-              [style.background-color]="kindColor + '20'">
-              <span>{{ kindEmoji }}</span>
+            <div class="w-16 h-16 rounded-2xl flex items-center justify-center"
+              [style.background-color]="kindColor + '20'"
+              [style.color]="kindColor">
+              <app-icon [name]="kindIcon" class="w-8 h-8"></app-icon>
             </div>
             <span class="text-xs text-surface-500 uppercase tracking-wider font-medium">
               {{ file.file_extension || file.media_kind }}
@@ -45,7 +47,8 @@ import { FileService } from '../../services/file.service';
             [style.background-color]="kindColor + '30'"
             [style.color]="kindColor"
             [style.border]="'1px solid ' + kindColor + '50'">
-            {{ kindEmoji }} {{ kindLabel }}
+            <app-icon [name]="kindIcon" class="w-3 h-3"></app-icon>
+            {{ kindLabel }}
           </span>
         </div>
 
@@ -138,17 +141,10 @@ export class FileCardComponent implements OnInit {
   canDelete = false;
   showThumb = true;
 
-  readonly kindEmojis: Record<string, string> = {
-    video: '🎬', audio: '🎵', image: '🖼️', document: '📄', text: '📝', other: '📦'
-  };
-  readonly kindLabels: Record<string, string> = {
-    video: 'Video', audio: 'Audio', image: 'Imagen', document: 'Documento', text: 'Texto', other: 'Otro'
-  };
-
   get thumbUrl(): string { return this.fs.getThumbnailUrl(this.file.id); }
   get kindColor(): string { return MEDIA_KIND_COLORS[this.file.media_kind] || '#64748b'; }
-  get kindEmoji(): string { return this.kindEmojis[this.file.media_kind] || '📦'; }
-  get kindLabel(): string { return this.kindLabels[this.file.media_kind] || 'Otro'; }
+  get kindIcon() { return MEDIA_KIND_ICONS[this.file.media_kind] || 'package'; }
+  get kindLabel(): string { return MEDIA_KIND_LABELS[this.file.media_kind] || 'Otro'; }
 
   constructor(private auth: AuthService, private fs: FileService) {}
 

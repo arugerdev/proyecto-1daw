@@ -139,13 +139,25 @@ export const MEDIA_KIND_LABELS: Record<MediaKind, string> = {
   other: 'Otro'
 };
 
-export const MEDIA_KIND_ICONS: Record<MediaKind, string> = {
-  video: '🎬',
-  audio: '🎵',
-  image: '🖼️',
-  document: '📄',
-  text: '📝',
-  other: '📦'
+/**
+ * Maps media kinds to icon names from the shared IconComponent library.
+ * Use with `<app-icon [name]="MEDIA_KIND_ICONS[kind]">`.
+ */
+export const MEDIA_KIND_ICONS: Record<MediaKind, 'video' | 'music' | 'image' | 'document' | 'text' | 'package'> = {
+  video:    'video',
+  audio:    'music',
+  image:    'image',
+  document: 'document',
+  text:     'text',
+  other:    'package'
+};
+
+export const STORAGE_TYPE_ICONS: Record<StorageType, 'drive' | 'globe' | 'server' | 'antenna' | 'network'> = {
+  local: 'drive',
+  url:   'globe',
+  smb:   'server',
+  ftp:   'antenna',
+  nfs:   'network'
 };
 
 export const MEDIA_KIND_COLORS: Record<MediaKind, string> = {

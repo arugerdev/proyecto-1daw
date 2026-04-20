@@ -1,4 +1,11 @@
 /** @type {import('tailwindcss').Config} */
+//
+// Colors are defined as CSS variables (RGB triplets, no alpha) in styles.css
+// and selected per theme via [data-theme="..."] on <html>.
+// See styles.css → "── Theme variables ──" section.
+//
+const rgbVar = (name) => `rgb(var(${name}) / <alpha-value>)`;
+
 module.exports = {
   content: [
     './src/**/*.{html,ts,css}'
@@ -8,31 +15,31 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          50:  '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          800: '#5b21b6',
-          900: '#4c1d95',
-          950: '#2e1065'
+          50:  rgbVar('--primary-50'),
+          100: rgbVar('--primary-100'),
+          200: rgbVar('--primary-200'),
+          300: rgbVar('--primary-300'),
+          400: rgbVar('--primary-400'),
+          500: rgbVar('--primary-500'),
+          600: rgbVar('--primary-600'),
+          700: rgbVar('--primary-700'),
+          800: rgbVar('--primary-800'),
+          900: rgbVar('--primary-900'),
+          950: rgbVar('--primary-950')
         },
         surface: {
-          50:  '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          850: '#172033',
-          900: '#0f172a',
-          950: '#080d1a'
+          50:  rgbVar('--surface-50'),
+          100: rgbVar('--surface-100'),
+          200: rgbVar('--surface-200'),
+          300: rgbVar('--surface-300'),
+          400: rgbVar('--surface-400'),
+          500: rgbVar('--surface-500'),
+          600: rgbVar('--surface-600'),
+          700: rgbVar('--surface-700'),
+          800: rgbVar('--surface-800'),
+          850: rgbVar('--surface-850'),
+          900: rgbVar('--surface-900'),
+          950: rgbVar('--surface-950')
         }
       },
       fontFamily: {

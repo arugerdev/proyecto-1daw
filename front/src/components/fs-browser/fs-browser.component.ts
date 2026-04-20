@@ -2,6 +2,7 @@ import { Component, OnInit, Input, Output, EventEmitter, ChangeDetectorRef } fro
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FileService } from '../../services/file.service';
+import { IconComponent } from '../icon/icon.component';
 
 interface FsEntry {
   name: string;
@@ -12,7 +13,7 @@ interface FsEntry {
 @Component({
   selector: 'app-fs-browser',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   template: `
     <div class="modal-overlay" (click)="$event.target === $event.currentTarget && cancelled.emit()">
       <div class="modal-box max-w-lg w-full">
@@ -93,7 +94,7 @@ interface FsEntry {
                      hover:bg-surface-700 text-surface-200 group">
               <!-- Drive icon (root level, no separator in name) vs folder icon -->
               <ng-container *ngIf="isDriveEntry(entry); else folderIcon">
-                <span class="text-lg shrink-0">💾</span>
+                <app-icon name="drive" class="w-5 h-5 text-primary-400 shrink-0"></app-icon>
               </ng-container>
               <ng-template #folderIcon>
                 <svg class="w-5 h-5 text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">

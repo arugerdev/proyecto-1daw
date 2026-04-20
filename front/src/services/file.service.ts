@@ -83,9 +83,26 @@ export class FileService {
     return `${API}/media/${id}/textpreview?limit=${limit}`;
   }
 
-  importCSV(file: File): Observable<any> {
+  /**
+   * Inspect a CSV without importing. Returns the detected headers, an
+   * auto-suggested mapping (canonical field → csv column), a few preview rows,
+   * and the list of canonical fields the backend supports.
+   */
+  analyzeCSV(file: File): Observable<any> {
     const fd = new FormData();
     fd.append('file', file);
+    return this.http.post<any>(`${API}/media/analyze-csv`, fd);
+  }
+
+  /**
+   * Import a CSV. `mapping` is optional — if omitted the backend auto-detects
+   * columns. When provided, it should be an object like:
+   *   { title: 'nombre_archivo', file_path: 'ruta', description: null, ... }
+   */
+  importCSV(file: File, mapping?: Record<string, string | null>): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (mapping) fd.append('mapping', JSON.stringify(mapping));
     return this.http.post<any>(`${API}/media/import-csv`, fd);
   }
 

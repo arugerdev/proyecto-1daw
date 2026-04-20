@@ -6,7 +6,7 @@ const mime = require('mime-types');
 const db = require('../config/database');
 const { saveUploadedFile, deleteFile, fileExists, getFileSize, DEFAULT_UPLOAD_DIR } = require('../services/storage.service');
 const { getThumbnail, THUMB_DIR } = require('../services/thumbnail.service');
-const { processCSV } = require('../services/csv.service');
+const { processCSV, analyzeCSV } = require('../services/csv.service');
 const { getFileExtension, getMediaCategory, getStorageType, formatBytes } = require('../utils/helpers');
 
 // ── Helper: HEAD-request to get file size + mime type for remote URLs ─────────
@@ -347,16 +347,58 @@ async function getThumbnailHandler(req, res) {
     }
 }
 
-async function importCSV(req, res) {
+/**
+ * Inspect a CSV (without importing) and return headers + auto-suggested mapping
+ * so the frontend can show a column-mapping UI. Expects multipart upload with a
+ * `file` field (same as importCSV). Does NOT persist the file.
+ */
+async function analyzeCSVHandler(req, res) {
     try {
         if (!req.file) return res.status(400).json({ success: false, error: 'No se recibió archivo CSV' });
 
         const buffer = await fs.promises.readFile(req.file.path);
-        const { records, errors, total, valid } = processCSV(buffer);
+        await fs.promises.unlink(req.file.path).catch(() => {});
+
+        let result;
+        try {
+            result = analyzeCSV(buffer, { previewRows: 5 });
+        } catch (err) {
+            return res.status(400).json({ success: false, error: err.message });
+        }
+
+        if (result.headers.length === 0) {
+            return res.status(400).json({ success: false, error: 'El CSV no contiene columnas o está vacío' });
+        }
+
+        res.json({ success: true, ...result });
+    } catch (err) {
+        console.error('[media] analyzeCSV error:', err);
+        res.status(500).json({ success: false, error: 'Error al analizar el CSV' });
+    }
+}
+
+async function importCSV(req, res) {
+    try {
+        if (!req.file) return res.status(400).json({ success: false, error: 'No se recibió archivo CSV' });
+
+        // Optional: frontend can send a JSON-stringified mapping in the form body
+        let userMapping = null;
+        if (req.body && req.body.mapping) {
+            try {
+                userMapping = typeof req.body.mapping === 'string'
+                    ? JSON.parse(req.body.mapping)
+                    : req.body.mapping;
+            } catch {
+                return res.status(400).json({ success: false, error: 'Mapeo de columnas inválido (JSON malformado)' });
+            }
+        }
+
+        const buffer = await fs.promises.readFile(req.file.path);
+        const { records, errors, total, valid, mapping } = processCSV(buffer, userMapping);
         await fs.promises.unlink(req.file.path).catch(() => {});
 
         if (records.length === 0) {
-            return res.status(400).json({ success: false, error: 'No hay registros válidos', errors });
+            return res.status(400).json({ success: false, error: 'No hay registros válidos', errors, mapping });
         }
 
         let imported = 0;
@@ -406,7 +448,7 @@ async function importCSV(req, res) {
             }
         }
 
-        res.json({ success: true, imported, total, valid, errors: [...errors, ...importErrors] });
+        res.json({ success: true, imported, total, valid, errors: [...errors, ...importErrors], mapping });
     } catch (err) {
         console.error('[media] importCSV error:', err);
         res.status(500).json({ success: false, error: 'Error al importar CSV' });
@@ -505,4 +547,4 @@ async function syncTags(mediaId, tagNames) {
     }
 }
 
-module.exports = { getMedia, getMediaById, uploadMedia, updateMedia, deleteMedia, streamMedia, downloadMedia, getThumbnailHandler, getTextPreview, importCSV, registerExternalMedia };
+module.exports = { getMedia, getMediaById, uploadMedia, updateMedia, deleteMedia, streamMedia, downloadMedia, getThumbnailHandler, getTextPreview, importCSV, analyzeCSVHandler, registerExternalMedia };

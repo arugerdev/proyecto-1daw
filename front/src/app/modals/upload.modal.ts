@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { HttpEventType, HttpEvent } from '@angular/common/http';
 import { FileService } from '../../services/file.service';
 import { Category, StorageLocation } from '../models/file.model';
+import { IconComponent, IconName } from '../../components/icon/icon.component';
 
 @Component({
   selector: 'app-upload-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   template: `
     <div class="modal-overlay" (click)="close.emit()">
       <div class="modal-box max-w-2xl" (click)="$event.stopPropagation()">
@@ -32,13 +33,13 @@ import { Category, StorageLocation } from '../models/file.model';
             (drop)="onDrop($event)"
             (click)="fileInput.click()">
             <div *ngIf="!selectedFile">
-              <div class="text-4xl mb-3">📁</div>
+              <app-icon name="folder" class="w-12 h-12 mx-auto mb-3 text-primary-400"></app-icon>
               <p class="text-surface-300 font-medium">Arrastra un archivo aquí</p>
               <p class="text-surface-500 text-sm mt-1">o haz clic para seleccionar</p>
               <p class="text-surface-600 text-xs mt-2">Cualquier formato · Sin límite de tamaño</p>
             </div>
             <div *ngIf="selectedFile" class="flex items-center gap-3">
-              <span class="text-3xl">{{ fileEmoji }}</span>
+              <app-icon [name]="fileIcon" class="w-10 h-10 text-primary-400 shrink-0"></app-icon>
               <div class="text-left min-w-0">
                 <p class="text-surface-100 font-medium truncate">{{ selectedFile.name }}</p>
                 <p class="text-surface-500 text-sm">{{ formatBytes(selectedFile.size) }}</p>
@@ -171,14 +172,14 @@ export class UploadModalComponent implements OnInit {
   categories: Category[] = [];
   locations: StorageLocation[] = [];
 
-  get fileEmoji(): string {
-    if (!this.selectedFile) return '📁';
+  get fileIcon(): IconName {
+    if (!this.selectedFile) return 'folder';
     const t = this.selectedFile.type;
-    if (t.startsWith('video/')) return '🎬';
-    if (t.startsWith('audio/')) return '🎵';
-    if (t.startsWith('image/')) return '🖼️';
-    if (t === 'application/pdf') return '📄';
-    return '📦';
+    if (t.startsWith('video/')) return 'video';
+    if (t.startsWith('audio/')) return 'music';
+    if (t.startsWith('image/')) return 'image';
+    if (t === 'application/pdf') return 'document';
+    return 'package';
   }
 
   constructor(private fs: FileService, private cdr: ChangeDetectorRef) {}

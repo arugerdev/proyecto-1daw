@@ -4,6 +4,206 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ══════════════════════════════════════════════════════════════════
+ * ── Theme variables ──
+ *
+ * Two scales per theme, each as an RGB triplet (no commas), consumed
+ * by Tailwind via `rgb(var(--xxx) / <alpha-value>)` in tailwind.config.js.
+ *
+ *  primary-*   : accent / brand — always contrasts against surface
+ *  surface-*   : semantic grey scale.
+ *                 *-900 = page background
+ *                 *-800 = cards / modals
+ *                 *-700 = borders
+ *                 *-100 = primary text
+ *
+ * Adding a new theme = one more [data-theme="name"] block.
+ * ══════════════════════════════════════════════════════════════════ */
+
+/* ── Dark (default) ─────────────────────── slate + purple */
+:root,
+[data-theme="dark"] {
+  --primary-50:  245 243 255;
+  --primary-100: 237 233 254;
+  --primary-200: 221 214 254;
+  --primary-300: 196 181 253;
+  --primary-400: 167 139 250;
+  --primary-500: 139  92 246;
+  --primary-600: 124  58 237;
+  --primary-700: 109  40 217;
+  --primary-800:  91  33 182;
+  --primary-900:  76  29 149;
+  --primary-950:  46  16 101;
+
+  --surface-50:  248 250 252;
+  --surface-100: 241 245 249;
+  --surface-200: 226 232 240;
+  --surface-300: 203 213 225;
+  --surface-400: 148 163 184;
+  --surface-500: 100 116 139;
+  --surface-600:  71  85 105;
+  --surface-700:  51  65  85;
+  --surface-800:  30  41  59;
+  --surface-850:  23  32  51;
+  --surface-900:  15  23  42;
+  --surface-950:   8  13  26;
+
+  color-scheme: dark;
+}
+
+/* ── Light ──────────────────────────────── white + purple */
+[data-theme="light"] {
+  /* primary stays purple — strengthened slightly for AA contrast on white */
+  --primary-50:  250 247 255;
+  --primary-100: 243 237 255;
+  --primary-200: 229 219 253;
+  --primary-300: 204 184 250;
+  --primary-400: 167 139 250;
+  --primary-500: 124  58 237;
+  --primary-600: 109  40 217;
+  --primary-700:  91  33 182;
+  --primary-800:  76  29 149;
+  --primary-900:  60  22 120;
+  --primary-950:  36  12  75;
+
+  /* inverted surface scale — bigger numbers are brighter, but here
+     they map to *lighter* colors so `bg-surface-900` (page bg) is white-ish. */
+  --surface-50:   15  23  42;   /* was darkest in dark mode */
+  --surface-100:  30  41  59;   /* primary text (dark on light) */
+  --surface-200:  51  65  85;
+  --surface-300:  71  85 105;
+  --surface-400: 100 116 139;
+  --surface-500: 148 163 184;
+  --surface-600: 203 213 225;
+  --surface-700: 226 232 240;   /* borders */
+  --surface-800: 255 255 255;   /* cards */
+  --surface-850: 248 250 252;
+  --surface-900: 241 245 249;   /* page background */
+  --surface-950: 226 232 240;
+
+  color-scheme: light;
+}
+
+/* ── Midnight ───────────────────────── deep indigo + cyan */
+[data-theme="midnight"] {
+  --primary-50:  236 254 255;
+  --primary-100: 207 250 254;
+  --primary-200: 165 243 252;
+  --primary-300: 103 232 249;
+  --primary-400:  34 211 238;
+  --primary-500:   6 182 212;
+  --primary-600:   8 145 178;
+  --primary-700:  14 116 144;
+  --primary-800:  21  94 117;
+  --primary-900:  22  78  99;
+  --primary-950:   8  51  68;
+
+  --surface-50:  238 242 255;
+  --surface-100: 224 231 255;
+  --surface-200: 199 210 254;
+  --surface-300: 165 180 252;
+  --surface-400: 129 140 248;
+  --surface-500:  99 102 241;
+  --surface-600:  56  66 132;
+  --surface-700:  36  46  95;
+  --surface-800:  20  26  60;
+  --surface-850:  15  20  48;
+  --surface-900:   8  12  35;
+  --surface-950:   3   6  20;
+
+  color-scheme: dark;
+}
+
+/* ── Forest ──────────────────────── dark green + emerald */
+[data-theme="forest"] {
+  --primary-50:  236 253 245;
+  --primary-100: 209 250 229;
+  --primary-200: 167 243 208;
+  --primary-300: 110 231 183;
+  --primary-400:  52 211 153;
+  --primary-500:  16 185 129;
+  --primary-600:   5 150 105;
+  --primary-700:   4 120  87;
+  --primary-800:   6  95  70;
+  --primary-900:   6  78  59;
+  --primary-950:   2  44  34;
+
+  --surface-50:  236 253 245;
+  --surface-100: 220 252 231;
+  --surface-200: 187 247 208;
+  --surface-300: 134 239 172;
+  --surface-400:  74 222 128;
+  --surface-500:  34 197  94;
+  --surface-600:  30  70  50;
+  --surface-700:  20  55  38;
+  --surface-800:  14  40  28;
+  --surface-850:  10  32  22;
+  --surface-900:   7  25  18;
+  --surface-950:   3  14  10;
+
+  color-scheme: dark;
+}
+
+/* ── Rose ──────────────────────── dark burgundy + pink */
+[data-theme="rose"] {
+  --primary-50:  255 241 242;
+  --primary-100: 255 228 230;
+  --primary-200: 254 205 211;
+  --primary-300: 253 164 175;
+  --primary-400: 251 113 133;
+  --primary-500: 244  63  94;
+  --primary-600: 225  29  72;
+  --primary-700: 190  18  60;
+  --primary-800: 159  18  57;
+  --primary-900: 136  19  55;
+  --primary-950:  76  5  25;
+
+  --surface-50:  253 242 248;
+  --surface-100: 252 231 243;
+  --surface-200: 251 207 232;
+  --surface-300: 249 168 212;
+  --surface-400: 244 114 182;
+  --surface-500: 219  39 119;
+  --surface-600:  75  30  45;
+  --surface-700:  58  22  35;
+  --surface-800:  42  17  28;
+  --surface-850:  34  13  22;
+  --surface-900:  26  10  18;
+  --surface-950:  14   5   9;
+
+  color-scheme: dark;
+}
+
+/* ── Amber ──────────────────────── warm dark + amber */
+[data-theme="amber"] {
+  --primary-50:  255 251 235;
+  --primary-100: 254 243 199;
+  --primary-200: 253 230 138;
+  --primary-300: 252 211  77;
+  --primary-400: 251 191  36;
+  --primary-500: 245 158  11;
+  --primary-600: 217 119   6;
+  --primary-700: 180  83   9;
+  --primary-800: 146  64  14;
+  --primary-900: 120  53  15;
+  --primary-950:  69  26   3;
+
+  --surface-50:  255 251 235;
+  --surface-100: 254 243 199;
+  --surface-200: 253 230 138;
+  --surface-300: 252 211  77;
+  --surface-400: 251 191  36;
+  --surface-500: 245 158  11;
+  --surface-600:  82  55  35;
+  --surface-700:  60  41  26;
+  --surface-800:  42  30  20;
+  --surface-850:  35  25  17;
+  --surface-900:  28  20  14;
+  --surface-950:  15  11   8;
+
+  color-scheme: dark;
+}
+
 /* ── Base ─────────────────────────────────────────────────── */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
@@ -18,6 +218,7 @@
     @apply bg-surface-900 text-surface-100 min-h-screen;
     margin: 0;
     padding: 0;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }

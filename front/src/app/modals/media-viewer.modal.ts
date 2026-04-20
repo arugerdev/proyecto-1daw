@@ -2,13 +2,14 @@ import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, HostListener
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl, SafeHtml } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
-import { MediaItem } from '../models/file.model';
+import { MediaItem, MEDIA_KIND_ICONS } from '../models/file.model';
 import { FileService } from '../../services/file.service';
+import { IconComponent } from '../../components/icon/icon.component';
 
 @Component({
   selector: 'app-media-viewer-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IconComponent],
   template: `
     <div class="modal-overlay" (click)="close.emit()">
       <div class="modal-box max-w-5xl" (click)="$event.stopPropagation()" style="max-height:92vh">
@@ -16,7 +17,7 @@ import { FileService } from '../../services/file.service';
         <!-- Header -->
         <div class="modal-header">
           <div class="flex items-center gap-2 min-w-0">
-            <span class="text-lg">{{ kindEmoji }}</span>
+            <app-icon [name]="kindIcon" class="w-5 h-5 text-surface-300 shrink-0"></app-icon>
             <div class="min-w-0">
               <h2 class="text-base font-semibold text-surface-100 truncate">{{ file.title }}</h2>
               <p class="text-xs text-surface-500">
@@ -64,7 +65,9 @@ import { FileService } from '../../services/file.service';
 
           <!-- ── AUDIO ──────────────────────────────────────────────────────── -->
           <div *ngIf="file.media_kind === 'audio'" class="flex flex-col items-center gap-6 py-8">
-            <div class="w-24 h-24 bg-emerald-600/20 rounded-2xl flex items-center justify-center text-5xl">🎵</div>
+            <div class="w-24 h-24 bg-emerald-600/20 rounded-2xl flex items-center justify-center text-emerald-400">
+              <app-icon name="music" class="w-12 h-12"></app-icon>
+            </div>
             <audio [src]="mediaUrl" controls class="w-full max-w-lg"
               [attr.controlsList]="!canDownload ? 'nodownload' : null">
               Tu navegador no soporta la reproducción de audio.
@@ -139,7 +142,7 @@ import { FileService } from '../../services/file.service';
 
           <!-- ── BINARY DOCUMENTS (docx, xlsx, odt, ppt…) ─────────────────── -->
           <div *ngIf="file.media_kind === 'document' && !isPdf" class="rounded-xl bg-surface-900 p-6 text-center py-12">
-            <div class="text-5xl mb-4">📄</div>
+            <app-icon name="document" class="w-16 h-16 mx-auto mb-4 text-amber-400"></app-icon>
             <p class="text-surface-300 font-medium mb-1">{{ file.title }}</p>
             <p class="text-surface-500 text-sm mb-4">
               Vista previa no disponible para archivos {{ file.file_extension?.toUpperCase() }}.
@@ -155,7 +158,7 @@ import { FileService } from '../../services/file.service';
 
           <!-- ── OTHER ──────────────────────────────────────────────────────── -->
           <div *ngIf="file.media_kind === 'other'" class="text-center py-12">
-            <div class="text-5xl mb-4">📦</div>
+            <app-icon name="package" class="w-16 h-16 mx-auto mb-4 text-surface-400"></app-icon>
             <p class="text-surface-400 mb-4">No hay vista previa disponible.</p>
             <button *ngIf="canDownload" (click)="download.emit(file)" class="btn-primary">Descargar</button>
           </div>
@@ -221,11 +224,7 @@ export class MediaViewerModalComponent implements OnInit, OnDestroy {
   textTruncated = false;
   private htmlBlobUrl?: string;
 
-  readonly kindEmojis: Record<string, string> = {
-    video: '🎬', audio: '🎵', image: '🖼️', document: '📄', text: '📝', other: '📦'
-  };
-
-  get kindEmoji()  { return this.kindEmojis[this.file.media_kind] || '📦'; }
+  get kindIcon() { return MEDIA_KIND_ICONS[this.file.media_kind] || 'package'; }
   get fileExt()    { return (this.file.file_extension || '').toLowerCase(); }
   get isPdf()      { return this.file.media_kind === 'document' && this.fileExt === 'pdf'; }
   get isMarkdown() { return this.file.media_kind === 'text' && ['md', 'markdown'].includes(this.fileExt); }

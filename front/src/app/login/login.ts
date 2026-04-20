@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { TimeoutError } from 'rxjs';
+import { ThemePickerComponent } from '../../components/theme-picker/theme-picker.component';
 
 @Component({
   selector: 'login-page',
   standalone: true,
-  imports: [RouterLink, FormsModule, CommonModule],
+  imports: [RouterLink, FormsModule, CommonModule, ThemePickerComponent],
   templateUrl: './page.html'
 })
 export class LoginPage {
