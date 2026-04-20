@@ -19,3 +19,5 @@ frontend_service_wrapper.bat
 
 update-status*.json
 **/logs
+
+.claude
