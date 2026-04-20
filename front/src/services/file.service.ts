@@ -78,6 +78,11 @@ export class FileService {
     return this.withToken(`${API}/media/${id}/thumbnail`);
   }
 
+  /** API URL for the text preview endpoint (auth handled by interceptor). */
+  getTextPreviewUrl(id: number, limit = 20000): string {
+    return `${API}/media/${id}/textpreview?limit=${limit}`;
+  }
+
   importCSV(file: File): Observable<any> {
     const fd = new FormData();
     fd.append('file', file);

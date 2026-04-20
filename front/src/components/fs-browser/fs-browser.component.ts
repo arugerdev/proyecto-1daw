@@ -178,6 +178,7 @@ export class FsBrowserComponent implements OnInit {
         this.loading = false;
         this.errorMsg = 'No se pudo conectar con el servidor';
         this.entries = [];
+        this.cdr.detectChanges();
       }
     });
   }

@@ -184,8 +184,8 @@ export class UploadModalComponent implements OnInit {
   constructor(private fs: FileService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
-    this.fs.getCategories().subscribe(r => { if (r.success) this.categories = r.data; });
-    this.fs.getLocations().subscribe(r => { if (r.success) this.locations = r.data; });
+    this.fs.getCategories().subscribe(r => { if (r.success) this.categories = r.data; this.cdr.detectChanges(); });
+    this.fs.getLocations().subscribe(r => { if (r.success) this.locations = r.data; this.cdr.detectChanges(); });
   }
 
   onDrop(e: DragEvent) {
@@ -242,8 +242,8 @@ export class UploadModalComponent implements OnInit {
         storage_location_id: this.locationId ? Number(this.locationId) : undefined,
         tags: tagList
       }).subscribe({
-        next: res => { this.uploading = false; if (res.success) this.uploaded.emit(); else this.error = res.error; },
-        error: err => { this.uploading = false; this.error = err.error?.error || 'Error al registrar'; }
+        next: res => { this.uploading = false; if (res.success) this.uploaded.emit(); else this.error = res.error; this.cdr.detectChanges(); },
+        error: err => { this.uploading = false; this.error = err.error?.error || 'Error al registrar'; this.cdr.detectChanges(); }
       });
     }
   }

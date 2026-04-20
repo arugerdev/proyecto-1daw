@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter } from '@angular/core';
+import { Component, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FileService } from '../../services/file.service';
 
@@ -140,7 +140,7 @@ export class CsvImportModalComponent {
   error = '';
   result: ImportResult | null = null;
 
-  constructor(private fs: FileService) {}
+  constructor(private fs: FileService, private cdr: ChangeDetectorRef) {}
 
   onDrop(e: DragEvent) {
     e.preventDefault(); this.dragging = false;
@@ -160,10 +160,12 @@ export class CsvImportModalComponent {
       next: res => {
         this.importing = false;
         this.result = { imported: res.imported, total: res.total, valid: res.valid, errors: res.errors || [] };
+        this.cdr.detectChanges();
       },
       error: err => {
         this.importing = false;
         this.error = err.error?.error || 'Error al importar el CSV';
+        this.cdr.detectChanges();
       }
     });
   }

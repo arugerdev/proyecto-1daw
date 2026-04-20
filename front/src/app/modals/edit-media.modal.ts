@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MediaItem, Category } from '../models/file.model';
@@ -78,7 +78,7 @@ export class EditMediaModalComponent implements OnInit {
   error = '';
   categories: Category[] = [];
 
-  constructor(private fs: FileService) {}
+  constructor(private fs: FileService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.title = this.file.title;
@@ -86,7 +86,7 @@ export class EditMediaModalComponent implements OnInit {
     this.categoryId = this.file.category_id || '';
     this.year = this.file.publication_year || '';
     this.tags = (this.file.tags || []).join(', ');
-    this.fs.getCategories().subscribe(r => { if (r.success) this.categories = r.data; });
+    this.fs.getCategories().subscribe(r => { if (r.success) this.categories = r.data; this.cdr.detectChanges(); });
   }
 
   onSave() {
@@ -101,8 +101,8 @@ export class EditMediaModalComponent implements OnInit {
       publication_year: this.year ? Number(this.year) : null,
       tags: tagList
     }).subscribe({
-      next: res => { this.saving = false; if (res.success) this.saved.emit(); else this.error = res.error; },
-      error: err => { this.saving = false; this.error = err.error?.error || 'Error al guardar'; }
+      next: res => { this.saving = false; if (res.success) this.saved.emit(); else this.error = res.error; this.cdr.detectChanges(); },
+      error: err => { this.saving = false; this.error = err.error?.error || 'Error al guardar'; this.cdr.detectChanges(); }
     });
   }
 }

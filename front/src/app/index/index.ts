@@ -103,6 +103,7 @@ export class IndexPage implements OnInit, OnDestroy {
         if (stats.success) this.stats = stats.data;
         if (categories.success) this.categories = categories.data;
         if (tags.success) this.tags = tags.data.slice(0, 20);
+        this.cdr.detectChanges();
         this.loadFiles(true);
       },
       error: () => this.loadFiles(true)

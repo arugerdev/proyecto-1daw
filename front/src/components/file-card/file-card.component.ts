@@ -17,8 +17,8 @@ import { FileService } from '../../services/file.service';
 
       <!-- Thumbnail / Preview area -->
       <div class="relative h-44 bg-surface-900 overflow-hidden shrink-0">
-        <!-- Thumbnail image (if video/image) -->
-        <img *ngIf="['video','image'].includes(file.media_kind)"
+        <!-- Thumbnail: video/image use JPEG, text uses SVG preview, others fallback to icon -->
+        <img *ngIf="['video','image','text','document'].includes(file.media_kind)"
           [src]="thumbUrl" [alt]="file.title"
           class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           (error)="showThumb = false"

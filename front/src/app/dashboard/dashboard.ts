@@ -115,10 +115,10 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.showSuccess('Usuario creado');
           this.newUser = { username: '', password: '', role: 'viewer' };
           this.showAddUser = false;
-          this.auth.getUsers().subscribe(r => { if (r.success) this.users = r.data; });
-        } else { this.error = res.error; }
+          this.auth.getUsers().subscribe(r => { if (r.success) this.users = r.data; this.cdr.detectChanges(); });
+        } else { this.error = res.error; this.cdr.detectChanges(); }
       },
-      error: err => { this.saving = false; this.error = err.error?.error || 'Error al crear usuario'; }
+      error: err => { this.saving = false; this.error = err.error?.error || 'Error al crear usuario'; this.cdr.detectChanges(); }
     });
   }
 
@@ -148,10 +148,10 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.editingUser = null;
           this.editUserPatchConfirm = '';
           this.editUserShowPw = false;
-          this.auth.getUsers().subscribe(r => { if (r.success) this.users = r.data; });
-        } else { this.error = res.error; }
+          this.auth.getUsers().subscribe(r => { if (r.success) this.users = r.data; this.cdr.detectChanges(); });
+        } else { this.error = res.error; this.cdr.detectChanges(); }
       },
-      error: err => { this.saving = false; this.error = err.error?.error || 'Error al actualizar'; }
+      error: err => { this.saving = false; this.error = err.error?.error || 'Error al actualizar'; this.cdr.detectChanges(); }
     });
   }
 

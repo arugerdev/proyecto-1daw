@@ -1,11 +1,31 @@
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const https = require('https');
 const mime = require('mime-types');
 const db = require('../config/database');
 const { saveUploadedFile, deleteFile, fileExists, getFileSize, DEFAULT_UPLOAD_DIR } = require('../services/storage.service');
-const { getThumbnail } = require('../services/thumbnail.service');
+const { getThumbnail, THUMB_DIR } = require('../services/thumbnail.service');
 const { processCSV } = require('../services/csv.service');
 const { getFileExtension, getMediaCategory, getStorageType, formatBytes } = require('../utils/helpers');
+
+// ── Helper: HEAD-request to get file size + mime type for remote URLs ─────────
+function fetchUrlMetadata(url) {
+    return new Promise((resolve) => {
+        const client = url.startsWith('https') ? https : http;
+        try {
+            const req = client.request(url, { method: 'HEAD' }, (res) => {
+                resolve({
+                    contentLength: parseInt(res.headers['content-length'] || '0') || 0,
+                    contentType: (res.headers['content-type'] || '').split(';')[0].trim()
+                });
+            });
+            req.on('error', () => resolve({}));
+            req.setTimeout(5000, () => { req.destroy(); resolve({}); });
+            req.end();
+        } catch { resolve({}); }
+    });
+}
 
 async function getMedia(req, res) {
     try {
@@ -26,8 +46,23 @@ async function getMedia(req, res) {
         let where = 'WHERE 1=1';
 
         if (search) {
-            where += ' AND (m.title LIKE ? OR m.description LIKE ?)';
-            params.push(`%${search}%`, `%${search}%`);
+            // Search across all meaningful text fields: title, description, filename,
+            // file path, year (as string), category name, and tags.
+            where += ` AND (
+                m.title       LIKE ? OR
+                m.description LIKE ? OR
+                m.filename    LIKE ? OR
+                m.file_path   LIKE ? OR
+                CAST(m.publication_year AS CHAR) LIKE ? OR
+                c.name LIKE ? OR
+                EXISTS (
+                    SELECT 1 FROM media_tags mt_s
+                    JOIN tags t_s ON mt_s.tag_id = t_s.id
+                    WHERE mt_s.media_id = m.id AND t_s.name LIKE ?
+                )
+            )`;
+            const s = `%${search}%`;
+            params.push(s, s, s, s, s, s, s);
         }
         if (type) {
             where += ' AND m.media_kind = ?';
@@ -287,17 +322,28 @@ async function downloadMedia(req, res) {
 
 async function getThumbnailHandler(req, res) {
     try {
-        const [rows] = await db.query('SELECT file_path, mime_type FROM media_items WHERE id = ?', [req.params.id]);
+        const [rows] = await db.query(
+            'SELECT file_path, mime_type, media_kind FROM media_items WHERE id = ?',
+            [req.params.id]
+        );
         if (!rows.length) return res.status(404).send();
 
-        const thumbPath = await getThumbnail(req.params.id, rows[0].file_path, rows[0].mime_type);
-        if (!thumbPath || !fs.existsSync(thumbPath)) return res.status(204).send();
+        const { file_path, mime_type, media_kind } = rows[0];
 
-        res.setHeader('Content-Type', 'image/jpeg');
+        // Remote URL images: redirect directly so the browser fetches the real image.
+        if ((file_path.startsWith('http://') || file_path.startsWith('https://')) && media_kind === 'image') {
+            return res.redirect(302, file_path);
+        }
+
+        const thumbPath = await getThumbnail(req.params.id, file_path, mime_type, media_kind);
+        if (!thumbPath || !fs.existsSync(thumbPath)) return res.status(404).send();
+
+        const isSvg = thumbPath.endsWith('.svg');
+        res.setHeader('Content-Type', isSvg ? 'image/svg+xml' : 'image/jpeg');
         res.setHeader('Cache-Control', 'public, max-age=86400');
         fs.createReadStream(thumbPath).pipe(res);
     } catch {
-        res.status(204).send();
+        res.status(404).send();
     }
 }
 
@@ -374,16 +420,29 @@ async function registerExternalMedia(req, res) {
             return res.status(400).json({ success: false, error: 'Título y ruta son requeridos' });
         }
 
-        const filename = path.basename(file_path);
+        const filename = path.basename(file_path.split('?')[0]); // strip query string for filename/ext
         const extension = getFileExtension(filename);
-        const mimeType = mime.lookup(filename) || 'application/octet-stream';
-        const mediaKind = getMediaCategory(mimeType, extension);
+        let mimeType = mime.lookup(filename) || '';
         const storageType = getStorageType(file_path);
+        let fileSize = 0;
+
+        // For HTTP/HTTPS URLs: try a HEAD request to discover actual size and MIME type.
+        if (file_path.startsWith('http://') || file_path.startsWith('https://')) {
+            try {
+                const meta = await fetchUrlMetadata(file_path);
+                if (meta.contentLength) fileSize = meta.contentLength;
+                // Use Content-Type from server if we couldn't detect from extension
+                if (!mimeType && meta.contentType) mimeType = meta.contentType;
+            } catch { /* ignore — not critical */ }
+        }
+
+        if (!mimeType) mimeType = 'application/octet-stream';
+        const mediaKind = getMediaCategory(mimeType, extension);
 
         const [result] = await db.query(
-            `INSERT INTO media_items (title, description, file_path, filename, storage_location_id, mime_type, file_extension, media_kind, publication_year, category_id, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [title, description || '', file_path, filename, storage_location_id || null, mimeType, extension, mediaKind, publication_year || null, category_id || null, req.user.id]
+            `INSERT INTO media_items (title, description, file_path, filename, storage_location_id, mime_type, file_size, file_extension, media_kind, publication_year, category_id, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [title, description || '', file_path, filename, storage_location_id || null, mimeType, fileSize, extension, mediaKind, publication_year || null, category_id || null, req.user.id]
         );
 
         if (tags) {
@@ -394,6 +453,38 @@ async function registerExternalMedia(req, res) {
         res.status(201).json({ success: true, data: { id: result.insertId } });
     } catch (err) {
         res.status(500).json({ success: false, error: 'Error al registrar archivo' });
+    }
+}
+
+// GET /:id/textpreview — returns first N bytes of a text/document file as plain text.
+// Used by the frontend viewer for markdown/text/HTML rendering.
+async function getTextPreview(req, res) {
+    try {
+        const limit = Math.min(parseInt(req.query.limit || '10000'), 100000);
+
+        const [rows] = await db.query(
+            'SELECT file_path, media_kind FROM media_items WHERE id = ?',
+            [req.params.id]
+        );
+        if (!rows.length) return res.status(404).send('');
+
+        const { file_path, media_kind } = rows[0];
+
+        if (!['text', 'document'].includes(media_kind)) return res.status(404).send('');
+        if (file_path.startsWith('http://') || file_path.startsWith('https://')) return res.status(204).send('');
+        if (!fs.existsSync(file_path)) return res.status(404).send('');
+
+        const fd = await fs.promises.open(file_path, 'r');
+        const buf = Buffer.alloc(limit);
+        const { bytesRead } = await fd.read(buf, 0, limit, 0);
+        await fd.close();
+
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        res.send(buf.slice(0, bytesRead).toString('utf8'));
+    } catch (err) {
+        console.error('[media] getTextPreview error:', err);
+        res.status(500).send('');
     }
 }
 
@@ -414,4 +505,4 @@ async function syncTags(mediaId, tagNames) {
     }
 }
 
-module.exports = { getMedia, getMediaById, uploadMedia, updateMedia, deleteMedia, streamMedia, downloadMedia, getThumbnailHandler, importCSV, registerExternalMedia };
+module.exports = { getMedia, getMediaById, uploadMedia, updateMedia, deleteMedia, streamMedia, downloadMedia, getThumbnailHandler, getTextPreview, importCSV, registerExternalMedia };
