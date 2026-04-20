@@ -52,14 +52,26 @@ import { Category, StorageLocation } from '../models/file.model';
           </div>
           <input #fileInput type="file" class="hidden" (change)="onFileSelected($event)"/>
 
-          <!-- Register external path (alternative) -->
+          <!-- Toggle: file upload vs external path -->
           <div class="flex items-center gap-3 text-surface-500 text-sm">
             <div class="flex-1 border-t border-surface-700"></div>
-            <span>o registrar ruta externa</span>
+            <button type="button"
+              (click)="uploadMode = uploadMode === 'file' ? 'url' : 'file'"
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-colors text-xs"
+              [class.border-primary-500]="uploadMode === 'url'"
+              [class.text-primary-300]="uploadMode === 'url'"
+              [class.bg-primary-600\/10]="uploadMode === 'url'"
+              [class.border-surface-600]="uploadMode === 'file'"
+              [class.text-surface-400]="uploadMode === 'file'">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              </svg>
+              {{ uploadMode === 'url' ? 'Ocultar ruta externa' : 'Registrar ruta externa' }}
+            </button>
             <div class="flex-1 border-t border-surface-700"></div>
           </div>
 
-          <div>
+          <div *ngIf="uploadMode === 'url'">
             <label class="input-label">Ruta del archivo (local, URL, red)</label>
             <input [(ngModel)]="externalPath" type="text" class="input"
               placeholder="C:\Videos\archivo.mp4  /  https://...  /  \\\\servidor\\recurso"/>
@@ -122,7 +134,8 @@ import { Category, StorageLocation } from '../models/file.model';
           <!-- Actions -->
           <div class="flex justify-end gap-3 pt-2 border-t border-surface-700">
             <button (click)="close.emit()" class="btn-secondary" [disabled]="uploading">Cancelar</button>
-            <button (click)="onSubmit()" class="btn-primary" [disabled]="uploading || (!selectedFile && !externalPath)">
+            <button (click)="onSubmit()" class="btn-primary"
+              [disabled]="uploading || (!selectedFile && (uploadMode === 'file' || !externalPath))">
               <svg *ngIf="uploading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -138,6 +151,8 @@ import { Category, StorageLocation } from '../models/file.model';
 export class UploadModalComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
   @Output() uploaded = new EventEmitter<void>();
+
+  uploadMode: 'file' | 'url' = 'file';
 
   selectedFile: File | null = null;
   externalPath = '';

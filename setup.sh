@@ -16,12 +16,16 @@ set -euo pipefail
 SKIP_BUILD=false
 SKIP_SERVICE=false
 UNATTENDED=false
+MODE="production"
 
 for arg in "$@"; do
     case $arg in
-        --skip-build)   SKIP_BUILD=true   ;;
-        --skip-service) SKIP_SERVICE=true  ;;
-        --unattended)   UNATTENDED=true    ;;
+        --skip-build)        SKIP_BUILD=true       ;;
+        --skip-service)      SKIP_SERVICE=true      ;;
+        --unattended)        UNATTENDED=true        ;;
+        --mode=development)  MODE="development"     ;;
+        --mode=production)   MODE="production"      ;;
+        --development)       MODE="development"     ;;
     esac
 done
 
@@ -267,8 +271,9 @@ DB_HOST=$(read_cfg   "Host MySQL"                  "localhost")
 DB_PORT=$(read_cfg   "Puerto MySQL"                "3306")
 DB_ROOT=$(read_secret "Contraseña root MySQL (vacío si no tiene)" "")
 DB_NAME=$(read_cfg   "Nombre de la base de datos"  "ecijacomarca")
-DB_USER=$(read_cfg   "Nombre de usuario de la BD"  "ecijacomarca_user")
-DB_PASS=$(read_secret "Contraseña del usuario de BD" "$(new_secret 24)")
+DB_USER=$(read_cfg   "Usuario MySQL para la API (ENTER = root)"  "root")
+DB_PASS=$(read_secret "Contraseña del usuario API (vacío = igual que root)" "$DB_ROOT")
+[[ -z "$DB_PASS" ]] && DB_PASS="$DB_ROOT"
 
 # Application
 API_PORT=$(read_cfg   "Puerto de la API"            "3000")
@@ -335,10 +340,19 @@ info "npm install (API)..."
 cd "$ROOT/api" && npm install --prefer-offline &>/dev/null
 ok "Dependencias de la API instaladas"
 
-if [[ "$SKIP_BUILD" == "false" ]]; then
+if [[ "$MODE" == "development" ]]; then
+    warn "Modo desarrollo: build del frontend omitido."
+elif [[ "$SKIP_BUILD" == "false" ]]; then
     # Frontend
     info "npm install (Frontend)..."
     cd "$ROOT/front" && npm install --prefer-offline &>/dev/null
+
+    # Update environment.ts to point to the local API
+    ENV_TS="$ROOT/front/src/environments/environment.ts"
+    if [[ -f "$ENV_TS" ]]; then
+        sed -i "s|API_URL: '[^']*'|API_URL: 'http://localhost:${API_PORT}/api'|g" "$ENV_TS"
+        info "environment.ts actualizado -> http://localhost:${API_PORT}/api"
+    fi
 
     info "Compilando Angular (puede tardar 1-2 minutos)..."
     npm run build -- --configuration=production &>/dev/null
@@ -366,9 +380,13 @@ ok "Conexión MySQL con root OK"
 info "Creando base de datos '$DB_NAME'..."
 mysql_exec "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" root "$DB_ROOT" "$DB_HOST"
 
-info "Creando usuario '$DB_USER'..."
-mysql_exec "CREATE USER IF NOT EXISTS '${DB_USER}'@'${DB_HOST}' IDENTIFIED BY '${DB_PASS}';" root "$DB_ROOT" "$DB_HOST"
-mysql_exec "GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'${DB_HOST}'; FLUSH PRIVILEGES;" root "$DB_ROOT" "$DB_HOST"
+if [[ "$DB_USER" != "root" ]]; then
+    info "Creando usuario '$DB_USER'..."
+    mysql_exec "CREATE USER IF NOT EXISTS '${DB_USER}'@'${DB_HOST}' IDENTIFIED BY '${DB_PASS}';" root "$DB_ROOT" "$DB_HOST"
+    mysql_exec "GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'${DB_HOST}'; FLUSH PRIVILEGES;" root "$DB_ROOT" "$DB_HOST"
+else
+    info "Usando root como usuario de la base de datos (sin crear usuario adicional)."
+fi
 
 # Run schema
 info "Aplicando esquema..."
@@ -390,10 +408,13 @@ OWNER_HASH=$(echo "$HASHES" | sed -n '1p')
 ADMIN_HASH=$(echo "$HASHES"  | sed -n '2p')
 
 INSERT_SQL="USE \`${DB_NAME}\`;
-INSERT IGNORE INTO users (username, password, role, is_hidden)
-  VALUES ('${OWNER_USER}', '${OWNER_HASH}', 'owner', TRUE);
-INSERT IGNORE INTO users (username, password, role)
-  VALUES ('${ADMIN_USER}', '${ADMIN_HASH}', 'admin', FALSE);"
+INSERT INTO users (id, username, password, role, is_hidden)
+  VALUES (1, '${OWNER_USER}', '${OWNER_HASH}', 'owner', 1)
+  ON DUPLICATE KEY UPDATE username=VALUES(username), password=VALUES(password), role='owner', is_hidden=1;
+INSERT INTO users (id, username, password, role, is_hidden)
+  VALUES (2, '${ADMIN_USER}', '${ADMIN_HASH}', 'admin', 0)
+  ON DUPLICATE KEY UPDATE username=VALUES(username), password=VALUES(password), role='admin', is_hidden=0;
+ALTER TABLE users AUTO_INCREMENT = 3;"
 
 _insert_cnf=""
 INSERT_ARGS=(-u root -h "$DB_HOST" --batch --silent)
@@ -403,7 +424,7 @@ if [[ -n "$DB_ROOT" ]]; then
 fi
 echo "$INSERT_SQL" | mysql "${INSERT_ARGS[@]}"
 [[ -n "$_insert_cnf" ]] && rm -f "$_insert_cnf"
-ok "Usuarios creados: $OWNER_USER (owner, oculto), $ADMIN_USER (admin)"
+ok "Usuarios creados: $OWNER_USER (id=1, owner, oculto), $ADMIN_USER (id=2, admin)"
 
 # Insert/update default storage location
 ESCAPED_PATH="${MEDIA_PATH//\'/\\\'}"
@@ -419,8 +440,16 @@ ok "Base de datos lista"
 # ══════════════════════════════════════════════════════════════════════════════
 step "7/7" "Configurando servicio de auto-inicio..."
 
-if [[ "$SKIP_SERVICE" == "true" ]]; then
+if [[ "$MODE" == "development" ]]; then
+    warn "Modo desarrollo: servicio de auto-inicio omitido."
+    info "Iniciando API en modo desarrollo..."
+    cd "$ROOT/api" && nohup node main.js >> "$ROOT/logs/api.log" 2>&1 &
+    ok "API iniciada (PID $!). Logs en logs/api.log"
+elif [[ "$SKIP_SERVICE" == "true" ]]; then
     warn "Servicio omitido (--skip-service)"
+    info "Iniciando API..."
+    cd "$ROOT/api" && nohup node main.js >> "$ROOT/logs/api.log" 2>&1 &
+    ok "API iniciada (PID $!)"
 elif command -v systemctl &>/dev/null && [[ "$(uname -s)" == "Linux" ]]; then
     # ── systemd ────────────────────────────────────────────────────────────────
     NODE_BIN=$(command -v node)

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, catchError, of, map } from 'rxjs';
+import { Observable, tap, catchError, of, map, timeout } from 'rxjs';
 import { environment } from '../environments/environment';
 import { AuthUser, UserPermissions, UserRole } from '../app/models/file.model';
 import { LocalStorageService } from './localStorage.service';
@@ -25,6 +25,7 @@ export class AuthService {
 
   login(username: string, password: string): Observable<any> {
     return this.http.post<any>(`${API}/auth/login`, { username, password }).pipe(
+      timeout(10000),
       tap(res => { if (res.success) this._persist(res); })
     );
   }

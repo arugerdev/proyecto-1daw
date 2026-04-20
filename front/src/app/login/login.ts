@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { TimeoutError } from 'rxjs';
 
 @Component({
   selector: 'login-page',
@@ -17,7 +18,7 @@ export class LoginPage {
   loading = false;
   error = '';
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(private auth: AuthService, private router: Router, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     if (this.auth.isAuthenticated()) this.router.navigate(['/']);
@@ -31,12 +32,21 @@ export class LoginPage {
     this.auth.login(this.username, this.password).subscribe({
       next: res => {
         this.loading = false;
-        if (res.success) this.router.navigate(['/']);
-        else this.error = res.error || 'Credenciales incorrectas';
+        if (res.success) {
+          this.router.navigate(['/']);
+        } else {
+          this.error = res.error || 'Credenciales incorrectas';
+          this.cdr.detectChanges();
+        }
       },
       error: err => {
         this.loading = false;
-        this.error = err.error?.error || 'Error de conexión';
+        if (err instanceof TimeoutError) {
+          this.error = 'El servidor no responde. Verifica que la API esté en línea.';
+        } else {
+          this.error = err.error?.error || 'Error de conexión';
+        }
+        this.cdr.detectChanges();
       }
     });
   }

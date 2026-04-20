@@ -12,7 +12,7 @@ import { FileService } from '../../services/file.service';
     <div
       class="group relative bg-surface-800 border border-surface-700 rounded-xl overflow-hidden
              hover:border-primary-600/50 hover:shadow-lg hover:shadow-primary-900/20
-             transition-all duration-200 cursor-pointer flex flex-col"
+             transition-all duration-200 cursor-pointer flex flex-col h-full"
       (click)="viewDetails.emit(file)">
 
       <!-- Thumbnail / Preview area -->
@@ -64,7 +64,7 @@ import { FileService } from '../../services/file.service';
       </div>
 
       <!-- Card body -->
-      <div class="p-3 flex flex-col gap-2 flex-1">
+      <div class="p-3 flex flex-col gap-1.5 flex-1 min-h-0 overflow-hidden">
         <h3 class="text-sm font-semibold text-surface-100 line-clamp-2 leading-tight" [title]="file.title">
           {{ file.title }}
         </h3>

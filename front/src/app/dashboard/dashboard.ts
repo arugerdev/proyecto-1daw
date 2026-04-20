@@ -34,6 +34,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   // Edit state
   editingUser: User | null = null;
   editUserPatch = { username: '', role: 'viewer' as UserRole, password: '' };
+  editUserPatchConfirm = '';
+  editUserShowPw = false;
 
   // UI
   loading = false;
@@ -123,10 +125,16 @@ export class DashboardPage implements OnInit, OnDestroy {
   startEditUser(user: User) {
     this.editingUser = user;
     this.editUserPatch = { username: user.username, role: user.role, password: '' };
+    this.editUserPatchConfirm = '';
+    this.editUserShowPw = false;
   }
 
   saveEditUser() {
     if (!this.editingUser) return;
+    if (this.editUserPatch.password && this.editUserPatch.password !== this.editUserPatchConfirm) {
+      this.error = 'Las contraseñas no coinciden';
+      return;
+    }
     this.saving = true;
     const patch: any = { role: this.editUserPatch.role };
     if (this.editUserPatch.username !== this.editingUser.username) patch.username = this.editUserPatch.username;
@@ -138,6 +146,8 @@ export class DashboardPage implements OnInit, OnDestroy {
         if (res.success) {
           this.showSuccess('Usuario actualizado');
           this.editingUser = null;
+          this.editUserPatchConfirm = '';
+          this.editUserShowPw = false;
           this.auth.getUsers().subscribe(r => { if (r.success) this.users = r.data; });
         } else { this.error = res.error; }
       },

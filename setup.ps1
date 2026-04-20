@@ -12,14 +12,20 @@
     Do not create a Windows Scheduled Task.
 .PARAMETER Unattended
     Use all defaults without prompting (for CI/test environments).
+.PARAMETER Mode
+    'production' (default): builds frontend, registers scheduled task, starts API.
+    'development': skips build and scheduled task, starts API in a visible window.
 .EXAMPLE
     .\setup.ps1
+    .\setup.ps1 -Mode development
     .\setup.ps1 -SkipBuild -SkipService
 #>
 param(
     [switch]$SkipBuild,
     [switch]$SkipService,
-    [switch]$Unattended
+    [switch]$Unattended,
+    [ValidateSet('production','development')]
+    [string]$Mode = 'production'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -228,8 +234,9 @@ $DB_HOST = Read-Cfg  'Host MySQL'                  'localhost'
 $DB_PORT = Read-Cfg  'Puerto MySQL'                 '3306'
 $DB_ROOT = Read-Secret 'Contrasena root MySQL (vacio si no tiene)' ''
 $DB_NAME = Read-Cfg  'Nombre de la base de datos'  'ecijacomarca'
-$DB_USER = Read-Cfg  'Nombre de usuario de la BD'  'ecijacomarca_user'
-$DB_PASS = Read-Secret 'Contrasena del usuario de BD' (New-Secret 24)
+$DB_USER = Read-Cfg    'Usuario MySQL para la API (ENTER = root)'   'root'
+$DB_PASS = Read-Secret 'Contrasena del usuario API (ENTER = igual que root)' $DB_ROOT
+if (-not $DB_PASS) { $DB_PASS = $DB_ROOT }
 
 # Application
 $API_PORT   = Read-Cfg 'Puerto de la API'              '3000'
@@ -301,10 +308,22 @@ Push-Location "$ROOT\api"
 Pop-Location
 Write-OK 'Dependencias de la API instaladas'
 
-if (-not $SkipBuild) {
+if ($Mode -eq 'development') {
+    Write-Warn 'Modo desarrollo: build del frontend omitido.'
+} elseif (-not $SkipBuild) {
     Write-Info 'npm install (Frontend)...'
     Push-Location "$ROOT\front"
     & npm install --prefer-offline 2>&1 | Out-Null
+
+    # Update environment.ts so the built app points to the local API
+    $envTsPath = "$ROOT\front\src\environments\environment.ts"
+    if (Test-Path $envTsPath) {
+        $envTsContent = Get-Content $envTsPath -Raw
+        $envTsContent = $envTsContent -replace "API_URL:\s*'[^']*'", "API_URL: 'http://localhost:${API_PORT}/api'"
+        Set-Content -Path $envTsPath -Value $envTsContent -Encoding UTF8 -NoNewline
+        Write-Info "environment.ts actualizado -> http://localhost:${API_PORT}/api"
+    }
+
     Write-Info 'Compilando Angular (puede tardar 1-2 minutos)...'
     & npm run build -- --configuration=production 2>&1 | Out-Null
     $buildCode = $LASTEXITCODE
@@ -337,9 +356,13 @@ try {
 Write-Info "Creando base de datos '$DB_NAME'..."
 Invoke-MySQL "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 'root' $DB_ROOT $DB_HOST
 
-Write-Info "Creando usuario '$DB_USER'..."
-Invoke-MySQL "CREATE USER IF NOT EXISTS '${DB_USER}'@'${DB_HOST}' IDENTIFIED BY '${DB_PASS}';" 'root' $DB_ROOT $DB_HOST
-Invoke-MySQL "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'${DB_HOST}'; FLUSH PRIVILEGES;" 'root' $DB_ROOT $DB_HOST
+if ($DB_USER -ne 'root') {
+    Write-Info "Creando usuario '$DB_USER'..."
+    Invoke-MySQL "CREATE USER IF NOT EXISTS '${DB_USER}'@'${DB_HOST}' IDENTIFIED BY '${DB_PASS}';" 'root' $DB_ROOT $DB_HOST
+    Invoke-MySQL "GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'${DB_HOST}'; FLUSH PRIVILEGES;" 'root' $DB_ROOT $DB_HOST
+} else {
+    Write-Info "Usando root como usuario de la base de datos (sin crear usuario adicional)."
+}
 
 # Apply schema
 Write-Info 'Aplicando esquema...'
@@ -374,12 +397,14 @@ if ((-not $ownerHash) -or (-not $adminHash)) {
     exit 1
 }
 
-$sqlInsertOwner = "USE ${DB_NAME}; INSERT IGNORE INTO users (username, password, role, is_hidden) VALUES ('${OWNER_USER}', '${ownerHash}', 'owner', TRUE);"
-$sqlInsertAdmin = "USE ${DB_NAME}; INSERT IGNORE INTO users (username, password, role) VALUES ('${ADMIN_USER}', '${adminHash}', 'admin', FALSE);"
+$sqlInsertOwner = "USE ${DB_NAME}; INSERT INTO users (id, username, password, role, is_hidden) VALUES (1, '${OWNER_USER}', '${ownerHash}', 'owner', 1) ON DUPLICATE KEY UPDATE username=VALUES(username), password=VALUES(password), role='owner', is_hidden=1;"
+$sqlInsertAdmin = "USE ${DB_NAME}; INSERT INTO users (id, username, password, role, is_hidden) VALUES (2, '${ADMIN_USER}', '${adminHash}', 'admin', 0) ON DUPLICATE KEY UPDATE username=VALUES(username), password=VALUES(password), role='admin', is_hidden=0;"
+$sqlFixAutoInc  = "USE ${DB_NAME}; ALTER TABLE users AUTO_INCREMENT = 3;"
 
 Invoke-MySQL $sqlInsertOwner 'root' $DB_ROOT $DB_HOST
 Invoke-MySQL $sqlInsertAdmin 'root' $DB_ROOT $DB_HOST
-Write-OK "Usuarios creados: ${OWNER_USER} (owner, oculto), ${ADMIN_USER} (admin)"
+Invoke-MySQL $sqlFixAutoInc  'root' $DB_ROOT $DB_HOST
+Write-OK "Usuarios creados: ${OWNER_USER} (id=1, owner, oculto), ${ADMIN_USER} (id=2, admin)"
 
 # Default storage location
 $escapedPath = $MEDIA_PATH.Replace('\', '\\')
@@ -396,8 +421,20 @@ Write-OK 'Base de datos lista'
 # =============================================================================
 Write-Step '7/7' 'Servicio de auto-inicio...'
 
-if ($SkipService) {
+if ($Mode -eq 'development') {
+    Write-Warn 'Modo desarrollo: tarea programada omitida.'
+    Write-Info 'Iniciando API en modo desarrollo...'
+    $nodePath   = (Get-Command node).Source
+    $scriptPath = "$ROOT\api\main.js"
+    Start-Process -FilePath $nodePath -ArgumentList $scriptPath -WorkingDirectory "$ROOT\api" -WindowStyle Normal
+    Write-OK 'API iniciada (proceso independiente). Cierra la ventana para detenerla.'
+} elseif ($SkipService) {
     Write-Warn 'Tarea programada omitida (-SkipService)'
+    Write-Info 'Iniciando API...'
+    Push-Location "$ROOT\api"
+    Start-Process -FilePath (Get-Command node).Source -ArgumentList main.js -WorkingDirectory "$ROOT\api" -WindowStyle Minimized
+    Pop-Location
+    Write-OK 'API iniciada'
 } else {
     $taskName   = 'EcijaComarca_API'
     $nodePath   = (Get-Command node).Source
@@ -445,14 +482,19 @@ Write-Host "  Base de datos: ${DB_NAME}  (@  ${DB_HOST})" -ForegroundColor White
 Write-Host "  Medios:        ${MEDIA_PATH}" -ForegroundColor White
 Write-Host ''
 Write-Host '  Credenciales de acceso:' -ForegroundColor DarkGray
-Write-Host "    Admin -> usuario: ${ADMIN_USER}" -ForegroundColor White
+Write-Host "    Admin  -> usuario: ${ADMIN_USER}  /  contrasena: ${ADMIN_PASS}" -ForegroundColor White
+Write-Host "    Owner  -> usuario: ${OWNER_USER}  (oculto, guarda la contrasena)" -ForegroundColor White
 Write-Host ''
 Write-Host '  Guarda la contrasena del owner en un lugar seguro.' -ForegroundColor Yellow
 Write-Host '  El archivo api/.env contiene la SECRET_KEY - no lo compartas.' -ForegroundColor Yellow
 Write-Host ''
-if (-not $SkipBuild) {
-    Write-Host '  Para servir el frontend usa IIS o nginx apuntando a:' -ForegroundColor DarkGray
-    Write-Host '  front\dist\front\browser\' -ForegroundColor DarkGray
+if ($Mode -eq 'production' -and -not $SkipBuild) {
+    Write-Host '  Frontend:      El frontend se sirve desde la propia API.' -ForegroundColor DarkGray
+    Write-Host "  Abre:          http://localhost:${API_PORT}" -ForegroundColor Cyan
+    Write-Host ''
+} elseif ($Mode -eq 'development') {
+    Write-Host '  Modo desarrollo: ejecuta el frontend con:' -ForegroundColor DarkGray
+    Write-Host '    cd front && npm start' -ForegroundColor White
     Write-Host ''
 }
 Write-Host '  Para iniciar la API manualmente:' -ForegroundColor DarkGray

@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const authRoutes      = require('./src/routes/auth.routes');
 const mediaRoutes     = require('./src/routes/media.routes');
@@ -38,6 +39,18 @@ app.use('/api',           categoriesRoutes);
 app.use('/api',           statsRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
+
+// ── Serve Angular frontend (production build) ────────────────────────────────
+// The built app lives one level up from api/, in front/dist/front/browser/
+const frontDist = path.join(__dirname, '..', 'front', 'dist', 'front', 'browser');
+if (fs.existsSync(frontDist)) {
+    app.use(express.static(frontDist));
+    // SPA fallback: any non-API route returns index.html so Angular routing works
+    app.get(/^(?!\/api).*/, (req, res) => {
+        res.sendFile(path.join(frontDist, 'index.html'));
+    });
+    console.log(`[API] Serving Angular frontend from ${frontDist}`);
+}
 
 app.use(notFound);
 app.use(errorHandler);
