@@ -5,7 +5,7 @@ const https = require('https');
 const mime = require('mime-types');
 const db = require('../config/database');
 const { saveUploadedFile, deleteFile, fileExists, getFileSize, DEFAULT_UPLOAD_DIR } = require('../services/storage.service');
-const { getThumbnail, THUMB_DIR } = require('../services/thumbnail.service');
+const { getThumbnail, deleteThumbnail, THUMB_DIR } = require('../services/thumbnail.service');
 const { processCSV, analyzeCSV } = require('../services/csv.service');
 const { getFileExtension, getMediaCategory, getStorageType, formatBytes } = require('../utils/helpers');
 
@@ -240,14 +240,29 @@ async function updateMedia(req, res) {
 
 async function deleteMedia(req, res) {
     try {
-        const [rows] = await db.query('SELECT file_path FROM media_items WHERE id = ?', [req.params.id]);
+        const mediaId = parseInt(req.params.id, 10);
+        const [rows] = await db.query('SELECT file_path FROM media_items WHERE id = ?', [mediaId]);
         if (!rows.length) return res.status(404).json({ success: false, error: 'Archivo no encontrado' });
 
-        await deleteFile(rows[0].file_path);
-        await db.query('DELETE FROM media_items WHERE id = ?', [req.params.id]);
+        // Best-effort cleanup of the physical file + cached thumbnails. We do
+        // not abort on failures (e.g. file already gone on disk) because the
+        // DB row still needs to be removed.
+        await deleteFile(rows[0].file_path).catch(err =>
+            console.warn('[media] deleteMedia: file removal failed:', err.message)
+        );
+        await deleteThumbnail(mediaId);
+
+        // Removing the media cascades media_tags (FK ON DELETE CASCADE) but
+        // leaves the tag rows themselves. Strip any tag that is no longer
+        // referenced by ANY media item to keep the tags table clean.
+        await db.query('DELETE FROM media_items WHERE id = ?', [mediaId]);
+        await db.query(
+            'DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM media_tags)'
+        );
 
         res.json({ success: true });
     } catch (err) {
+        console.error('[media] deleteMedia error:', err);
         res.status(500).json({ success: false, error: 'Error al eliminar archivo' });
     }
 }

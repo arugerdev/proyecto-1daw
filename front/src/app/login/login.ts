@@ -18,11 +18,15 @@ export class LoginPage {
   showPassword = false;
   loading = false;
   error = '';
+  // Persistent login — OFF by default, session ends when the browser closes.
+  rememberMe = false;
 
   constructor(private auth: AuthService, private router: Router, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     if (this.auth.isAuthenticated()) this.router.navigate(['/']);
+    // Pre-check the box if the user previously opted in.
+    this.rememberMe = this.auth.isRememberMe();
   }
 
   onSubmit() {
@@ -30,7 +34,7 @@ export class LoginPage {
     this.loading = true;
     this.error = '';
 
-    this.auth.login(this.username, this.password).subscribe({
+    this.auth.login(this.username, this.password, this.rememberMe).subscribe({
       next: res => {
         this.loading = false;
         if (res.success) {

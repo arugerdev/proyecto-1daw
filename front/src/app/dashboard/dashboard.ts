@@ -9,6 +9,7 @@ import { User, StorageLocation, Category, Tag, Stats, ROLE_LABELS, ROLE_COLORS, 
 import { FsBrowserComponent } from '../../components/fs-browser/fs-browser.component';
 import { ThemePickerComponent } from '../../components/theme-picker/theme-picker.component';
 import { IconComponent } from '../../components/icon/icon.component';
+import { EditUserModalComponent } from '../modals/edit-user.modal';
 import { STORAGE_TYPE_ICONS } from '../models/file.model';
 
 type Tab = 'overview' | 'users' | 'locations' | 'categories' | 'system';
@@ -16,7 +17,7 @@ type Tab = 'overview' | 'users' | 'locations' | 'categories' | 'system';
 @Component({
   selector: 'dashboard-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, FsBrowserComponent, ThemePickerComponent, IconComponent],
+  imports: [CommonModule, FormsModule, RouterModule, FsBrowserComponent, ThemePickerComponent, IconComponent, EditUserModalComponent],
   templateUrl: './page.html'
 })
 export class DashboardPage implements OnInit, OnDestroy {
@@ -34,11 +35,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   newLocation = { name: '', base_path: '', storage_type: 'local' as any, description: '' };
   newCategory = { name: '', description: '', color: '#6366f1', icon: 'folder' };
 
-  // Edit state
+  // Edit state — user being edited in the modal (null = modal closed)
   editingUser: User | null = null;
-  editUserPatch = { username: '', role: 'viewer' as UserRole, password: '' };
-  editUserPatchConfirm = '';
-  editUserShowPw = false;
 
   // UI
   loading = false;
@@ -126,45 +124,36 @@ export class DashboardPage implements OnInit, OnDestroy {
     });
   }
 
+  /** Open the edit-user modal for a specific user. */
   startEditUser(user: User) {
     this.editingUser = user;
-    this.editUserPatch = { username: user.username, role: user.role, password: '' };
-    this.editUserPatchConfirm = '';
-    this.editUserShowPw = false;
   }
 
-  saveEditUser() {
-    if (!this.editingUser) return;
-    if (this.editUserPatch.password && this.editUserPatch.password !== this.editUserPatchConfirm) {
-      this.error = 'Las contraseñas no coinciden';
-      return;
-    }
-    this.saving = true;
-    const patch: any = { role: this.editUserPatch.role };
-    if (this.editUserPatch.username !== this.editingUser.username) patch.username = this.editUserPatch.username;
-    if (this.editUserPatch.password) patch.password = this.editUserPatch.password;
-
-    this.auth.updateUser(this.editingUser.id, patch).subscribe({
-      next: res => {
-        this.saving = false;
-        if (res.success) {
-          this.showSuccess('Usuario actualizado');
-          this.editingUser = null;
-          this.editUserPatchConfirm = '';
-          this.editUserShowPw = false;
-          this.auth.getUsers().subscribe(r => { if (r.success) this.users = r.data; this.cdr.detectChanges(); });
-        } else { this.error = res.error; this.cdr.detectChanges(); }
-      },
-      error: err => { this.saving = false; this.error = err.error?.error || 'Error al actualizar'; this.cdr.detectChanges(); }
+  /** Called by the modal after a successful save — refresh the list and close. */
+  onUserSaved() {
+    this.showSuccess('Usuario actualizado');
+    this.editingUser = null;
+    this.auth.getUsers().subscribe(r => {
+      if (r.success) { this.users = r.data; this.cdr.detectChanges(); }
     });
+  }
+
+  /** Called by the modal when the user dismisses it. */
+  closeEditUser() {
+    this.editingUser = null;
   }
 
   deleteUser(user: User) {
     if (!confirm(`¿Eliminar el usuario "${user.username}"?`)) return;
     this.auth.deleteUser(user.id).subscribe({
       next: res => {
-        if (res.success) { this.users = this.users.filter(u => u.id !== user.id); this.showSuccess('Usuario eliminado'); }
-        else this.error = res.error;
+        if (res.success) {
+          this.users = this.users.filter(u => u.id !== user.id);
+          this.showSuccess('Usuario eliminado');
+          this.refreshStats();
+        } else {
+          this.error = res.error;
+        }
       }
     });
   }
@@ -192,9 +181,22 @@ export class DashboardPage implements OnInit, OnDestroy {
     if (!confirm(`¿Eliminar la ubicación "${loc.name}"?`)) return;
     this.fs.deleteLocation(loc.id).subscribe({
       next: res => {
-        if (res.success) { this.locations = this.locations.filter(l => l.id !== loc.id); this.showSuccess('Ubicación eliminada'); }
-        else this.error = res.error;
+        if (res.success) {
+          this.locations = this.locations.filter(l => l.id !== loc.id);
+          this.showSuccess('Ubicación eliminada');
+          // The overview cards include "locationCount" and total storage — refresh stats
+          this.refreshStats();
+        } else {
+          this.error = res.error;
+        }
       }
+    });
+  }
+
+  /** Pull a fresh stats snapshot (called after delete operations). */
+  private refreshStats() {
+    this.fs.getStats().pipe(takeUntil(this.destroy$)).subscribe(res => {
+      if (res.success) { this.stats = res.data; this.cdr.detectChanges(); }
     });
   }
 

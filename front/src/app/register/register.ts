@@ -18,6 +18,7 @@ export class RegisterComponent {
   showPassword = false;
   loading = false;
   error = '';
+  rememberMe = false;
 
   get strength(): number {
     if (!this.password) return 0;
@@ -59,7 +60,7 @@ export class RegisterComponent {
     }
 
     this.loading = true;
-    this.auth.register(this.username, this.password).subscribe({
+    this.auth.register(this.username, this.password, this.rememberMe).subscribe({
       next: res => {
         this.loading = false;
         if (res.success) this.router.navigate(['/']);

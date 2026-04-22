@@ -56,8 +56,11 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () =>
-    console.log(`[API] Running on port ${PORT} (${process.env.NODE_ENV || 'production'})`)
+// Bind to 0.0.0.0 explicitly so the server is reachable from any interface
+// (localhost, LAN, and other user sessions when launched by SYSTEM).
+const HOST = process.env.HOST || '0.0.0.0';
+const server = app.listen(PORT, HOST, () =>
+    console.log(`[API] Running on ${HOST}:${PORT} (${process.env.NODE_ENV || 'production'})`)
 );
 
 // Allow very long-running uploads (up to 12 hours for 50GB files on slow networks)

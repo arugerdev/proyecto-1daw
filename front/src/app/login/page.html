@@ -63,6 +63,18 @@
           </div>
         </div>
 
+        <!-- Remember-me — when OFF, the session lives in sessionStorage and
+             is dropped as soon as the tab/browser closes or the machine restarts. -->
+        <label class="flex items-center gap-2 text-sm text-surface-400 cursor-pointer select-none pt-1">
+          <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe"
+            class="w-4 h-4 rounded border-surface-600 bg-surface-900 accent-primary-500"/>
+          <span>Recordarme en este equipo</span>
+          <span class="text-xs text-surface-600 ml-auto"
+            title="Si lo dejas desactivado, la sesión se cerrará al salir del navegador o apagar el equipo.">
+            (sesión permanente)
+          </span>
+        </label>
+
         <button type="submit" class="btn-primary w-full py-2.5 mt-2" [disabled]="loading">
           <svg *ngIf="loading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>

@@ -393,37 +393,34 @@ info "Aplicando esquema..."
 mysql_exec_file "$ROOT/db/schema.sql" root "$DB_ROOT" "$DB_HOST" "$DB_NAME"
 ok "Esquema aplicado"
 
-# Generate bcrypt hashes and insert users
-info "Creando cuentas de usuario..."
-HASH_SCRIPT='
-const bcrypt = require("bcryptjs");
-const COST = 12;
-Promise.all([
-  bcrypt.hash(process.argv[1], COST),
-  bcrypt.hash(process.argv[2], COST)
-]).then(([h1, h2]) => console.log(h1 + "\n" + h2));
-'
-HASHES=$(cd "$ROOT/api" && node -e "$HASH_SCRIPT" "$OWNER_PASS" "$ADMIN_PASS")
-OWNER_HASH=$(echo "$HASHES" | sed -n '1p')
-ADMIN_HASH=$(echo "$HASHES"  | sed -n '2p')
-
-INSERT_SQL="USE \`${DB_NAME}\`;
-INSERT INTO users (id, username, password, role, is_hidden)
-  VALUES (1, '${OWNER_USER}', '${OWNER_HASH}', 'owner', 1)
-  ON DUPLICATE KEY UPDATE username=VALUES(username), password=VALUES(password), role='owner', is_hidden=1;
-INSERT INTO users (id, username, password, role, is_hidden)
-  VALUES (2, '${ADMIN_USER}', '${ADMIN_HASH}', 'admin', 0)
-  ON DUPLICATE KEY UPDATE username=VALUES(username), password=VALUES(password), role='admin', is_hidden=0;
-ALTER TABLE users AUTO_INCREMENT = 3;"
-
-_insert_cnf=""
-INSERT_ARGS=(-u root -h "$DB_HOST" --batch --silent)
-if [[ -n "$DB_ROOT" ]]; then
-    _insert_cnf=$(_mysql_cnf "$DB_ROOT")
-    INSERT_ARGS=("--defaults-extra-file=$_insert_cnf" "${INSERT_ARGS[@]}")
+# Seed owner/admin via the dedicated Node script. Talks to mysql directly
+# through mysql2/bcryptjs — avoids any shell/CLI escaping around bcrypt
+# hashes (they contain `$` characters that break inline SQL strings).
+info "Creando cuentas de usuario (owner / admin)..."
+SEED_SCRIPT="$ROOT/api/src/scripts/seed-users.js"
+if [[ ! -f "$SEED_SCRIPT" ]]; then
+    fail "No se encontró el script de seed: $SEED_SCRIPT"
+    exit 1
 fi
-echo "$INSERT_SQL" | mysql "${INSERT_ARGS[@]}"
-[[ -n "$_insert_cnf" ]] && rm -f "$_insert_cnf"
+
+(
+    cd "$ROOT/api" && \
+    DB_HOST="$DB_HOST" \
+    DB_USER="$DB_USER" \
+    DB_PASSWORD="$DB_PASS" \
+    DB_NAME="$DB_NAME" \
+    OWNER_USERNAME="$OWNER_USER" \
+    OWNER_PASSWORD="$OWNER_PASS" \
+    ADMIN_USERNAME="$ADMIN_USER" \
+    ADMIN_PASSWORD="$ADMIN_PASS" \
+    SEED_FORCE_PASSWORD=true \
+    node "$SEED_SCRIPT"
+)
+
+if [[ $? -ne 0 ]]; then
+    fail "Fallo al crear las cuentas de usuario."
+    exit 1
+fi
 ok "Usuarios creados: $OWNER_USER (id=1, owner, oculto), $ADMIN_USER (id=2, admin)"
 
 # Insert/update default storage location

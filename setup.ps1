@@ -87,15 +87,23 @@ function Read-Secret([string]$Prompt, [string]$Default = '') {
         return $Default
     }
     $hint = ''
-    if ($Default) { $hint = ' [ENTER = valor generado automaticamente]' }
+    if ($Default) { $hint = ' [ENTER = usar valor por defecto]' }
     $sec   = Read-Host "  -> $Prompt$hint" -AsSecureString
-    $bstr  = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
-    $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-    if ($plain.Trim()) {
-        return $plain.Trim()
+    $bstr  = [IntPtr]::Zero
+    try {
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+        $plain = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+    } finally {
+        if ($bstr -ne [IntPtr]::Zero) {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
     }
-    return $Default
+    # PtrToStringAuto can return $null for an empty SecureString — treat both
+    # $null and empty as "use default".
+    if ([string]::IsNullOrWhiteSpace($plain)) {
+        return $Default
+    }
+    return $plain.Trim()
 }
 
 # ── Random secret (URL-safe base64, no +/=/chars) ────────────────────────────
@@ -369,41 +377,42 @@ Write-Info 'Aplicando esquema...'
 Invoke-MySQLFile "$ROOT\db\schema.sql" 'root' $DB_ROOT $DB_HOST $DB_NAME
 Write-OK 'Esquema aplicado'
 
-# Generate bcrypt hashes via Node.js (temp file avoids quoting issues on Windows)
-Write-Info 'Creando cuentas de usuario...'
+# Seed owner/admin users through a dedicated Node script. This avoids the
+# brittle combination of bcrypt hashes (which contain `$`) being interpolated
+# into a PowerShell double-quoted string and then passed on the mysql CLI.
+# The script talks to mysql directly via mysql2/bcryptjs — fully reliable.
+Write-Info 'Creando cuentas de usuario (owner / admin)...'
 
-# Place the temp file inside api/ so node can resolve require('bcryptjs') from
-# api/node_modules — module resolution walks up from the *file* location, not CWD.
-$hashFile = [IO.Path]::Combine("$ROOT\api", '_ecija_hash_tmp.js')
-$hashJs   = 'const bcrypt = require("bcryptjs");' + [Environment]::NewLine +
-             'bcrypt.hash(process.argv[1], 12).then(function(h1) {' + [Environment]::NewLine +
-             '  return bcrypt.hash(process.argv[2], 12).then(function(h2) {' + [Environment]::NewLine +
-             '    process.stdout.write(h1 + "\n" + h2 + "\n");' + [Environment]::NewLine +
-             '  });' + [Environment]::NewLine +
-             '});'
-Set-Content -Path $hashFile -Value $hashJs -Encoding UTF8
-
-Push-Location "$ROOT\api"
-$hashes = & node $hashFile $OWNER_PASS $ADMIN_PASS
-Pop-Location
-Remove-Item $hashFile -ErrorAction SilentlyContinue
-
-$hashLines  = $hashes -split '\r?\n' | Where-Object { $_.Trim() }
-$ownerHash  = if ($hashLines.Count -ge 1) { $hashLines[0].Trim() } else { '' }
-$adminHash  = if ($hashLines.Count -ge 2) { $hashLines[1].Trim() } else { '' }
-
-if ((-not $ownerHash) -or (-not $adminHash)) {
-    Write-Fail 'Error generando hashes de contrasena. Verifica que bcryptjs este instalado en api/.'
+$seedScript = Join-Path $ROOT 'api\src\scripts\seed-users.js'
+if (-not (Test-Path $seedScript)) {
+    Write-Fail "No se encontro el script de seed: $seedScript"
     exit 1
 }
 
-$sqlInsertOwner = "USE ${DB_NAME}; INSERT INTO users (id, username, password, role, is_hidden) VALUES (1, '${OWNER_USER}', '${ownerHash}', 'owner', 1) ON DUPLICATE KEY UPDATE username=VALUES(username), password=VALUES(password), role='owner', is_hidden=1;"
-$sqlInsertAdmin = "USE ${DB_NAME}; INSERT INTO users (id, username, password, role, is_hidden) VALUES (2, '${ADMIN_USER}', '${adminHash}', 'admin', 0) ON DUPLICATE KEY UPDATE username=VALUES(username), password=VALUES(password), role='admin', is_hidden=0;"
-$sqlFixAutoInc  = "USE ${DB_NAME}; ALTER TABLE users AUTO_INCREMENT = 3;"
+# Pass credentials via environment, not argv, so they don't show in process
+# listings. DB_* already live in api/.env, we just re-export so Node sees them.
+$env:DB_HOST     = $DB_HOST
+$env:DB_USER     = $DB_USER
+$env:DB_PASSWORD = $DB_PASS
+$env:DB_NAME     = $DB_NAME
+$env:OWNER_USERNAME = $OWNER_USER
+$env:OWNER_PASSWORD = $OWNER_PASS
+$env:ADMIN_USERNAME = $ADMIN_USER
+$env:ADMIN_PASSWORD = $ADMIN_PASS
+$env:SEED_FORCE_PASSWORD = 'true'
 
-Invoke-MySQL $sqlInsertOwner 'root' $DB_ROOT $DB_HOST
-Invoke-MySQL $sqlInsertAdmin 'root' $DB_ROOT $DB_HOST
-Invoke-MySQL $sqlFixAutoInc  'root' $DB_ROOT $DB_HOST
+Push-Location "$ROOT\api"
+& node $seedScript
+$seedCode = $LASTEXITCODE
+Pop-Location
+
+# Scrub the credentials from the script environment as soon as we're done.
+Remove-Item Env:\OWNER_USERNAME, Env:\OWNER_PASSWORD, Env:\ADMIN_USERNAME, Env:\ADMIN_PASSWORD, Env:\SEED_FORCE_PASSWORD -ErrorAction SilentlyContinue
+
+if ($seedCode -ne 0) {
+    Write-Fail 'Fallo al crear las cuentas de usuario. Revisa la salida anterior.'
+    exit 1
+}
 Write-OK "Usuarios creados: ${OWNER_USER} (id=1, owner, oculto), ${ADMIN_USER} (id=2, admin)"
 
 # Default storage location
@@ -436,37 +445,80 @@ if ($Mode -eq 'development') {
     Pop-Location
     Write-OK 'API iniciada'
 } else {
-    $taskName   = 'EcijaComarca_API'
-    $nodePath   = (Get-Command node).Source
-    $scriptPath = "$ROOT\api\main.js"
-    $workDir    = "$ROOT\api"
+    # ──────────────────────────────────────────────────────────────────────────
+    # Windows Scheduled Task — runs as SYSTEM (highest privileges, can read
+    # any local + mapped drive), launches a PowerShell wrapper that:
+    #   • waits for MySQL to be reachable
+    #   • locates node.exe even in SYSTEM's narrow PATH
+    #   • restarts Node on crashes
+    #   • logs everything to api/logs/service.log
+    #
+    # We register BOTH an AtStartup trigger (for unattended boot) AND an
+    # AtLogOn trigger (catches the case where the task engine didn't pick up
+    # AtStartup for any reason — e.g. task engine service not running yet).
+    # ──────────────────────────────────────────────────────────────────────────
+    $taskName     = 'EcijaComarca_API'
+    $wrapperPath  = "$ROOT\api\start-api.ps1"
+    $workDir      = "$ROOT\api"
 
+    if (-not (Test-Path $wrapperPath)) {
+        Write-Fail "No se encontro el wrapper de arranque: $wrapperPath"
+        exit 1
+    }
+
+    # Remove any previous registration (from prior runs of setup)
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 
-    $action   = New-ScheduledTaskAction -Execute $nodePath -Argument $scriptPath -WorkingDirectory $workDir
-    $trigger  = New-ScheduledTaskTrigger -AtStartup
+    # Action: powershell.exe -NoProfile -ExecutionPolicy Bypass -File start-api.ps1
+    $action = New-ScheduledTaskAction `
+        -Execute 'powershell.exe' `
+        -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$wrapperPath`"" `
+        -WorkingDirectory $workDir
+
+    # Two triggers — whichever fires first wins.
+    $trigStartup = New-ScheduledTaskTrigger -AtStartup
+    # A 30-second random delay lets networking / MySQL finish initialising.
+    $trigStartup.Delay = 'PT30S'
+    $trigLogon   = New-ScheduledTaskTrigger -AtLogOn
+
     $settings = New-ScheduledTaskSettingsSet `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
         -ExecutionTimeLimit ([TimeSpan]::Zero) `
         -RestartCount 10 `
         -RestartInterval (New-TimeSpan -Minutes 1) `
-        -StartWhenAvailable
-    $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+        -StartWhenAvailable `
+        -MultipleInstances IgnoreNew
+
+    # LocalSystem (SYSTEM) has unrestricted access to local disks and can
+    # enumerate network drives mapped at boot. RunLevel Highest enables the
+    # task engine to bypass UAC.
+    $principal = New-ScheduledTaskPrincipal `
+        -UserId 'SYSTEM' `
+        -LogonType ServiceAccount `
+        -RunLevel Highest
 
     Register-ScheduledTask `
-        -TaskName  $taskName `
-        -Action    $action `
-        -Trigger   $trigger `
-        -Settings  $settings `
-        -Principal $principal `
-        -Description 'EcijaComarca API - auto-inicio con el sistema' | Out-Null
+        -TaskName    $taskName `
+        -Action      $action `
+        -Trigger     @($trigStartup, $trigLogon) `
+        -Settings    $settings `
+        -Principal   $principal `
+        -Description 'EcijaComarca API - auto-inicio con el sistema (wrapper + retry)' | Out-Null
 
     Write-OK "Tarea programada registrada: '$taskName'"
     Write-Info "  Iniciar: Start-ScheduledTask -TaskName '$taskName'"
     Write-Info "  Detener: Stop-ScheduledTask  -TaskName '$taskName'"
-    Write-Info "  Estado:  Get-ScheduledTask   -TaskName '$taskName' | Get-ScheduledTaskInfo"
+    Write-Info "  Logs:    $ROOT\api\logs\service.log"
 
-    Start-ScheduledTask -TaskName $taskName
-    Write-OK 'API iniciada'
+    try {
+        Start-ScheduledTask -TaskName $taskName
+        Start-Sleep -Seconds 2
+        Write-OK 'API iniciada (revisa logs/service.log si tarda)'
+    } catch {
+        Write-Warn "No se pudo iniciar la tarea automaticamente: $_"
+        Write-Info "Arrancala manualmente con: Start-ScheduledTask -TaskName '$taskName'"
+    }
 }
 
 # =============================================================================

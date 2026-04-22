@@ -23,14 +23,18 @@ export class AuthService {
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
-  login(username: string, password: string): Observable<any> {
+  login(username: string, password: string, remember: boolean = false): Observable<any> {
+    // Flip the storage backend BEFORE we persist — otherwise the token ends
+    // up in the wrong bucket.
+    this.storage.setPersistentAuth(remember);
     return this.http.post<any>(`${API}/auth/login`, { username, password }).pipe(
       timeout(10000),
       tap(res => { if (res.success) this._persist(res); })
     );
   }
 
-  register(username: string, password: string): Observable<any> {
+  register(username: string, password: string, remember: boolean = false): Observable<any> {
+    this.storage.setPersistentAuth(remember);
     return this.http.post<any>(`${API}/auth/register`, { username, password }).pipe(
       tap(res => { if (res.success) this._persist(res); })
     );
@@ -39,8 +43,15 @@ export class AuthService {
   logout() {
     this.http.post(`${API}/auth/logout`, {}).pipe(catchError(() => of(null))).subscribe();
     this._user = null;
+    // Clear from BOTH backends so no stale copy survives.
+    this.storage.clearAuthSession();
     this.storage.removeItem(USER_KEY);
     this.router.navigate(['/login']);
+  }
+
+  /** Whether the user previously opted into persistent login. */
+  isRememberMe(): boolean {
+    return this.storage.isPersistentAuth();
   }
 
   refreshRole(): Observable<AuthUser | null> {

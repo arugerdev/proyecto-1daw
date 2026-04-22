@@ -184,50 +184,21 @@
               </td>
               <td class="px-4 py-3 text-surface-500 text-xs hidden md:table-cell">{{ user.created_at | date:'dd/MM/yyyy' }}</td>
               <td class="px-4 py-3">
-                <div class="flex items-center gap-1 justify-end flex-wrap">
-                  <ng-container *ngIf="editingUser?.id !== user.id">
-                    <button (click)="startEditUser(user)" class="btn-ghost btn-sm p-1.5 text-surface-400 hover:text-primary-400" title="Editar">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                    </button>
-                    <button (click)="deleteUser(user)" class="btn-ghost btn-sm p-1.5 text-surface-400 hover:text-red-400" title="Eliminar">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    </button>
-                  </ng-container>
-                  <ng-container *ngIf="editingUser?.id === user.id">
-                    <select [(ngModel)]="editUserPatch.role" class="select text-xs py-1 h-8 w-28">
-                      <option value="viewer">Visualizador</option>
-                      <option value="moderator">Moderador</option>
-                      <option value="admin">Admin</option>
-                      <option *ngIf="auth.hasRole('owner')" value="owner">Owner</option>
-                    </select>
-                    <!-- Password field with eye toggle -->
-                    <div class="relative flex items-center">
-                      <input [(ngModel)]="editUserPatch.password"
-                        [type]="editUserShowPw ? 'text' : 'password'"
-                        placeholder="Nueva contraseña"
-                        class="input text-xs py-1 h-8 w-32 pr-7"/>
-                      <button type="button"
-                        (click)="editUserShowPw = !editUserShowPw"
-                        class="absolute right-1.5 text-surface-500 hover:text-surface-300 transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path *ngIf="!editUserShowPw" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                          <path *ngIf="editUserShowPw" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                        </svg>
-                      </button>
-                    </div>
-                    <!-- Confirm password -->
-                    <input [(ngModel)]="editUserPatchConfirm"
-                      [type]="editUserShowPw ? 'text' : 'password'"
-                      placeholder="Confirmar contraseña"
-                      class="input text-xs py-1 h-8 w-32"
-                      [class.border-red-500]="editUserPatch.password && editUserPatchConfirm && editUserPatch.password !== editUserPatchConfirm"/>
-                    <button (click)="saveEditUser()" class="btn-primary btn-sm px-2 h-8 text-xs" [disabled]="saving">Guardar</button>
-                    <button (click)="editingUser = null; editUserPatchConfirm = ''; editUserShowPw = false" class="btn-secondary btn-sm px-2 h-8 text-xs inline-flex items-center" title="Cancelar edición">
-                      <app-icon name="close" class="w-3.5 h-3.5"></app-icon>
-                    </button>
-                  </ng-container>
+                <div class="flex items-center gap-1 justify-end">
+                  <button (click)="startEditUser(user)"
+                    class="btn-ghost btn-sm p-1.5 text-surface-400 hover:text-primary-400" title="Editar">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <button (click)="deleteUser(user)"
+                    class="btn-ghost btn-sm p-1.5 text-surface-400 hover:text-red-400" title="Eliminar">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -550,5 +521,13 @@
     (selected)="onFsBrowserSelected($event)"
     (cancelled)="showFsBrowser = false">
   </app-fs-browser>
+
+  <!-- Edit user modal -->
+  <app-edit-user-modal
+    *ngIf="editingUser"
+    [user]="editingUser"
+    (saved)="onUserSaved()"
+    (close)="closeEditUser()">
+  </app-edit-user-modal>
 
 </div>

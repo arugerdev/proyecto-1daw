@@ -211,10 +211,22 @@ export class IndexPage implements OnInit, OnDestroy {
           this.files = this.files.filter(f => f.id !== file.id);
           this.total = Math.max(0, this.total - 1);
           this.cdr.detectChanges();
+          // Kind counters + total size + tag cloud all depend on server stats,
+          // so pull a fresh snapshot. We also refresh tags because orphaned
+          // tags are now cleaned up server-side on delete.
+          this.refreshStats();
+          this.refreshTags();
         }
       });
     };
     this.showConfirm = true;
+  }
+
+  /** Reload the tag sidebar from the server (used after deletes). */
+  private refreshTags() {
+    this.fileService.getTags().pipe(takeUntil(this.destroy$)).subscribe(res => {
+      if (res.success) { this.tags = res.data.slice(0, 20); this.cdr.detectChanges(); }
+    });
   }
 
   onDownload(file: MediaItem) {
