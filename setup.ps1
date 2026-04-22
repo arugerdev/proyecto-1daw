@@ -115,12 +115,96 @@ function New-Secret([int]$Bytes = 64) {
     return $safe
 }
 
+# ── PATH refresh ─────────────────────────────────────────────────────────────
+# winget installs update the machine PATH but not the CURRENT shell's $env:Path.
+# Call this right after any install that adds executables we need to use now.
+function Update-SessionPath {
+    $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                [Environment]::GetEnvironmentVariable('Path', 'User')
+}
+
 # ── winget wrapper ───────────────────────────────────────────────────────────
 function Install-Winget([string]$Id, [string]$Name) {
     Write-Info "Instalando $Name via winget..."
     & winget install --id $Id -e --accept-package-agreements --accept-source-agreements --silent 2>&1 | Out-Null
-    $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
-                [Environment]::GetEnvironmentVariable('Path', 'User')
+    Update-SessionPath
+}
+
+# ── MySQL / MariaDB bootstrap helpers ────────────────────────────────────────
+# The default-install of MariaDB via winget often does NOT add its bin folder to
+# PATH straight away, does NOT start its service, and uses a non-obvious service
+# name ('MariaDB', 'MySQL80', 'MySQL'). These helpers make the MySQL step work
+# end-to-end from a clean machine without user intervention.
+
+function Find-MySQLBinary {
+    # 1. Try PATH first
+    $cmd = Get-Command mysql.exe -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+
+    # 2. Scan common install locations (MariaDB + MySQL)
+    $patterns = @(
+        "$env:ProgramFiles\MariaDB*\bin\mysql.exe",
+        "$env:ProgramFiles\MariaDB\*\bin\mysql.exe",
+        "$env:ProgramFiles\MySQL\MySQL Server*\bin\mysql.exe",
+        "$env:ProgramFiles\MySQL\*\bin\mysql.exe"
+    )
+    $pfX86 = [System.Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+    if ($pfX86) {
+        $patterns += "$pfX86\MariaDB*\bin\mysql.exe"
+        $patterns += "$pfX86\MySQL\MySQL Server*\bin\mysql.exe"
+    }
+    foreach ($p in $patterns) {
+        $found = Get-ChildItem -Path $p -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) { return $found.FullName }
+    }
+    return $null
+}
+
+# Make sure the directory containing mysql.exe is on $env:Path for THIS shell
+function Ensure-MySQLOnPath([string]$MysqlBin) {
+    if (-not $MysqlBin) { return }
+    $dir = Split-Path -Parent $MysqlBin
+    $parts = $env:Path -split ';'
+    if ($parts -notcontains $dir) {
+        $env:Path = "$dir;$env:Path"
+    }
+}
+
+# Start the MariaDB/MySQL Windows service (whatever it's called on this box)
+function Ensure-MySQLService {
+    $svc = Get-Service -ErrorAction SilentlyContinue |
+           Where-Object { $_.Name -match '^(MariaDB|MySQL)' } |
+           Select-Object -First 1
+    if (-not $svc) { return $null }
+    try {
+        if ($svc.StartType -eq 'Disabled') {
+            Set-Service -Name $svc.Name -StartupType Automatic
+        }
+        if ($svc.Status -ne 'Running') {
+            Start-Service -Name $svc.Name -ErrorAction Stop
+        }
+        return $svc.Name
+    } catch {
+        Write-Warn "No se pudo iniciar el servicio '$($svc.Name)': $_"
+        return $null
+    }
+}
+
+# Wait until MySQL is actually listening on its TCP port (service "Running"
+# doesn't mean "accepting connections yet")
+function Wait-MySQLReady([string]$MysqlHost = 'localhost', [int]$Port = 3306, [int]$TimeoutSec = 60) {
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $tcp.Connect($MysqlHost, $Port)
+            $tcp.Close()
+            return $true
+        } catch {
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    return $false
 }
 
 # ── MySQL helper ─────────────────────────────────────────────────────────────
@@ -207,23 +291,56 @@ Write-OK "npm $npmVer"
 # =============================================================================
 Write-Step '2/7' 'Verificando MySQL / MariaDB...'
 
-if (-not (Test-Cmd 'mysql')) {
-    Write-Warn 'mysql no encontrado en el PATH.'
-    if (Test-Cmd 'winget') {
-        Write-Host ''
-        $choice = Read-Cfg 'Instalar MariaDB (recomendado) via winget? (s/n)' 's'
-        if ($choice -ieq 's') {
-            Install-Winget 'MariaDB.Server' 'MariaDB'
-            Start-Service -Name 'MySQL' -ErrorAction SilentlyContinue
-        }
-    }
-    if (-not (Test-Cmd 'mysql')) {
-        Write-Fail 'mysql no disponible. Opciones:'
+# Locate an existing mysql.exe (PATH first, then known install locations).
+$mysqlBin = Find-MySQLBinary
+
+if (-not $mysqlBin) {
+    Write-Warn 'No se ha encontrado MySQL ni MariaDB en el sistema.'
+    if (-not (Test-Cmd 'winget')) {
+        Write-Fail 'winget no disponible. Instala MariaDB manualmente:'
         Write-Info '  MariaDB: https://mariadb.org/download'
         Write-Info '  MySQL:   https://dev.mysql.com/downloads/installer'
         Write-Info 'Anadelo al PATH y vuelve a ejecutar el script.'
         exit 1
     }
+
+    Write-Info 'Instalando MariaDB Server automaticamente (esto puede tardar 1-3 minutos)...'
+    Install-Winget 'MariaDB.Server' 'MariaDB Server'
+
+    # winget just updated the machine PATH — refresh this shell and re-scan.
+    Update-SessionPath
+    $mysqlBin = Find-MySQLBinary
+
+    if (-not $mysqlBin) {
+        Write-Fail 'La instalacion de MariaDB termino pero no se encontro mysql.exe.'
+        Write-Info 'Cierra esta sesion, abre una nueva PowerShell como administrador y reintenta.'
+        Write-Info 'Si el problema persiste, verifica la instalacion en: C:\Program Files\MariaDB*'
+        exit 1
+    }
+    Write-OK 'MariaDB Server instalado'
+}
+
+# Make mysql.exe callable directly in this shell (even if it's only in PATH
+# for new shells).
+Ensure-MySQLOnPath $mysqlBin
+Write-OK "mysql.exe: $mysqlBin"
+
+# Make sure the service is running (new installs don't always auto-start it,
+# especially on unattended winget installs).
+$svcName = Ensure-MySQLService
+if ($svcName) {
+    Write-OK "Servicio '$svcName' en ejecucion"
+} else {
+    Write-Warn 'No se detecto un servicio MariaDB/MySQL. Intentando continuar de todos modos...'
+}
+
+# Wait for the port to accept connections. "Service running" doesn't always
+# mean mysqld has finished initialising its data directory on first boot.
+Write-Info 'Esperando a que MySQL acepte conexiones en localhost:3306...'
+if (Wait-MySQLReady -Port 3306 -TimeoutSec 90) {
+    Write-OK 'MySQL/MariaDB listo'
+} else {
+    Write-Warn 'MySQL/MariaDB no respondio tras 90 segundos — continuamos, el test de conexion de abajo lo confirmara.'
 }
 
 $mysqlVer = & mysql --version
