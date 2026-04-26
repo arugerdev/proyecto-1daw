@@ -186,8 +186,83 @@ function Ensure-MySQLService {
         return $svc.Name
     } catch {
         Write-Warn "No se pudo iniciar el servicio '$($svc.Name)': $_"
+        # Last-ditch: sc.exe start often succeeds where Start-Service balks
+        # because it doesn't require the service controller to ACK within the
+        # PowerShell timeout window.
+        try {
+            & sc.exe start $svc.Name | Out-Null
+            Start-Sleep -Seconds 2
+            $refresh = Get-Service -Name $svc.Name -ErrorAction SilentlyContinue
+            if ($refresh -and $refresh.Status -eq 'Running') {
+                return $svc.Name
+            }
+        } catch { }
         return $null
     }
+}
+
+# Register mysqld.exe as a Windows service when one isn't present yet (e.g.
+# the user has a portable MariaDB/MySQL install in PATH but never ran the
+# service installer, or the winget package didn't register it). Initialises
+# the data directory if needed so the first start actually succeeds.
+function Install-MySQLAsService([string]$MysqlBin) {
+    if (-not $MysqlBin) { return $null }
+
+    # Already a MariaDB/MySQL service? Nothing to do.
+    $existing = Get-Service -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^(MariaDB|MySQL)' } |
+                Select-Object -First 1
+    if ($existing) { return $existing.Name }
+
+    $binDir = Split-Path -Parent $MysqlBin
+    $mysqld = Join-Path $binDir 'mysqld.exe'
+    if (-not (Test-Path $mysqld)) {
+        Write-Warn "No se encontro mysqld.exe junto a mysql.exe en $binDir"
+        return $null
+    }
+
+    # MariaDB and MySQL both default to <install>\data. If the 'mysql'
+    # system-table dir is missing, mysqld will refuse to start until the data
+    # directory is initialised.
+    $installRoot = Split-Path -Parent $binDir
+    $dataDir     = Join-Path $installRoot 'data'
+
+    if (-not (Test-Path (Join-Path $dataDir 'mysql'))) {
+        Write-Info 'Inicializando datadir (primer arranque de mysqld)...'
+        $mariaInit = Join-Path $binDir 'mariadb-install-db.exe'
+        $mysqlInit = Join-Path $binDir 'mysql_install_db.exe'
+        try {
+            if (Test-Path $mariaInit) {
+                & $mariaInit "--datadir=$dataDir" 2>&1 | Out-Null
+            } elseif (Test-Path $mysqlInit) {
+                & $mysqlInit "--datadir=$dataDir" 2>&1 | Out-Null
+            } else {
+                # Vanilla MySQL fallback — no root password so the rest of the
+                # script can connect with empty creds.
+                & $mysqld '--initialize-insecure' "--datadir=$dataDir" 2>&1 | Out-Null
+            }
+        } catch {
+            Write-Warn "Fallo al inicializar el datadir: $_"
+        }
+    }
+
+    # Pick a service name that matches the engine flavour
+    $serviceName = 'MariaDB'
+    try {
+        $verOut = & $mysqld --version 2>&1
+        if ($verOut -notmatch 'MariaDB') { $serviceName = 'MySQL' }
+    } catch { }
+
+    Write-Info "Registrando servicio Windows '$serviceName'..."
+    & $mysqld --install $serviceName 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn 'mysqld --install no completo correctamente.'
+        return $null
+    }
+
+    # Force auto-start so the service comes up after a reboot
+    try { & sc.exe config $serviceName start= auto | Out-Null } catch { }
+    return $serviceName
 }
 
 # Wait until MySQL is actually listening on its TCP port (service "Running"
@@ -325,22 +400,48 @@ if (-not $mysqlBin) {
 Ensure-MySQLOnPath $mysqlBin
 Write-OK "mysql.exe: $mysqlBin"
 
-# Make sure the service is running (new installs don't always auto-start it,
-# especially on unattended winget installs).
+# Three-step rescue so a clean machine never needs manual MySQL fiddling:
+#   1. Start whatever MariaDB/MySQL service is already registered.
+#   2. If none is registered, register one ourselves (mysqld --install +
+#      data-dir init for first-boot setups).
+#   3. Try to start the freshly-registered service.
 $svcName = Ensure-MySQLService
+if (-not $svcName) {
+    Write-Info 'No hay un servicio MariaDB/MySQL registrado. Instalandolo...'
+    $svcName = Install-MySQLAsService $mysqlBin
+    if ($svcName) {
+        Write-OK "Servicio '$svcName' registrado"
+        $svcName = Ensure-MySQLService
+    }
+}
+
 if ($svcName) {
     Write-OK "Servicio '$svcName' en ejecucion"
 } else {
-    Write-Warn 'No se detecto un servicio MariaDB/MySQL. Intentando continuar de todos modos...'
+    Write-Warn 'No se pudo registrar/iniciar un servicio MariaDB/MySQL automaticamente. Intentando continuar...'
 }
 
 # Wait for the port to accept connections. "Service running" doesn't always
-# mean mysqld has finished initialising its data directory on first boot.
+# mean mysqld has finished initialising its data directory on first boot —
+# if the first wait fails we restart the service and try once more before
+# giving up and letting step 6 surface the real error.
 Write-Info 'Esperando a que MySQL acepte conexiones en localhost:3306...'
-if (Wait-MySQLReady -Port 3306 -TimeoutSec 90) {
-    Write-OK 'MySQL/MariaDB listo'
+if (-not (Wait-MySQLReady -Port 3306 -TimeoutSec 90)) {
+    if ($svcName) {
+        Write-Warn 'Sin respuesta tras 90s. Reiniciando servicio y reintentando...'
+        try {
+            Restart-Service -Name $svcName -Force -ErrorAction Stop
+        } catch {
+            try { & sc.exe start $svcName | Out-Null } catch { }
+        }
+    }
+    if (Wait-MySQLReady -Port 3306 -TimeoutSec 60) {
+        Write-OK 'MySQL/MariaDB listo'
+    } else {
+        Write-Warn 'MySQL/MariaDB sigue sin responder — continuamos, el test de conexion de abajo lo confirmara.'
+    }
 } else {
-    Write-Warn 'MySQL/MariaDB no respondio tras 90 segundos — continuamos, el test de conexion de abajo lo confirmara.'
+    Write-OK 'MySQL/MariaDB listo'
 }
 
 $mysqlVer = & mysql --version
@@ -467,15 +568,32 @@ if ($Mode -eq 'development') {
 # =============================================================================
 Write-Step '6/7' 'Configurando base de datos...'
 
-# Test root connection
+# Test root connection — if it fails, reinicia el servicio una vez y reintenta
+# antes de rendirse. Cubre el caso de mysqld arrancado pero todavia inicializando.
+$rootOk = $false
 try {
     Invoke-MySQL 'SELECT 1;' 'root' $DB_ROOT $DB_HOST | Out-Null
-    Write-OK 'Conexion MySQL con root OK'
+    $rootOk = $true
 } catch {
-    Write-Fail "No se pudo conectar a MySQL como root: $_"
-    Write-Info 'Verifica que MySQL este ejecutandose y que la contrasena sea correcta.'
-    exit 1
+    Write-Warn 'Conexion root MySQL fallida. Reiniciando servicio y reintentando...'
+    if ($svcName) {
+        try {
+            Restart-Service -Name $svcName -Force -ErrorAction Stop
+        } catch {
+            try { & sc.exe start $svcName | Out-Null } catch { }
+        }
+        Wait-MySQLReady -Port 3306 -TimeoutSec 60 | Out-Null
+    }
+    try {
+        Invoke-MySQL 'SELECT 1;' 'root' $DB_ROOT $DB_HOST | Out-Null
+        $rootOk = $true
+    } catch {
+        Write-Fail "No se pudo conectar a MySQL como root: $_"
+        Write-Info 'Verifica que MySQL este ejecutandose y que la contrasena sea correcta.'
+        exit 1
+    }
 }
+if ($rootOk) { Write-OK 'Conexion MySQL con root OK' }
 
 # Create database and user
 Write-Info "Creando base de datos '$DB_NAME'..."

@@ -169,6 +169,115 @@ mysql_exec_file() {
     return $ec
 }
 
+# ── MySQL/MariaDB service helpers ─────────────────────────────────────────────
+# detect_mysql_service     → echoes the systemd unit name, or empty string
+# start_mysql_service      → enable+start the service via systemctl/service/brew
+# wait_mysql_ready         → block until TCP 3306 accepts connections
+#
+# These exist because "mysql client on PATH" doesn't imply "server running":
+# package managers may install both as separate units, the service can be
+# disabled, or systemd may not have started it yet on a freshly-imaged host.
+
+detect_mysql_service() {
+    local svc=""
+    if command -v systemctl &>/dev/null; then
+        local candidate
+        for candidate in mariadb mariadbd mysql mysqld mysql-server; do
+            if systemctl list-unit-files 2>/dev/null | grep -q "^${candidate}\.service"; then
+                svc="$candidate"
+                break
+            fi
+        done
+    fi
+    echo "$svc"
+}
+
+start_mysql_service() {
+    case "$(uname -s)" in
+        Darwin)
+            if command -v brew &>/dev/null; then
+                local svc
+                for svc in mariadb mysql; do
+                    if brew services list 2>/dev/null | grep -q "^${svc}[[:space:]]"; then
+                        if ! brew services list 2>/dev/null | grep -qE "^${svc}[[:space:]]+started"; then
+                            info "Iniciando ${svc} via brew services..."
+                            brew services start "$svc" &>/dev/null || true
+                        fi
+                        return 0
+                    fi
+                done
+            fi
+            return 1
+            ;;
+        Linux)
+            local svc
+            svc=$(detect_mysql_service)
+            if [[ -n "$svc" ]]; then
+                info "Activando servicio: $svc"
+                systemctl enable --now "$svc" &>/dev/null || true
+                if systemctl is-active --quiet "$svc"; then
+                    return 0
+                fi
+                # Try once more after a brief settle period (cold-boot races)
+                sleep 2
+                systemctl is-active --quiet "$svc" && return 0
+            fi
+            # SysV / non-systemd fallback
+            if command -v service &>/dev/null; then
+                local candidate
+                for candidate in mariadb mysql mysqld; do
+                    if service "$candidate" status &>/dev/null 2>&1; then
+                        info "Iniciando ${candidate} via service..."
+                        service "$candidate" start &>/dev/null && return 0
+                    fi
+                done
+            fi
+            return 1
+            ;;
+    esac
+    return 1
+}
+
+restart_mysql_service() {
+    case "$(uname -s)" in
+        Darwin)
+            if command -v brew &>/dev/null; then
+                brew services restart mariadb &>/dev/null \
+                    || brew services restart mysql &>/dev/null \
+                    || true
+            fi
+            ;;
+        Linux)
+            local svc
+            svc=$(detect_mysql_service)
+            if [[ -n "$svc" ]]; then
+                systemctl restart "$svc" &>/dev/null || true
+            elif command -v service &>/dev/null; then
+                service mariadb restart &>/dev/null \
+                    || service mysql restart &>/dev/null \
+                    || service mysqld restart &>/dev/null \
+                    || true
+            fi
+            ;;
+    esac
+}
+
+wait_mysql_ready() {
+    local mhost="${1:-localhost}"
+    local mport="${2:-3306}"
+    local timeout="${3:-60}"
+    local elapsed=0
+    while (( elapsed < timeout )); do
+        if (exec 3<>/dev/tcp/${mhost}/${mport}) 2>/dev/null; then
+            exec 3<&- 3>&- 2>/dev/null || true
+            return 0
+        fi
+        sleep 1
+        ((elapsed++))
+    done
+    return 1
+}
+
 # ═════════════════════════════════════════════════════════════════════════════
 write_banner
 detect_os
@@ -217,36 +326,64 @@ ok "npm $NPM_VER"
 # ══════════════════════════════════════════════════════════════════════════════
 step "2/7" "Verificando MySQL / MariaDB..."
 
-if ! command -v mysql &>/dev/null; then
-    warn "mysql no encontrado. Instalando MariaDB..."
+# Two independent checks:
+#   • mysql binary on PATH (the client)
+#   • a registered MariaDB/MySQL service (the server)
+# Either being missing triggers an install of mariadb-server, which provides
+# both client and server.
+SERVICE_NAME=$(detect_mysql_service)
+if ! command -v mysql &>/dev/null || [[ -z "$SERVICE_NAME" && "$(uname -s)" == "Linux" ]]; then
+    warn "MySQL/MariaDB no instalado (o sin servicio). Instalando MariaDB..."
     case $PKG_MGR in
         apt)
-            apt-get install -y mariadb-server &>/dev/null
-            systemctl enable --now mariadb &>/dev/null || true
+            apt-get update &>/dev/null || true
+            apt-get install -y mariadb-server mariadb-client &>/dev/null
             ;;
         dnf)
-            dnf install -y mariadb-server &>/dev/null
-            systemctl enable --now mariadb &>/dev/null || true
+            dnf install -y mariadb-server mariadb &>/dev/null
             ;;
         yum)
-            yum install -y mariadb-server &>/dev/null
-            systemctl enable --now mariadb &>/dev/null || true
+            yum install -y mariadb-server mariadb &>/dev/null
             ;;
         brew)
             brew install mariadb &>/dev/null
-            brew services start mariadb &>/dev/null || true
             ;;
         *)
             fail "Instala MariaDB o MySQL manualmente y vuelve a ejecutar el script."
             exit 1
             ;;
     esac
+    SERVICE_NAME=$(detect_mysql_service)
 fi
 
 if ! command -v mysql &>/dev/null; then
-    fail "mysql sigue sin estar disponible."
+    fail "mysql sigue sin estar disponible tras la instalacion."
     info "Descarga MariaDB: https://mariadb.org/download"
     exit 1
+fi
+
+# Always make sure the service is enabled+running. Even when the client was
+# already on PATH, the service may be stopped or disabled.
+if start_mysql_service; then
+    ok "Servicio MySQL/MariaDB activo${SERVICE_NAME:+ ($SERVICE_NAME)}"
+else
+    warn "No se pudo iniciar automaticamente el servicio MySQL/MariaDB."
+fi
+
+# Wait for TCP 3306 — service "active" doesn't always mean it's accepting
+# connections (cold start, datadir bootstrap, etc.). If the first wait fails,
+# kick the service once and try again before letting step 6 surface the error.
+info "Esperando a que MySQL acepte conexiones en localhost:3306..."
+if ! wait_mysql_ready localhost 3306 60; then
+    warn "Sin respuesta tras 60s. Reiniciando servicio y reintentando..."
+    restart_mysql_service
+    if wait_mysql_ready localhost 3306 60; then
+        ok "MySQL/MariaDB listo"
+    else
+        warn "MySQL/MariaDB sigue sin responder — el test de conexion lo confirmara."
+    fi
+else
+    ok "MySQL/MariaDB listo"
 fi
 
 MYSQL_VER=$(mysql --version)
@@ -368,11 +505,17 @@ cd "$ROOT"
 # ══════════════════════════════════════════════════════════════════════════════
 step "6/7" "Configurando base de datos..."
 
-# Test root connection
+# Test root connection — reinicia el servicio una vez y reintenta antes de
+# rendirse. Cubre el caso de mysqld arrancando todavia inicializandose.
 if ! mysql_exec "SELECT 1;" root "$DB_ROOT" "$DB_HOST" &>/dev/null; then
-    fail "No se pudo conectar a MySQL como root."
-    info "Verifica que MySQL esté ejecutándose y que la contraseña sea correcta."
-    exit 1
+    warn "Conexión root MySQL fallida. Reiniciando servicio y reintentando..."
+    restart_mysql_service
+    wait_mysql_ready localhost 3306 30 || true
+    if ! mysql_exec "SELECT 1;" root "$DB_ROOT" "$DB_HOST" &>/dev/null; then
+        fail "No se pudo conectar a MySQL como root."
+        info "Verifica que MySQL esté ejecutándose y que la contraseña sea correcta."
+        exit 1
+    fi
 fi
 ok "Conexión MySQL con root OK"
 
